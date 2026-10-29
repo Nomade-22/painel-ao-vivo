@@ -1,0 +1,11 @@
+{
+  "rules": {
+    "painel": {
+      "atual": {
+        ".read": true,
+        ".write": "auth != null && auth.uid === 'SUBSTITUA_PELO_UID_ADMIN'",
+        ".validate": "newData.hasChildren(['texto','fonte','tamanho','cor','fundo','alinhamento','peso']) && newData.child('texto').isString() && newData.child('texto').val().length <= 10000 && newData.child('tamanho').isNumber() && newData.child('tamanho').val() >= 16 && newData.child('tamanho').val() <= 180"
+      }
+    }
+  }
+}
