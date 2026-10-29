@@ -1,0 +1,7 @@
+{
+  "name": "painel-ao-vivo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {"@vercel/functions":"^3.4.0"}
+}
