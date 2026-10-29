@@ -1,19 +1,18 @@
-# Painel ao Vivo — sem Firebase
+# Painel ao Vivo — GitHub + Vercel
 
-As páginas ficam no GitHub Pages. Um Cloudflare Worker com banco D1 sincroniza os dados entre dispositivos. A visualização consulta o servidor a cada 1,2 segundo.
+Duas páginas independentes e uma API hospedadas pela Vercel:
 
-## Configuração
+- `/console.html` — editor com prévia, fonte, tamanho, cores e alinhamento.
+- `/visualizacao.html` — somente exibição em tela cheia, atualizada aproximadamente a cada 1,2 segundo.
 
-1. Crie uma conta no Cloudflare e um banco **D1** chamado `painel-ao-vivo`.
-2. No console SQL do D1, execute o conteúdo de `schema.sql`.
-3. Crie um **Worker** JavaScript e cole o código de `worker.js`.
-4. Nas configurações do Worker, adicione o binding **D1** de nome `DB` conectado ao banco.
-5. Em **Variables and Secrets**, adicione um **secret** `ADMIN_TOKEN` com uma senha aleatória longa. Não coloque o token no GitHub.
-6. Publique o Worker e copie sua URL HTTPS. No GitHub, edite `api-config.js` para definir essa URL (sem barra final).
-7. Em **Settings → Pages** do GitHub, publique a branch `main`, pasta `/ (root)`.
+## Publicar
 
-Console: `https://nomade-22.github.io/painel-ao-vivo/console.html` — informe a chave `ADMIN_TOKEN` para editar.
+1. Na Vercel, importe `Nomade-22/painel-ao-vivo`, usando a raiz do repositório e a opção **Other** para framework.
+2. Em **Environment Variables**, crie `ADMIN_TOKEN` com uma senha longa e aleatória (não coloque a senha no GitHub).
+3. Faça o deploy. Abra `/console.html`, informe a chave e digite. Abra `/visualizacao.html` no outro aparelho.
 
-Visualização: `https://nomade-22.github.io/painel-ao-vivo/visualizacao.html` — atualiza automaticamente.
+## Limitação de armazenamento
 
-O conteúdo da tela de visualização é público. Não use para dados confidenciais.
+Esta versão utiliza **Vercel Runtime Cache**, um cache compartilhado pela região `gru1` (São Paulo). O valor expira após 24 horas sem ser renovado e pode ser removido antes disso por limite de armazenamento. Não é um banco de dados permanente. O console não deve ser utilizado para conteúdo que precise ficar guardado para sempre.
+
+As páginas e a API ficam no mesmo domínio Vercel. A visualização é pública para quem tem o link, e somente quem conhece `ADMIN_TOKEN` pode editar.
