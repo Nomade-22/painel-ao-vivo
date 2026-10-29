@@ -10,8 +10,6 @@ export default async function handler(req,res){
     catch(e){console.error('cache read',e);return res.status(503).json({erro:'Leitura indisponível'});}
   }
   if(req.method!=='PUT'){res.setHeader('Allow','GET, PUT');return res.status(405).json({erro:'Método inválido'});}
-  const token=req.headers.authorization?.replace(/^Bearer /,'');
-  if(!process.env.ADMIN_TOKEN||token!==process.env.ADMIN_TOKEN)return res.status(401).json({erro:'Chave inválida'});
   const data=typeof req.body==='string'?JSON.parse(req.body):req.body;
   if(!data||typeof data.texto!=='string'||data.texto.length>10000||typeof data.tamanho!=='number'||data.tamanho<16||data.tamanho>180)return res.status(400).json({erro:'Dados inválidos'});
   const fields=['texto','fonte','tamanho','cor','fundo','alinhamento','peso'];
