@@ -13,3 +13,19 @@ $('publicar').onclick=enviar;
 campos.forEach(k=>$(k).addEventListener('input',()=>{alterado=true;pintar(valores());if($('automatico').checked){clearTimeout(timer);timer=setTimeout(enviar,550);}}));
 preencher(padrao);$('status').textContent='Console público';
 carregar();setInterval(carregar,2000);
+
+
+// Preferência local do perfil da LIVE (não inicia conexão com TikTok).
+const perfisPermitidos=['v2jdigital','khouse.of'];
+const perfilSalvo=localStorage.getItem('painel-perfil-tiktok');
+$('perfilTikTok').value=perfisPermitidos.includes(perfilSalvo)?perfilSalvo:'v2jdigital';
+function atualizarPerfil(){ $('perfilAtivo').textContent='@'+$('perfilTikTok').value; }
+atualizarPerfil();
+$('perfilTikTok').addEventListener('change',()=>{$('perfilMensagem').textContent='Escolha alterada. Clique em Salvar preferência.';atualizarPerfil();});
+$('salvarPerfil').addEventListener('click',()=>{localStorage.setItem('painel-perfil-tiktok',$('perfilTikTok').value);$('perfilMensagem').textContent='Preferência salva neste navegador. A conexão com o TikTok ainda não está ativa.';});
+document.querySelectorAll('.tab').forEach(botao=>botao.addEventListener('click',()=>{
+ const editor=botao.dataset.tab==='editor';
+ $('painel-editor').hidden=!editor;
+ $('painel-tiktok').hidden=editor;
+ document.querySelectorAll('.tab').forEach(t=>{const ativo=t===botao;t.classList.toggle('active',ativo);t.setAttribute('aria-selected',String(ativo));});
+}));
