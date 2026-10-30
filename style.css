@@ -9,3 +9,31 @@
 .video-loop-label input{width:20px;height:20px;flex:none;margin:2px 0 0;accent-color:#648cff}
 .video-loop-label strong{display:block;font-size:16px;color:#f5f8ff}
 .video-loop-label small{display:block;margin-top:5px;font-size:12px;line-height:1.5;color:#b9c9e4}
+
+/* Editor avançado de letras — o visualizador do OBS permanece transparente. */
+.editor-emoji{margin:16px 0 22px;padding:15px;background:#101d31;border:1px solid #344a69;border-radius:12px}
+.editor-emoji-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.editor-emoji-head strong{font-size:14px;color:#f0f5ff}
+.editor-emoji-head small{font-size:12px;color:#9aafd1}
+.emoji-grid{display:flex;gap:6px;flex-wrap:wrap;max-height:132px;overflow:auto}
+.emoji-button{font-size:20px;line-height:1.2;padding:8px 9px;border:1px solid #324566;border-radius:8px;background:#203250}
+.emoji-button:hover,.emoji-button:focus-visible{background:#39558a;outline:2px solid #8aafff}
+.editor-customization{margin:24px 0;padding:19px;border:1px solid #354b6c;border-radius:14px;background:#101a2c}
+.editor-customization h2{margin:0 0 7px;font-size:19px}
+.editor-customization .hint{margin:0 0 14px;font-size:13px;line-height:1.5}
+.presets{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:17px}
+.preset-button{padding:9px 12px;border:1px solid #4f6790;background:#253b5b;border-radius:9px;font-size:13px}
+.preset-button:hover,.preset-button:focus-visible{background:#385986;outline:2px solid #89a7ed}
+.editor-details{border-top:1px solid #314460;padding:11px 0}
+.editor-details summary{cursor:pointer;color:#f0f4ff;font-size:15px;font-weight:700;list-style:revert;padding:5px}
+.editor-details .controls{margin-top:11px}
+.editor-customization label{font-size:13px;line-height:1.5}
+.editor-customization label.check{justify-content:flex-start;align-items:center;min-height:51px}
+.editor-customization input[type=checkbox]{accent-color:#719aff;min-width:18px;min-height:18px}
+.editor-customization input[type=range]{width:100%;height:18px;padding:0;border:0;accent-color:#6891ff;background:transparent;cursor:pointer}
+.editor-customization output{display:block;font-variant-numeric:tabular-nums;font-size:12px;color:#9fcbff}
+.editor-extra-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:10px}
+.editor-extra-actions small{color:#9cb1cd}
+.preview#preview{line-height:1.25}
+#previewTexto{display:block;width:100%;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:620px){.editor-customization{padding:13px}.editor-details .controls{grid-template-columns:1fr 1fr}.emoji-button{font-size:19px;padding:8px}}
