@@ -51,10 +51,13 @@ $('videoUpload').addEventListener('click',async()=>{
  const f=$('videoFile').files?.[0];
  if(!f){$('videoStatus').textContent='Selecione um arquivo MP4 ou WebM.';return;}
  if(!['video/mp4','video/webm'].includes(f.type)){$('videoStatus').textContent='Formato não suportado. Use MP4 ou WebM.';return;}
- $('videoUpload').disabled=true;$('videoStatus').textContent='Enviando vídeo...';
+ if(f.size>250*1024*1024){$('videoStatus').textContent='Arquivo grande demais: limite de 250 MB.';return;}
+ $('videoUpload').disabled=true;$('videoStatus').textContent='Solicitando autorização de upload...';
  try{
-  const {upload}=await import('https://esm.sh/@vercel/blob@2.0.0/client');
-  const blob=await upload('videos/'+f.name,f,{access:'public',multipart:f.size>100*1024*1024,handleUploadUrl:'/api/upload-video',onUploadProgress({percentage}){$('uploadProgress').value=percentage;}});
+  const {uploadPresigned}=await import('https://esm.sh/@vercel/blob@2.5.0/client');
+  const nome=f.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_.() -]/g,'_').slice(-160);
+  const caminho='videos/'+nome;
+  const blob=await uploadPresigned(caminho,f,{access:'public',multipart:f.size>100*1024*1024,handleUploadUrl:'/api/upload-video',onUploadProgress({percentage}){$('uploadProgress').value=percentage;}});
   $('videoUrl').value=blob.url;$('videoStatus').textContent='Vídeo enviado. Clique em Reproduzir para exibir em outra aba.';
  }catch(e){$('videoStatus').textContent='Falha ao enviar: '+e.message;}
  finally{$('videoUpload').disabled=false;}
