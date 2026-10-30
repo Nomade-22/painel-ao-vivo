@@ -1,0 +1,8 @@
+.texto-dinamico{width:100%;max-width:100%;white-space:pre-wrap;overflow-wrap:anywhere;transform-origin:center center}
+.texto-anim-pulse{animation:textoPulse 2.3s ease-in-out infinite}
+.texto-anim-float{animation:textoFloat 3.2s ease-in-out infinite}
+.texto-anim-rainbow{animation:textoRainbow 5s linear infinite}
+@keyframes textoPulse{0%,100%{opacity:1;scale:1}50%{opacity:.88;scale:1.035}}
+@keyframes textoFloat{0%,100%{translate:0 0}50%{translate:0 -8px}}
+@keyframes textoRainbow{from{filter:hue-rotate(0deg)}to{filter:hue-rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.texto-dinamico{animation:none!important}}
