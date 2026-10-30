@@ -1,6 +1,5 @@
 import { getCache } from '@vercel/functions';
 
-const cache = getCache({namespace:'painel-youtube-v1'});
 const initial = {videoId:'', playing:false, loop:true, muted:false, volume:65, command:'0'};
 const validId = id => typeof id === 'string' && /^[a-zA-Z0-9_-]{11}$/.test(id);
 
@@ -24,6 +23,7 @@ function parseVideoId(value) {
 }
 
 export default async function handler(req,res) {
+  const cache = getCache({namespace:'painel-youtube-v1'});
   res.setHeader('Cache-Control','no-store, max-age=0');
   if (req.method === 'GET') {
     try { return res.status(200).json((await cache.get('state')) || initial); }
