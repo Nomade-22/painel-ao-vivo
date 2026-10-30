@@ -48,14 +48,13 @@ $('videoStop').addEventListener('click',()=>videoCommand('stop'));
 
 
 $('videoUpload').addEventListener('click',async()=>{
- const f=$('videoFile').files?.[0],password=$('uploadPassword').value;
+ const f=$('videoFile').files?.[0];
  if(!f){$('videoStatus').textContent='Selecione um arquivo MP4 ou WebM.';return;}
- if(!password){$('videoStatus').textContent='Informe a senha de upload configurada na Vercel.';return;}
  if(!['video/mp4','video/webm'].includes(f.type)){$('videoStatus').textContent='Formato não suportado. Use MP4 ou WebM.';return;}
  $('videoUpload').disabled=true;$('videoStatus').textContent='Enviando vídeo...';
  try{
   const {upload}=await import('https://esm.sh/@vercel/blob@2.0.0/client');
-  const blob=await upload('videos/'+f.name,f,{access:'public',multipart:f.size>100*1024*1024,handleUploadUrl:'/api/upload-video',clientPayload:password,onUploadProgress({percentage}){$('uploadProgress').value=percentage;}});
+  const blob=await upload('videos/'+f.name,f,{access:'public',multipart:f.size>100*1024*1024,handleUploadUrl:'/api/upload-video',onUploadProgress({percentage}){$('uploadProgress').value=percentage;}});
   $('videoUrl').value=blob.url;$('videoStatus').textContent='Vídeo enviado. Clique em Reproduzir para exibir em outra aba.';
  }catch(e){$('videoStatus').textContent='Falha ao enviar: '+e.message;}
  finally{$('videoUpload').disabled=false;}
