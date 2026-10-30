@@ -33,6 +33,7 @@ let videoPlaying=false;
 async function videoCommand(mode){
  const url=mode==='stop'?'':$('videoUrl').value.trim();
  if(mode==='play'&&!/^https:\/\//i.test(url)){$('videoStatus').textContent='Informe um URL HTTPS direto de vídeo MP4/WebM.';return;}
+ if(mode==='play'&&/^https:\/\/(www\\.)?(youtu\\.be|youtube\\.com)\//i.test(url)){$('videoStatus').textContent='Esse link é do YouTube. Envie um MP4 pelo botão Enviar vídeo para nuvem e use a URL gerada.';return;}
  try{
   const body={url,playing:mode==='play',loop:$('videoLoop').checked,muted:$('videoMuted').checked};
   const r=await fetch('/api/video',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -58,7 +59,7 @@ $('videoUpload').addEventListener('click',async()=>{
   const nome=f.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_.() -]/g,'_').slice(-160);
   const caminho='videos/'+nome;
   const blob=await uploadPresigned(caminho,f,{access:'public',multipart:f.size>100*1024*1024,handleUploadUrl:'/api/upload-video',onUploadProgress({percentage}){$('uploadProgress').value=percentage;}});
-  $('videoUrl').value=blob.url;$('videoStatus').textContent='Vídeo enviado. Clique em Reproduzir para exibir em outra aba.';
+  $('videoUrl').value=blob.url;$('videoStatus').textContent='Vídeo enviado com sucesso! Agora clique em Reproduzir. Se a outra aba estiver aberta, ela atualizará automaticamente.';
  }catch(e){$('videoStatus').textContent='Falha ao enviar: '+e.message;}
  finally{$('videoUpload').disabled=false;}
 });
