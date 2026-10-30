@@ -45,7 +45,13 @@ async function videoCommand(mode){
 $('videoPlay').addEventListener('click',()=>videoCommand('play'));
 $('videoPause').addEventListener('click',()=>videoCommand('pause'));
 $('videoStop').addEventListener('click',()=>videoCommand('stop'));
-(async()=>{try{const r=await fetch('/api/video',{cache:'no-store'});if(!r.ok)return;const v=await r.json();$('videoUrl').value=v.url||'';$('videoLoop').checked=!!v.loop;$('videoMuted').checked=v.muted!==false;}catch(e){}})();
+$('videoLoop').addEventListener('change',()=>{
+ const ativo=$('videoLoop').checked;
+ $('videoStatus').textContent=ativo?'Loop infinito ativado ♾️ — o vídeo vai recomeçar sozinho.':'Loop infinito desativado — o vídeo vai parar no final.';
+ // Atualiza as janelas já abertas, sem trocar o arquivo e sem reiniciar a posição.
+ if(/^https:\/\//i.test($('videoUrl').value.trim()))videoCommand(videoPlaying?'play':'pause');
+});
+(async()=>{try{const r=await fetch('/api/video',{cache:'no-store'});if(!r.ok)return;const v=await r.json();$('videoUrl').value=v.url||'';$('videoLoop').checked=v.loop!==false;$('videoMuted').checked=v.muted!==false;videoPlaying=!!v.playing;}catch(e){}})();
 
 
 $('videoUpload').addEventListener('click',async()=>{
