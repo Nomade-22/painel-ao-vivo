@@ -1,5 +1,5 @@
 import {getCache} from '@vercel/functions';
-const initial={url:'',playing:false,loop:false,muted:true,command:0};
+const initial={url:'',playing:false,loop:true,muted:true,command:0};
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
  const cache=getCache({namespace:'painel-video-v1'});
