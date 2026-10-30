@@ -1,7 +1,7 @@
 import {handleUpload} from '@vercel/blob/client';
 export default async function handler(req,res){
  if(req.method!=='POST')return res.status(405).json({error:'Metodo nao permitido'});
- if(!process.env.BLOB_READ_WRITE_TOKEN || !process.env.UPLOAD_PASSWORD)return res.status(503).json({error:'Configure Blob e UPLOAD_PASSWORD na Vercel'});
+ if(!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID) || !process.env.UPLOAD_PASSWORD)return res.status(503).json({error:'Configure Blob e UPLOAD_PASSWORD na Vercel'});
  try{
   const data=typeof req.body==='string'?JSON.parse(req.body):req.body;
   const result=await handleUpload({
