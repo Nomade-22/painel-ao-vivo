@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1221">
+<title>YouTube ao Vivo | Painel OBS</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;color:#f2f5ff;background:#0b1220}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh}
+header{background:#111d32;border-bottom:1px solid #263851;padding:20px max(5vw,20px)}
+header .container{max-width:1060px;margin:auto;display:flex;justify-content:space-between;gap:18px;align-items:center;flex-wrap:wrap}
+h1{margin:0;font-size:clamp(22px,3.5vw,32px)}h2{margin-top:0;font-size:18px}
+header p{margin:5px 0 0;color:#a9bedc}
+a{color:#a9c7ff}
+main{max-width:1060px;margin:24px auto;padding:0 20px;display:grid;grid-template-columns:1.2fr .8fr;gap:20px}
+.card{border:1px solid #30405c;border-radius:16px;background:#152138;padding:24px}
+.label{display:block;font-size:14px;font-weight:600;color:#c3d3e9;margin:17px 0 7px}
+input[type=url],input[type=text]{width:100%;min-width:0;border:1px solid #425574;border-radius:9px;padding:13px 14px;color:white;background:#0a1526;font:inherit}
+input[type=range]{width:100%;accent-color:#779cff;margin:12px 0}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+button{border:0;background:#5277f3;color:white;border-radius:9px;padding:13px 17px;cursor:pointer;font-weight:700;font:inherit}
+button.secondary{background:#344762}
+button.outline{background:transparent;border:1px solid #52678b}
+button:hover{filter:brightness(1.13)}
+button:disabled{opacity:.55;cursor:wait}
+.check{display:flex;align-items:center;gap:12px;padding:14px 15px;background:#1b2c48;border:1px solid #344f73;border-radius:10px;margin:14px 0;cursor:pointer}
+.check input{width:20px;height:20px;accent-color:#688dff;margin:0}
+.check strong{display:block}.check small{display:block;color:#9fb5d1;margin-top:4px;line-height:1.4}
+#status{min-height:44px;background:#0f1e35;border:1px solid #2d4365;border-radius:9px;padding:13px 14px;color:#cbdbf4;line-height:1.45}
+#status[data-error="true"]{color:#ffb3b3;border-color:#a55050}
+#estado{color:#9fc2ff;font-size:13px}
+small, .hint{font-size:13px;color:#aebed6;line-height:1.55}
+.urlbar{display:flex;gap:8px;align-items:center}
+.urlbar input{flex:1;font-size:13px}
+.urlbar button{white-space:nowrap}
+.preview{aspect-ratio:16/9;width:100%;border:1px solid #41516b;background:#000;border-radius:10px}
+.step{font-size:14px;line-height:1.65;color:#c3d1e4}
+.num{font-weight:700;color:#8ab8ff}
+.pill{display:inline-block;background:#2c446b;padding:5px 9px;border-radius:40px;color:#c4d7ff;font-size:12px}
+@media(max-width:800px){main{grid-template-columns:1fr} .card{padding:19px} .urlbar{flex-wrap:wrap} .urlbar input{width:100%}}
+</style>
+</head>
+<body>
+<header><div class="container"><div><div class="pill">PAINEL INDEPENDENTE • YOUTUBE</div><h1>▶ YouTube no OBS</h1><p>Cole um link, controle a reprodução à distância e use o visualizador como fonte Navegador.</p></div><a href="/console.html">Voltar ao painel principal</a></div></header>
+<main>
+<section class="card">
+<h2>Controle de reprodução</h2>
+<label for="linkYoutube" class="label">Link do vídeo do YouTube</label>
+<input id="linkYoutube" type="url" placeholder="https://www.youtube.com/watch?v=...">
+<p class="hint">Aceita links do YouTube, youtu.be, Shorts e lives com incorporação autorizada. Não precisa baixar o vídeo.</p>
+<div class="controls">
+<button id="reproduzir" type="button">▶ Reproduzir</button>
+<button id="pausar" type="button" class="secondary">⏸ Pausar</button>
+<button id="parar" type="button" class="secondary">■ Limpar vídeo</button>
+</div>
+<label class="check" for="loop"><input type="checkbox" id="loop" checked><span><strong>♾ Loop infinito</strong><small>Recomeçar automaticamente ao terminar o vídeo.</small></span></label>
+<label class="check" for="muted"><input type="checkbox" id="muted"><span><strong>Sem som</strong><small>Ative para facilitar o autoplay; desligue para ouvir o som no OBS.</small></span></label>
+<label for="volume" class="label">Volume do YouTube: <output id="volumeLabel">65%</output></label>
+<input type="range" id="volume" min="0" max="100" value="65" step="1" aria-label="Volume de 0 a 100">
+<p id="status" role="status">Pronto para receber um link do YouTube.</p>
+<p id="estado">Conectando ao visualizador…</p>
+</section>
+<section class="card">
+<h2>Visualizador para OBS</h2>
+<p class="hint">Esta página é independente do visualizador de MP4. Use o endereço abaixo como uma nova fonte Navegador no OBS.</p>
+<label for="urlObs" class="label">Endereço da fonte Navegador</label>
+<div class="urlbar"><input id="urlObs" type="text" readonly><button type="button" id="copiar" class="outline">Copiar</button></div>
+<div class="controls"><button type="button" id="abrir" class="secondary">↗ Abrir visualizador</button></div>
+<p class="label">Prévia</p>
+<iframe id="preview" class="preview" src="/youtube-obs.html" title="Prévia do YouTube no OBS" allow="autoplay; encrypted-media; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+<p class="step"><span class="num">1.</span> No OBS, clique em <b>Fontes → + → Navegador</b>.<br>
+<span class="num">2.</span> Cole a URL copiada. Configure a largura/altura (ex.: <b>1080 × 1920</b> para LIVE vertical).<br>
+<span class="num">3.</span> Ative <b>Controlar áudio via OBS</b>, quando disponível, e confira o Mixer de Áudio.<br>
+<span class="num">4.</span> Se o navegador bloquear o som automático, use a opção <b>Interagir</b> do OBS para iniciar o player.</p>
+<p class="hint">O player oficial do YouTube permanece visível. Alguns vídeos impedem incorporação ou autoplay. Para transmitir em LIVE, você precisa ter os direitos do conteúdo.</p>
+</section>
+</main>
+<script src="/youtube-console.js" defer></script>
+</body></html>
