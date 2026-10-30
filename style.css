@@ -3,3 +3,9 @@
 .tabs{display:flex;gap:10px;padding:18px 4vw 0}.tabs .tab{background:#273650}.tabs .tab.active{background:#466afa}.tiktok-layout{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:26px 4vw}#painel-editor[hidden],#painel-perfis[hidden],#painel-tiktok[hidden]{display:none!important}#perfilMensagem{min-height:24px}@media(max-width:800px){.tiktok-layout{grid-template-columns:1fr}}
 
 .video-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.tiktok-layout a{color:#9db5ff}.tabs{flex-wrap:wrap}
+
+.video-loop-control{margin:17px 0;padding:13px 16px;border:1px solid #496388;background:#192c44;border-radius:12px}
+.video-loop-label{margin:0;display:flex;align-items:flex-start;gap:12px;cursor:pointer}
+.video-loop-label input{width:20px;height:20px;flex:none;margin:2px 0 0;accent-color:#648cff}
+.video-loop-label strong{display:block;font-size:16px;color:#f5f8ff}
+.video-loop-label small{display:block;margin-top:5px;font-size:12px;line-height:1.5;color:#b9c9e4}
