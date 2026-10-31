@@ -119,6 +119,59 @@ $('automatico').addEventListener('change',()=>{
 });
 
 const emojis=['😀','😍','🥰','🤩','😎','😂','🥳','😱','❤️','💕','💖','🔥','✨','⭐','🎉','👑','💎','🎁','🎵','🎶','🎧','🎮','🚀','🤖','🛍️','💰','✅','👉','👇','👀','📢','🌈','🌴','🎀','🙌','♾️','•','★','♥','➜'];
+// Atalhos de mensagens para usar durante a LIVE; preservam todos os estilos selecionados.
+const frasesProntas=[
+ {categoria:'👋 Boas-vindas',itens:[
+  ['Receber público','👋 Seja bem-vindo(a) à nossa LIVE!'],
+  ['Chegou agora','✨ Chegou agora? Fique à vontade!'],
+  ['De onde você é?','🌎 De qual cidade você está assistindo?']
+ ]},
+ {categoria:'❤️ Interação',itens:[
+  ['Pedir curtidas','❤️ Curta a LIVE para fortalecer!'],
+  ['Chamar o chat','💬 Mande sua mensagem no chat!'],
+  ['Seguir perfil','🔔 Siga o perfil para acompanhar as próximas lives!']
+ ]},
+ {categoria:'🎁 Agradecimentos',itens:[
+  ['Agradecer presente','🎁 Muito obrigado pelo presente! 💖'],
+  ['Agradecer apoio','🙌 Obrigado pelo carinho de todos!']
+ ]},
+ {categoria:'🛍️ Vitrine e produtos',itens:[
+  ['Conferir vitrine','🛍️ Confira os produtos da nossa vitrine!'],
+  ['Cores disponíveis','🎨 Temos diversas cores disponíveis. Confira!'],
+  ['Tirar dúvidas','❓ Ficou com dúvida? Pergunte no chat!']
+ ]},
+ {categoria:'👋 Encerramento',itens:[
+  ['Despedida','👋 Obrigado pela companhia! Até a próxima!']
+ ]}
+];
+const areaFrases=$('frasesProntas');
+frasesProntas.forEach(grupo=>{
+ const titulo=document.createElement('h3');
+ titulo.textContent=grupo.categoria;
+ titulo.style.fontSize='14px';
+ titulo.style.color='#cad9f5';
+ titulo.style.margin='16px 0 9px';
+ areaFrases.appendChild(titulo);
+ const botoes=document.createElement('div');
+ botoes.className='presets';
+ grupo.itens.forEach(([nome,mensagem])=>{
+  const botao=document.createElement('button');
+  botao.type='button';
+  botao.className='preset-button';
+  botao.textContent=nome;
+  botao.title=mensagem;
+  botao.setAttribute('aria-label','Exibir: '+mensagem);
+  botao.addEventListener('click',()=>{
+   $('texto').value=mensagem;
+   mudou();
+   clearTimeout(timer);
+   enviar();
+  });
+  botoes.appendChild(botao);
+ });
+ areaFrases.appendChild(botoes);
+});
+
 const grid=$('emojiGrid');
 emojis.forEach(emoji=>{
  const b=document.createElement('button');
