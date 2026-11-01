@@ -70,8 +70,12 @@
  }
  async function start(){
   if(active||starting)return;
-  const id=currentChannel();
-  if(!valid(id)){message('Gere o link da câmera na aba Câmera e abra-o neste celular.');return;}
+  const initialId=currentChannel();
+  // No próprio console, cria um canal automaticamente se ainda não existir.
+  // A permissão continua sendo pedida diretamente pelo clique, antes de qualquer fetch.
+  const autoChannel=!valid(initialId)&&!fromURL;
+  const id=valid(initialId)?initialId:autoChannel?'cam'+hex(24):'';
+  if(!valid(id)){message('Este link de câmera é inválido. Gere um link novo no console.');return;}
   if(!window.isSecureContext||!navigator.mediaDevices?.getUserMedia){
    message('A câmera precisa de um navegador compatível e HTTPS. Abra o link pelo Chrome ou Safari atualizado.');
    return;
@@ -93,7 +97,12 @@
    const configRes=await fetch('/api/camera',{cache:'no-store'});
    if(!configRes.ok)throw Error('Não foi possível conferir o link da câmera');
    const camState=await configRes.json();
-   if(camState.cameraId!==channel)throw Error('Este link expirou. Gere e abra o novo link da câmera.');
+   if(autoChannel){
+    if(valid(camState.cameraId))channel=camState.cameraId;
+    else await apiState({cameraId:channel,enabled:false,audio:!!audioCheck?.checked});
+   }else if(camState.cameraId!==channel){
+    throw Error('Este link expirou. Gere e abra o novo link da câmera.');
+   }
    await apiState({enabled:true,audio:!!audioCheck?.checked});
    const pc=new RTCPeerConnection(pcConfig);
    peer=pc;
