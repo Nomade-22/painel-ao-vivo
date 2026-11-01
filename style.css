@@ -72,3 +72,17 @@
 .video-transition-panel output{display:inline;color:#a7d4ff;font-variant-numeric:tabular-nums}
 .video-transition-panel input[type=range]{padding:0;height:20px;accent-color:#648cff}
 @media(max-width:540px){.video-library-panel,.video-transition-panel{padding:12px}.video-library-add button{width:100%}.video-library-play{font-size:12px}.video-library-info strong{font-size:13px}}
+
+/* Câmera do celular – controles remotos integrados aos vídeos existentes. */
+.video-camera-panel{margin:18px 0;padding:18px;border:1px solid #4b6d9a;border-radius:13px;background:#142740}
+.video-camera-panel h2{margin:0 0 8px;font-size:19px}
+.video-camera-panel .hint{font-size:13px;line-height:1.55}
+.video-camera-setup{padding:12px 0;display:flex;flex-direction:column;align-items:stretch;gap:9px}
+.video-camera-setup label{display:block;width:100%;margin:4px 0}
+.video-camera-setup input[readonly]{overflow:hidden;text-overflow:ellipsis}
+.video-camera-setup .video-actions{margin:4px 0;gap:8px}
+.video-camera-audio{align-items:center;margin:9px 0;padding:9px 0}
+.video-camera-audio input[type=checkbox]{width:20px;height:20px;min-width:20px;accent-color:#648cff;margin:0}
+.video-camera-panel button:disabled{cursor:not-allowed;opacity:.48}
+#cameraStatus{font-size:13px;line-height:1.5;color:#b8ddff;min-height:18px}
+@media(max-width:560px){.video-camera-panel{padding:12px}.video-camera-setup button{flex:1}.video-camera-panel .video-actions button{flex:1 1 45%}}
