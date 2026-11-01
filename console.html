@@ -83,8 +83,8 @@
 </div>
 <label class="check video-camera-audio"><input type="checkbox" id="cameraAudio"> Incluir áudio do celular (deixe desligado se já utiliza o microfone remoto)</label>
 <section class="camera-local-panel" aria-label="Transmissão a partir deste aparelho">
-<h3>📷 Câmera deste aparelho</h3>
-<p class="hint">Quando estiver no celular, toque abaixo para solicitar permissão e transmitir diretamente para o OBS do escritório.</p>
+<h3>📷 Prévia local da câmera deste aparelho</h3>
+<p class="hint">Esta prévia é apenas a imagem capturada neste aparelho; ela não cria outro receptor e não interfere no OBS. Para transmitir, toque em Ligar câmera.</p>
 <video id="cameraPreview" autoplay muted playsinline></video>
 <div class="video-actions">
 <button id="cameraStartLocal" type="button">📷 Ligar câmera deste aparelho</button>
@@ -107,10 +107,10 @@
 <label for="cameraObsUrl">Endereço da câmera no OBS<input id="cameraObsUrl" type="url" readonly value="https://painel-ao-vivo-jhonatan23.vercel.app/camera-obs.html"></label>
 <div class="video-actions">
 <button id="cameraObsCopy" type="button">📋 Copiar endereço da câmera para OBS</button>
-<a class="camera-player-link" href="/camera.html" target="_blank" rel="noopener">▶ Abrir prévia da câmera</a>
+<span class="hint">Prévia remota desativada para evitar duas páginas tentando receber a mesma transmissão.</span>
 </div>
-<p class="hint">Coloque a fonte da câmera acima da fonte de vídeos no OBS. Quando estiver desligada, a página da câmera fica transparente. Se desejar mantê-la fora do ar, oculte a fonte no OBS.</p>
-<p class="hint">A fonte recebe WebRTC do navegador do celular e não altera o reprodutor de vídeos, as transições nem a biblioteca.</p>
+<p class="hint">Coloque a fonte da câmera acima da fonte de vídeos no OBS. Quando estiver desligada, a fonte fica transparente. Use somente camera-obs.html como receptor e evite abrir camera.html em outra aba enquanto transmite. Para diagnosticar falhas, use temporariamente camera-obs.html?debug=1 no OBS, depois remova ?debug=1.</p>
+<p class="hint">A fonte recebe WebRTC do navegador do celular e não altera os vídeos gravados. A prévia local no celular não consome uma segunda conexão WebRTC; já a antiga prévia remota no computador consumia.</p>
 </section></main><main id="painel-microfone" class="tiktok-layout" hidden>
 <section class="card">
 <h1>🎤 Microfone remoto</h1>
