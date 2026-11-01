@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Enviar câmera para a LIVE</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:#0c1424;color:#eaf2ff;font:15px/1.5 system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:18px}
+h1{font-size:23px;margin:0 0 8px}.hint{color:#aebedb;font-size:13px;line-height:1.55}
+video{display:block;width:100%;height:auto;aspect-ratio:9/16;max-height:65vh;object-fit:contain;background:#050a13;border:1px solid #354b69;border-radius:14px}
+button{font:inherit;font-weight:700;cursor:pointer;color:#fff;background:#4569e6;padding:13px 15px;border:0;border-radius:10px}
+button.secondary{background:#324561}button:disabled{opacity:.45;cursor:not-allowed}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin:15px 0}.actions button{flex:1 1 160px}
+label{display:flex;align-items:center;gap:9px;margin:12px 0}input{width:19px;height:19px;accent-color:#719aff}
+#cameraSenderStatus{background:#1a2c47;padding:14px;border-radius:10px;min-height:55px;overflow-wrap:anywhere}
+a{color:#9dc3ff}
+</style>
+</head>
+<body><main>
+<h1>📷 Câmera da LIVE</h1>
+<p class="hint">Transmita a imagem deste celular diretamente para o reprodutor de câmera do OBS no escritório. O navegador solicitará acesso à câmera quando você tocar em Ligar.</p>
+<video id="cameraPreview" autoplay muted playsinline></video>
+<label><input id="cameraAudio" type="checkbox"> Enviar também o microfone deste celular (opcional)</label>
+<div class="actions">
+<button id="cameraStartLocal" type="button">📷 Ligar câmera</button>
+<button id="cameraFlip" type="button" class="secondary" disabled>🔄 Virar câmera</button>
+<button id="cameraStopLocal" type="button" class="secondary" disabled>■ Desligar</button>
+</div>
+<p id="cameraSenderStatus" role="status">Toque em Ligar câmera para solicitar permissão.</p>
+<p class="hint">Mantenha esta página aberta e o celular desbloqueado durante a transmissão. Se a imagem não aparecer no OBS, confira se a fonte <strong>Câmera remota</strong> está ativa no computador.</p>
+<p class="hint"><a href="/console.html">Voltar ao console de controle</a></p>
+</main><script src="/camera-sender.js" defer></script></body></html>
