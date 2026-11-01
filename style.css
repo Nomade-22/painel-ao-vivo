@@ -47,3 +47,28 @@
 #microfoneUrl{font-size:12px;overflow-wrap:anywhere}
 #painel-microfone button:disabled{opacity:.55;cursor:not-allowed}
 @media(max-width:620px){#painel-microfone .video-actions button{flex:1 1 100%}}
+
+/* Biblioteca de vídeos e transições: controles responsivos para celular e PC. */
+#painel-videos[hidden],#painel-microfone[hidden]{display:none!important}
+.video-library-panel,.video-transition-panel{margin:18px 0;padding:17px;background:#101d31;border:1px solid #364a69;border-radius:13px}
+.video-library-panel h2,.video-transition-panel h2{font-size:19px;margin:0 0 10px}
+.video-count{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:100px;background:#33527f;color:#fff;font-size:13px}
+.video-library-add{display:flex;gap:10px;align-items:end;margin-bottom:14px;flex-wrap:wrap}
+.video-library-add label{flex:1;min-width:190px}
+.video-library-add button{white-space:nowrap}
+.video-live-info{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px;border-radius:9px;background:#1e3554;margin-bottom:12px}
+.video-live-info strong{overflow-wrap:anywhere}
+.video-live-info small{color:#b4ddff;white-space:nowrap}
+.video-library-list{display:flex;flex-direction:column;gap:8px;max-height:345px;overflow:auto}
+.video-library-item{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid #354b69;border-radius:10px;background:#15243b}
+.video-library-item.is-active{border-color:#70a5fa;background:#21375c}
+.video-library-info{flex:1;min-width:0}
+.video-library-info strong{display:block;font-size:14px;color:#f1f7ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.video-library-info small{display:block;font-size:11px;color:#a6bad8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.video-library-play,.video-library-remove{font-size:13px;padding:10px 12px;white-space:nowrap}
+.video-library-remove{padding:10px}
+.video-quick-switch{display:flex;gap:10px;margin-top:13px}
+.video-transition-panel .controls{align-items:end}
+.video-transition-panel output{display:inline;color:#a7d4ff;font-variant-numeric:tabular-nums}
+.video-transition-panel input[type=range]{padding:0;height:20px;accent-color:#648cff}
+@media(max-width:540px){.video-library-panel,.video-transition-panel{padding:12px}.video-library-add button{width:100%}.video-library-play{font-size:12px}.video-library-info strong{font-size:13px}}
