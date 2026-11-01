@@ -104,6 +104,84 @@ function prepareNewPane(next){
  next.style.pointerEvents='none';
  next.controls=false;
 }
+// A animação por opacity em <video> não é confiável no motor do OBS (CEF).
+// Durante a troca, a mistura dos dois quadros é desenhada em um canvas.
+// A renderização do canvas ocorre somente durante a transição para poupar CPU.
+const transitionCanvas=document.createElement('canvas');
+transitionCanvas.setAttribute('aria-hidden','true');
+Object.assign(transitionCanvas.style,{
+ position:'absolute',inset:'0',width:'100%',height:'100%',
+ display:'none',pointerEvents:'none',zIndex:'20',background:'transparent'
+});
+document.getElementById('videoStage').appendChild(transitionCanvas);
+const transitionCtx=transitionCanvas.getContext('2d',{alpha:true});
+let transitionFrame=0;
+function fitVideo(ctx,v,alpha,w,h){
+ if(!v.videoWidth||!v.videoHeight||alpha<=0)return;
+ const scale=Math.min(w/v.videoWidth,h/v.videoHeight);
+ const dw=v.videoWidth*scale,dh=v.videoHeight*scale;
+ ctx.save();
+ ctx.globalAlpha=Math.max(0,Math.min(1,alpha));
+ ctx.drawImage(v,(w-dw)/2,(h-dh)/2,dw,dh);
+ ctx.restore();
+}
+function canvasSize(){
+ const rect=document.getElementById('videoStage').getBoundingClientRect();
+ const realW=Math.max(1,Math.round(rect.width));
+ const realH=Math.max(1,Math.round(rect.height));
+ // No máximo 720p durante 0,3–2,5 s para não sobrecarregar PCs modestos.
+ const scale=Math.min(1,1280/realW,720/realH);
+ const w=Math.max(1,Math.round(realW*scale));
+ const h=Math.max(1,Math.round(realH*scale));
+ if(transitionCanvas.width!==w||transitionCanvas.height!==h){
+  transitionCanvas.width=w;transitionCanvas.height=h;
+ }
+ return {w,h};
+}
+function paintTransition(old,next,p,mode,w,h){
+ const ctx=transitionCtx;
+ ctx.clearRect(0,0,w,h);
+ if(mode==='black'){
+  ctx.fillStyle='#000';
+  ctx.fillRect(0,0,w,h);
+  if(p<=.5)fitVideo(ctx,old,1-p*2,w,h);
+  else fitVideo(ctx,next,(p-.5)*2,w,h);
+ }else{
+  // Dissolvência real entre duas imagens. Nenhum elemento de vídeo é apagado.
+  fitVideo(ctx,old,1,w,h);
+  fitVideo(ctx,next,p,w,h);
+ }
+}
+async function canvasBlend(old,next,ms,mode){
+ if(!transitionCtx)return false;
+ const {w,h}=canvasSize();
+ // Primeiro quadro completo antes de apresentar o canvas, evitando piscar preto.
+ paintTransition(old,next,0,mode,w,h);
+ transitionCanvas.style.display='block';
+ // Duração baseada no relógio real, com limite de ~30 desenhos/s.
+ await new Promise(resolve=>{
+  const start=performance.now();
+  let previous=-Infinity;
+  const draw=(now)=>{
+   const fraction=Math.min(1,(now-start)/ms);
+   if(now-previous>=31||fraction>=1){
+    const smooth=fraction*fraction*(3-2*fraction);
+    try{paintTransition(old,next,smooth,mode,w,h);}
+    catch(err){
+     console.warn('[Transição] Falha no canvas:',err);
+     transitionFrame=0;
+     resolve();
+     return;
+    }
+    previous=now;
+   }
+   if(fraction>=1){transitionFrame=0;resolve();}
+   else transitionFrame=requestAnimationFrame(draw);
+  };
+  transitionFrame=requestAnimationFrame(draw);
+ });
+ return true;
+}
 async function finishSwap(old,next,s){
  if(old===next){
   active.style.opacity='1';active.style.zIndex='2';
@@ -114,30 +192,38 @@ async function finishSwap(old,next,s){
   return;
  }
  const ms=Math.max(300,Math.min(2500,Number(s.duration)||850));
+ mask.style.transition='none';
+ mask.style.opacity='0';
  old.style.transition='none';
- old.style.opacity='1';old.style.zIndex='2';
+ old.style.opacity='1';
+ old.style.zIndex='2';
  next.style.transition='none';
- next.style.opacity='0.001';next.style.zIndex='3';
+ next.style.opacity='0.001';
+ next.style.zIndex='3';
  await nextFrame();
- if(s.transition==='black'){
-  // Só passa pelo preto se esse efeito foi explicitamente escolhido.
-  const half=Math.max(150,Math.round(ms/2));
-  mask.style.transition='opacity '+half+'ms ease-in-out';
-  mask.style.opacity='1';
-  await sleep(half+40);
-  next.style.opacity='1';
-  mask.style.opacity='0';
-  await sleep(half+40);
- }else if(s.transition==='cut'){
+ if(s.transition==='cut'){
   next.style.opacity='1';
   await nextFrame();
  }else{
-  // Dissolver: não apagar o vídeo antigo! Apenas revelar o novo por cima.
-  next.style.transition='opacity '+ms+'ms ease-in-out';
-  next.style.opacity='1';
-  await sleep(ms+70);
+  let usedCanvas=false;
+  try{
+   usedCanvas=await canvasBlend(old,next,ms,s.transition==='black'?'black':'fade');
+  }catch(e){console.warn('[Transição] Usando fallback:',e);}
+  if(!usedCanvas){
+   // Fallback sem tela preta caso um navegador não disponibilize canvas 2D.
+   next.style.transition='opacity '+ms+'ms ease-in-out';
+   next.style.opacity='1';
+   await sleep(ms+70);
+  }else{
+   // Próximo vídeo já está rodando atrás do último quadro do canvas.
+   next.style.transition='none';
+   next.style.opacity='1';
+   await nextFrame();
+  }
  }
- // Somente agora o vídeo anterior é pausado e descarregado.
+ // O canvas só sai de cena depois que o novo vídeo já está visível.
+ transitionCanvas.style.display='none';
+ transitionCtx?.clearRect(0,0,transitionCanvas.width,transitionCanvas.height);
  active=next;
  old.pause();
  old.removeAttribute('src');
@@ -147,7 +233,6 @@ async function finishSwap(old,next,s){
  active.style.transition='none';active.style.opacity='1';active.style.zIndex='2';
  active.controls=onScreen;
  active.style.pointerEvents=onScreen?'auto':'none';
- mask.style.transition='none';mask.style.opacity='0';
  button(false);
  show(s.playing?'Vídeo em reprodução':'Vídeo pausado');
  details('Arquivo: '+s.url.slice(0,160));
