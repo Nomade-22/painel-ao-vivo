@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Microfone remoto — Fonte de áudio OBS</title>
+  <style>
+    html,body{width:100%;height:100%;margin:0;background:transparent!important;overflow:hidden}
+    audio{display:none}
+    #diagnostico{display:none;font:14px system-ui,sans-serif;color:#fff;background:#16213c;padding:16px}
+    body.debug #diagnostico{display:block}
+  </style>
+</head>
+<body>
+  <audio id="voz" autoplay playsinline></audio>
+  <div id="diagnostico" role="status">Aguardando conexão do microfone…</div>
+  <script type="module" src="/microfone-obs.js"></script>
+</body>
+</html>

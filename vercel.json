@@ -1,3 +1,6 @@
 {
-  "functions": {"api/painel.js":{"regions":["gru1"]}}
+  "functions": {
+    "api/painel.js": {"regions":["gru1"]},
+    "api/microfone.js": {"regions":["gru1"]}
+  }
 }
