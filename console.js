@@ -241,44 +241,4 @@ document.querySelectorAll('.tab').forEach(botao=>botao.addEventListener('click',
  document.querySelectorAll('.tab').forEach(t=>{const ativo=t===botao;t.classList.toggle('active',ativo);t.setAttribute('aria-selected',String(ativo));});
 }));
 
-// Controle remoto de vídeo, independente do texto.
-let videoPlaying=false;
-async function videoCommand(mode){
- const url=mode==='stop'?'':$('videoUrl').value.trim();
- if(mode==='play'&&!/^https:\/\//i.test(url)){$('videoStatus').textContent='Informe um URL HTTPS direto de vídeo MP4/WebM.';return;}
- if(mode==='play'&&/^https:\/\/(www\\.)?(youtu\\.be|youtube\\.com)\//i.test(url)){$('videoStatus').textContent='Esse link é do YouTube. Envie um MP4 pelo botão Enviar vídeo para nuvem e use a URL gerada.';return;}
- try{
-  const body={url,playing:mode==='play',loop:$('videoLoop').checked,muted:$('videoMuted').checked};
-  const r=await fetch('/api/video',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  if(!r.ok)throw Error('Erro '+r.status);
-  videoPlaying=mode==='play';
-  $('videoStatus').textContent=mode==='play'?'Comando de reprodução enviado.':mode==='pause'?'Vídeo pausado.':'Vídeo removido da tela.';
- }catch(e){$('videoStatus').textContent='Falha ao enviar comando: '+e.message;}
-}
-$('videoPlay').addEventListener('click',()=>videoCommand('play'));
-$('videoPause').addEventListener('click',()=>videoCommand('pause'));
-$('videoStop').addEventListener('click',()=>videoCommand('stop'));
-$('videoLoop').addEventListener('change',()=>{
- const ativo=$('videoLoop').checked;
- $('videoStatus').textContent=ativo?'Loop infinito ativado ♾️ — o vídeo vai recomeçar sozinho.':'Loop infinito desativado — o vídeo vai parar no final.';
- // Atualiza as janelas já abertas, sem trocar o arquivo e sem reiniciar a posição.
- if(/^https:\/\//i.test($('videoUrl').value.trim()))videoCommand(videoPlaying?'play':'pause');
-});
-(async()=>{try{const r=await fetch('/api/video',{cache:'no-store'});if(!r.ok)return;const v=await r.json();$('videoUrl').value=v.url||'';$('videoLoop').checked=v.loop!==false;$('videoMuted').checked=v.muted!==false;videoPlaying=!!v.playing;}catch(e){}})();
-
-
-$('videoUpload').addEventListener('click',async()=>{
- const f=$('videoFile').files?.[0];
- if(!f){$('videoStatus').textContent='Selecione um arquivo MP4 ou WebM.';return;}
- if(!['video/mp4','video/webm'].includes(f.type)){$('videoStatus').textContent='Formato não suportado. Use MP4 ou WebM.';return;}
- if(f.size>250*1024*1024){$('videoStatus').textContent='Arquivo grande demais: limite de 250 MB.';return;}
- $('videoUpload').disabled=true;$('videoStatus').textContent='Solicitando autorização de upload...';
- try{
-  const {uploadPresigned}=await import('https://esm.sh/@vercel/blob@2.5.0/client');
-  const nome=f.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_.() -]/g,'_').slice(-160);
-  const caminho='videos/'+nome;
-  const blob=await uploadPresigned(caminho,f,{access:'public',multipart:f.size>100*1024*1024,handleUploadUrl:'/api/upload-video',onUploadProgress({percentage}){$('uploadProgress').value=percentage;}});
-  $('videoUrl').value=blob.url;$('videoStatus').textContent='Vídeo enviado com sucesso! Agora clique em Reproduzir. Se a outra aba estiver aberta, ela atualizará automaticamente.';
- }catch(e){$('videoStatus').textContent='Falha ao enviar: '+e.message;}
- finally{$('videoUpload').disabled=false;}
-});
+// Controle remoto de vídeos e biblioteca: video-console.js
