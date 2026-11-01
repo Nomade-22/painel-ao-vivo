@@ -1,11 +1,14 @@
 import {getCache} from '@vercel/functions';
 
-const initial={cameraId:'',enabled:false,audio:false,command:0};
+const initial={cameraId:'',enabled:false,audio:false,command:0,preset:'balanced',transport:'relay'};
 const valid=id=>typeof id==='string'&&(!id||/^[a-zA-Z0-9_-]{16,64}$/.test(id));
 const normalize=value=>({
  cameraId:valid(value?.cameraId)?value.cameraId:'',
  enabled:!!value?.enabled&&valid(value?.cameraId)&&!!value.cameraId,
  audio:!!value?.audio,
+ preset:['economy','balanced','quality'].includes(value?.preset)?value.preset:'balanced',
+ // Mantém rota relay de transmissões antigas até o celular escolher o modo automático.
+ transport:['auto','relay'].includes(value?.transport)?value.transport:'relay',
  command:Number.isFinite(value?.command)?value.command:0
 });
 export default async function handler(req,res){
@@ -30,8 +33,13 @@ export default async function handler(req,res){
   if(!valid(cameraId))return res.status(400).json({erro:'Identificador da câmera inválido'});
   const enabled=body.enabled===undefined?current.enabled:body.enabled===true;
   if(enabled&&!cameraId)return res.status(400).json({erro:'Gere o link da câmera primeiro'});
+  const preset=body.preset===undefined?current.preset:body.preset;
+  const transport=body.transport===undefined?current.transport:body.transport;
+  if(!['economy','balanced','quality'].includes(preset))return res.status(400).json({erro:'Qualidade inválida'});
+  if(!['auto','relay'].includes(transport))return res.status(400).json({erro:'Tipo de conexão inválido'});
   const data={cameraId,enabled:enabled&&!!cameraId,
     audio:body.audio===undefined?current.audio:body.audio===true,
+    preset,transport,
     command:Math.max(Date.now(),Number(current.command||0)+1)};
   await cache.set('camera',data,{ttl:2592000,name:'Câmera remota independente'});
   return res.status(200).json({ok:true,...data});
