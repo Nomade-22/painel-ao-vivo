@@ -1,6 +1,7 @@
 // Reprodutor OBS da câmera: recebe WebRTC do celular sem modificar video-obs.html.
 const player=document.getElementById('cameraRemoteVideo');
 const status=document.getElementById('cameraViewerStatus');
+if(new URLSearchParams(location.search).get('debug')==='1')document.body.classList.add('debug');
 const config={iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun.cloudflare.com:3478'}]};
 let channel='',session='',peer=null,enabled=false,processing=false,checking=false;
 let audioEnabled=false,lastSuccess=0;
@@ -78,6 +79,13 @@ async function accept(offer){
  if(peer!==pc||session!==negotiated)return;
  await post({action:'answer',session:negotiated,description:pc.localDescription});
  say('Resposta enviada. Aguardando a imagem do celular…');
+ // Diagnóstico no OBS: se o par WebRTC não conectar, orientar sobre outra prévia ou bloqueio de rede.
+ setTimeout(()=>{
+  if(peer!==pc||session!==negotiated)return;
+  if(pc.connectionState!=='connected' || !player.videoWidth){
+   say('Ainda sem imagem. Feche outras abas de prévia da câmera, confirme que o celular está transmitindo e reinicie a fonte OBS. Se persistir, a rede pode bloquear WebRTC (servidor TURN necessário).');
+  }
+ },13000);
 }
 async function checkOffer(){
  if(!enabled||!channel||checking)return;
