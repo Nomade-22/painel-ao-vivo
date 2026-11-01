@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Câmera remota — Prévia</title>
+<style>
+*{box-sizing:border-box}
+html,body{width:100%;min-height:100%;margin:0;background:#080d18;color:#edf3ff;font:14px system-ui,sans-serif}
+body{display:flex;flex-direction:column}
+header{background:#141f33;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;gap:15px}
+a{color:#a4c3ff}
+#stage{position:relative;flex:1;min-height:50vh;background:#0b1220;aspect-ratio:16/9;overflow:hidden}
+#cameraRemoteFrame{position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent}
+#cameraRemoteFrame[hidden]{display:none!important}
+#cameraViewerStatus{padding:14px 18px;background:#141f33;color:#c5d5f5}
+</style>
+</head>
+<body>
+<header><strong>📷 Reprodutor exclusivo de câmera</strong><a href="/console.html">Abrir console</a></header>
+<div id="stage"><iframe id="cameraRemoteFrame" title="Câmera remota" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowtransparency="true" referrerpolicy="no-referrer" hidden></iframe></div>
+<div id="cameraViewerStatus" role="status">Aguardando configuração da câmera…</div>
+<script src="/camera-viewer.js"></script>
+</body></html>
