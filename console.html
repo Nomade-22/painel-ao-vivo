@@ -73,13 +73,13 @@
 <p class="hint">O próximo vídeo é carregado antes da troca. A mesma janela do OBS permanece aberta.</p>
 </section><div class="video-loop-control"><label class="check video-loop-label" for="videoLoop"><input id="videoLoop" type="checkbox" checked> <span><strong>♾️ Loop infinito</strong><small>Quando o vídeo terminar, recomeçar automaticamente e continuar até clicar em Pausar ou Parar.</small></span></label></div><label class="check"><input id="videoMuted" type="checkbox" checked> Sem som (recomendado para iniciar automaticamente)</label><div class="video-actions"><button id="videoPlay" type="button">▶ Reproduzir</button><button class="secondary" id="videoPause" type="button">⏸ Pausar</button><button class="secondary" id="videoStop" type="button">■ Parar e limpar</button></div><p id="videoStatus" role="status"></p></section><section class="card"><h2>Tela de reprodução</h2><p><a href="youtube-console.html" target="_blank" rel="noopener"><strong>▶ Abrir novo painel do YouTube para OBS</strong></a></p><p>Abra uma destas páginas em outro dispositivo ou adicione a versão OBS como fonte Navegador.</p><p><a href="video.html" target="_blank" rel="noopener">Abrir visualização de vídeo ↗</a></p><p><a href="video-obs.html" target="_blank" rel="noopener">Abrir visor para OBS ↗</a></p><p class="hint">Abra a tela de vídeo e deixe-a aberta. Depois volte aqui e clique em Reproduzir. Na tela, agora aparecem mensagens de erro e um botão Iniciar vídeo caso o navegador bloqueie o autoplay. Links comuns do YouTube e TikTok não são MP4 diretos.</p></section></main><main id="painel-camera" class="tiktok-layout" hidden><section class="card"><section class="video-camera-panel" aria-label="Câmera remota do celular">
 <h2>📱 Câmera remota do celular</h2>
-<p class="hint">Transmita a câmera do celular de qualquer lugar pela internet. A câmera terá seu próprio reprodutor no OBS, independente dos vídeos gravados.</p>
+<p class="hint">A câmera de casa chega ao OBS do escritório pela internet através do VDO.Ninja (com retransmissão TURN). Ela continua separada dos vídeos gravados.</p>
 <div class="video-live-info"><strong>Estado da câmera: <span id="cameraLiveStatus">Desligada</span></strong><small id="cameraLinkStatus">Não configurada</small></div>
 <div class="video-camera-setup">
  <button id="cameraGenerate" type="button" class="secondary">🔑 Gerar / renovar link da câmera</button>
  <label for="cameraPublishUrl">Link para abrir a câmera no celular<input id="cameraPublishUrl" type="url" readonly placeholder="Clique em Gerar link da câmera"></label>
  <div class="video-actions"><button id="cameraOpen" type="button">📱 Abrir página de transmissão</button><button id="cameraCopy" type="button" class="secondary">📋 Copiar link</button><button id="cameraWhatsapp" type="button" class="secondary">💬 Enviar por WhatsApp</button></div>
- <p class="hint">A câmera não abre dentro deste console. Abra a página de transmissão no celular, toque em “Ligar câmera” e permita o acesso. A imagem aparecerá somente na página do celular e na fonte de câmera do OBS.</p>
+ <p class="hint">No celular, abra o link, toque em <strong>Ligar câmera e conectar</strong> e permita o acesso. Dentro do VDO.Ninja, toque em <strong>Start/Iniciar</strong>. O OBS receberá somente a imagem, sem este painel.</p>
 </div>
 <label class="check video-camera-audio"><input type="checkbox" id="cameraAudio"> Incluir áudio do celular (deixe desligado se já utiliza o microfone remoto)</label>
 
@@ -88,7 +88,7 @@
  <button id="cameraDisable" type="button" class="secondary">■ Desligar fonte no OBS</button>
 </div>
 <p id="cameraStatus" role="status" aria-live="polite"></p>
-<p class="hint">A câmera utiliza WebRTC. A captura e a prévia estão disponíveis exclusivamente na página de transmissão do celular; este console não solicita acesso à câmera. ATENÇÃO: o console ainda não tem login; qualquer pessoa com acesso ao painel pode visualizar o canal da câmera. Não compartilhe links de envio. Algumas redes móveis podem bloquear ligações WebRTC sem um servidor TURN.</p>
+<p class="hint">A câmera é transmitida via WebRTC com retransmissão TURN do serviço VDO.Ninja. O console apenas controla; a câmera é autorizada na página de envio do celular. ATENÇÃO: não há login no console; mantenha os links de envio restritos. O uso do serviço externo requer conexão com a internet em ambos os aparelhos.</p>
 </section>
 </section>
 <section class="card">
@@ -99,8 +99,8 @@
 <button id="cameraObsCopy" type="button">📋 Copiar endereço da câmera para OBS</button>
 <span class="hint">Prévia remota desativada para evitar duas páginas tentando receber a mesma transmissão.</span>
 </div>
-<p class="hint">Coloque a fonte da câmera acima da fonte de vídeos no OBS. Quando estiver desligada, a fonte fica transparente. Use somente camera-obs.html como receptor e evite abrir camera.html em outra aba enquanto transmite. Para diagnosticar falhas, use temporariamente camera-obs.html?debug=1 no OBS, depois remova ?debug=1.</p>
-<p class="hint">A fonte recebe WebRTC do navegador do celular e não altera os vídeos gravados. A prévia local no celular não consome uma segunda conexão WebRTC; já a antiga prévia remota no computador consumia.</p>
+<p class="hint">Coloque esta fonte acima da fonte de vídeos no OBS. O endereço continua o mesmo e mostra apenas a câmera. Se estiver invisível, clique em Atualizar na fonte do OBS, confirme que o celular está enviando pelo VDO.Ninja e, para diagnóstico, teste temporariamente camera-obs.html?debug=1.</p>
+<p class="hint">A saída da câmera usa um reprodutor independente dos vídeos gravados. Feche outras páginas de visualização da câmera para evitar conexões duplicadas.</p>
 </section></main><main id="painel-microfone" class="tiktok-layout" hidden>
 <section class="card">
 <h1>🎤 Microfone remoto</h1>
