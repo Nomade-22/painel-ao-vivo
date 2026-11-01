@@ -8,14 +8,25 @@ function say(message){
  if(status)status.textContent=message;
  console.info('[Camera internet]',message);
 }
-function viewUrl(id,audio){
- const query=new URLSearchParams({view:id});
- return 'https://vdo.ninja/?'+query.toString()+'&cleanoutput&transparent&relay'+(audio?'':'&noaudio');
+const profiles={
+ economy:{bitrate:550,buffer:170},
+ balanced:{bitrate:1000,buffer:180},
+ quality:{bitrate:1800,buffer:200}
+};
+function viewUrl(id,audio,preset,transport){
+ const p=profiles[preset]||profiles.balanced;
+ const query=new URLSearchParams({
+  view:id,videobitrate:String(p.bitrate),buffer:String(p.buffer)
+ });
+ return 'https://vdo.ninja/?'+query.toString()+'&cleanoutput&transparent'
+  +(transport==='relay'?'&relay':'')+(audio?'':'&noaudio');
 }
 function display(data){
  const id=typeof data.cameraId==='string' && /^[A-Za-z0-9_-]{16,64}$/.test(data.cameraId)?data.cameraId:'';
  const enabled=!!data.enabled&&!!id;
- const key=enabled?(id+'-'+Boolean(data.audio)):'disabled';
+ const preset=profiles[data.preset]?data.preset:'balanced';
+ const transport=data.transport==='auto'?'auto':'relay';
+ const key=enabled?(id+'-'+Boolean(data.audio)+'-'+preset+'-'+transport):'disabled';
  if(key===lastKey)return;
  lastKey=key;
  if(!enabled){
@@ -26,11 +37,11 @@ function display(data){
  }
  frame.hidden=false;
  // Reprodutor remoto transparente. O site hospedeiro não precisa de permissões de câmera.
- frame.src=viewUrl(id,!!data.audio);
- say('Aguardando conexão do celular de casa pela Internet (VDO.Ninja TURN)…');
+ frame.src=viewUrl(id,!!data.audio,preset,transport);
+ say('Aguardando celular pela internet ('+(transport==='auto'?'conexão automática':'servidor TURN')+', qualidade '+preset+')…');
 }
 frame.addEventListener('load',()=>{
- if(!frame.hidden)say('VDO.Ninja carregado. Verifique se você tocou em Start/Iniciar no celular; se não houver vídeo, a rede pode ter bloqueado o relay.');
+ if(!frame.hidden)say('Reprodutor de câmera carregado. Confirme Start/Iniciar no VDO.Ninja do celular. Se não houver vídeo, tente o modo Compatível no envio.');
 });
 window.addEventListener('message',(event)=>{
  if(event.origin!=='https://vdo.ninja' && event.origin!=='https://www.vdo.ninja')return;
