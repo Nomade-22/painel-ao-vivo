@@ -4,7 +4,7 @@ const state={cameraId:'',enabled:false,audio:false};
 let requests=Promise.resolve();
 const status=message=>{$('cameraStatus').textContent=message;};
 const validId=id=>typeof id==='string'&&/^[a-zA-Z0-9_-]{16,64}$/.test(id);
-const senderUrl=()=>validId(state.cameraId)?'https://vdo.ninja/?push='+encodeURIComponent(state.cameraId)+'&webcam':'';
+const senderUrl=()=>validId(state.cameraId)?new URL('/camera-enviar.html?channel='+encodeURIComponent(state.cameraId),location.origin).href:'';
 const obsUrl=new URL('/camera-obs.html',window.location.origin).href;
 $('cameraObsUrl').value=obsUrl;
 function showState(data){
@@ -19,6 +19,7 @@ function showState(data){
  $('cameraDisable').disabled=!state.enabled;
  $('cameraCopy').disabled=!state.cameraId;
  $('cameraWhatsapp').disabled=!state.cameraId;
+ $('cameraOpen').disabled=!state.cameraId;
 }
 async function load(){
  try{
@@ -49,7 +50,7 @@ function makeId(){
 $('cameraGenerate').onclick=async()=>{
  try{
   const cameraId=makeId();
-  await send({cameraId,enabled:false,audio:state.audio},'Novo link gerado. Abra no celular para enviar a câmera. O link anterior deixa de funcionar neste reprodutor.');
+  await send({cameraId,enabled:false,audio:state.audio},'Novo link criado. Abra no celular, toque em Ligar câmera e autorize o navegador.');
  }catch(e){status(e.message);}
 };
 async function copyText(text,field,msg){
@@ -67,16 +68,22 @@ $('cameraCopy').onclick=()=>{
 $('cameraObsCopy').onclick=()=>{
  copyText(obsUrl,$('cameraObsUrl'),'Endereço do reprodutor exclusivo da câmera copiado!');
 };
+$('cameraOpen').onclick=()=>{
+ const url=senderUrl();
+ if(!url){status('Gere o link da câmera primeiro.');return;}
+ const page=window.open(url,'_blank','noopener,noreferrer');
+ if(!page)status('Se a página não abrir, copie o link e cole no navegador do celular.');
+};
 $('cameraWhatsapp').onclick=()=>{
  const url=senderUrl();
  if(!url){status('Gere um link primeiro.');return;}
- const body='Link para enviar minha câmera à LIVE:\n'+url+'\n\nAbra pelo celular, autorize a câmera e inicie o envio no VDO.Ninja.';
+ const body='Abrir minha câmera para a LIVE:\n'+url+'\n\nAbra no celular e toque em Ligar câmera para solicitar permissão.';
  window.open('https://wa.me/?text='+encodeURIComponent(body),'_blank','noopener,noreferrer');
 };
 $('cameraEnable').onclick=()=>{
  if(!validId(state.cameraId)){status('Gere um link da câmera primeiro.');return;}
  send({enabled:true,audio:$('cameraAudio').checked},
-  'Fonte da câmera habilitada. Inicie a transmissão no celular; o OBS deve mostrar a imagem na fonte Câmera.');
+  'Fonte do OBS preparada. Para liberar a câmera, abra o link no celular e toque em Ligar câmera.');
 };
 $('cameraDisable').onclick=()=>{
  send({enabled:false},'Câmera desligada no reprodutor exclusivo. Os vídeos seguem sem alteração.');
@@ -86,3 +93,5 @@ $('cameraAudio').onchange=()=>{
 };
 showState(state);
 load();
+
+setInterval(()=>{if(!document.hidden)load();},6000);
