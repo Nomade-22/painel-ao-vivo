@@ -237,8 +237,62 @@ async function finishSwap(old,next,s){
  show(s.playing?'Vídeo em reprodução':'Vídeo pausado');
  details('Arquivo: '+s.url.slice(0,160));
 }
+
+// A câmera do celular é recebida por um iframe VDO.Ninja SOBRE os vídeos atuais.
+// O endereço da fonte Navegador do OBS nunca é modificado.
+const cameraFrame=document.createElement('iframe');
+cameraFrame.id='cameraRemoteFrame';
+cameraFrame.title='Câmera remota VDO.Ninja';
+cameraFrame.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';
+cameraFrame.referrerPolicy='no-referrer';
+cameraFrame.setAttribute('allowtransparency','true');
+Object.assign(cameraFrame.style,{
+ position:'absolute',inset:'0',width:'100%',height:'100%',
+ border:'0',background:'transparent',display:'none',opacity:'0',
+ transition:'opacity 650ms ease',pointerEvents:'none',zIndex:'30'
+});
+document.getElementById('videoStage').appendChild(cameraFrame);
+let cameraShown=false;
+const cameraValidId=id=>typeof id==='string'&&/^[a-zA-Z0-9_-]{16,64}$/.test(id);
+async function activateCamera(s){
+ if(!cameraValidId(s.cameraId)){
+  show('Câmera não configurada. Gere o link no console.',true);
+  return;
+ }
+ const params=new URLSearchParams({view:s.cameraId});
+ // &noaudio impede eco com o microfone remoto já usado na outra aba.
+ const query='https://vdo.ninja/?'+params.toString()+'&cleanoutput&transparent&obsoff'+(s.cameraAudio?'':'&noaudio');
+ if(cameraFrame.dataset.streamUrl!==query){
+  cameraFrame.dataset.streamUrl=query;
+  cameraFrame.style.opacity='0';
+  cameraFrame.src=query;
+ }
+ cameraFrame.style.display='block';
+ cameraFrame.style.transition='opacity 650ms ease';
+ await nextFrame();
+ cameraFrame.style.opacity='1';
+ cameraShown=true;
+ show('Câmera remota selecionada. Inicie o envio no celular.');
+ details('Fonte: câmera remota VDO.Ninja');
+}
+async function hideCamera(s){
+ if(!cameraShown && cameraFrame.style.display==='none')return;
+ const ms=s?.transition==='cut'?0:Math.min(1200,Math.max(300,Number(s?.duration)||850));
+ cameraFrame.style.transition=ms?'opacity '+ms+'ms ease':'none';
+ cameraFrame.style.opacity='0';
+ if(ms)await sleep(ms+60);
+ cameraFrame.style.display='none';
+ cameraFrame.removeAttribute('src');
+ delete cameraFrame.dataset.streamUrl;
+ cameraShown=false;
+}
+
 async function apply(s){
  manualPending=null;
+ if(s.mode==='camera'){
+  await activateCamera(s);
+  return;
+ }
  const url=typeof s.url==='string'?s.url:'';
  if(!url){
   for(const v of [main,backup]){
@@ -247,6 +301,7 @@ async function apply(s){
    v.style.zIndex=v===active?'2':'0';
   }
   mask.style.opacity='0';
+  await hideCamera(s);
   button(false);show('Aguardando vídeo do console…');details('');
   return;
  }
@@ -260,6 +315,7 @@ async function apply(s){
  if(active.getAttribute('src')===url){
   if(s.playing && active.paused)await startVideo(active,active,s);
   if(!s.playing)active.pause();
+  await hideCamera(s);
   show(s.playing?'Vídeo em reprodução':'Vídeo pausado');
   details('Arquivo: '+url.slice(0,160));
   return;
@@ -284,6 +340,7 @@ async function apply(s){
    return;
   }
   await finishSwap(old,next,s);
+  await hideCamera(s);
  }catch(e){
   if(next!==old){
    next.pause();next.removeAttribute('src');next.load();
