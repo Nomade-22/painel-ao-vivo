@@ -5,13 +5,13 @@
 <title>Câmera remota — Fonte OBS</title>
 <style>
 html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent!important}
-#cameraRemoteFrame{position:absolute;inset:0;border:0;width:100%;height:100%;background:transparent}
-#cameraRemoteFrame[hidden]{display:none!important}
+#cameraRemoteVideo{position:absolute;inset:0;border:0;width:100%;height:100%;background:transparent}
+#cameraRemoteVideo{object-fit:contain}
 #cameraViewerStatus{display:none}
 </style>
 </head>
 <body>
-<iframe id="cameraRemoteFrame" title="Câmera remota" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowtransparency="true" referrerpolicy="no-referrer" hidden></iframe>
+<video id="cameraRemoteVideo" autoplay muted playsinline style="visibility:hidden"></video>
 <div id="cameraViewerStatus" role="status">Aguardando câmera do console…</div>
 <script src="/camera-viewer.js"></script>
 </body></html>
