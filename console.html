@@ -77,17 +77,28 @@
 <div class="video-live-info"><strong>Estado da câmera: <span id="cameraLiveStatus">Desligada</span></strong><small id="cameraLinkStatus">Não configurada</small></div>
 <div class="video-camera-setup">
  <button id="cameraGenerate" type="button" class="secondary">🔑 Gerar / renovar link da câmera</button>
- <label for="cameraPublishUrl">Link não listado para abrir no celular<input id="cameraPublishUrl" type="url" readonly placeholder="Clique em Gerar link da câmera"></label>
- <div class="video-actions"><button id="cameraCopy" type="button" class="secondary">📋 Copiar link</button><button id="cameraWhatsapp" type="button" class="secondary">💬 Enviar por WhatsApp</button></div>
- <p class="hint">No celular: abra o link, permita acesso à câmera e toque em iniciar transmissão no VDO.Ninja. Mantenha a página do celular aberta.</p>
+ <label for="cameraPublishUrl">Link para abrir a câmera no celular<input id="cameraPublishUrl" type="url" readonly placeholder="Clique em Gerar link da câmera"></label>
+ <div class="video-actions"><button id="cameraOpen" type="button">📱 Abrir câmera neste aparelho</button><button id="cameraCopy" type="button" class="secondary">📋 Copiar link</button><button id="cameraWhatsapp" type="button" class="secondary">💬 Enviar por WhatsApp</button></div>
+ <p class="hint">No celular: abra o link, toque em “Ligar câmera” e autorize o navegador. A imagem aparecerá primeiro na prévia do celular e depois no OBS. Mantenha a página aberta e a tela ligada.</p>
 </div>
 <label class="check video-camera-audio"><input type="checkbox" id="cameraAudio"> Incluir áudio do celular (deixe desligado se já utiliza o microfone remoto)</label>
+<section class="camera-local-panel" aria-label="Transmissão a partir deste aparelho">
+<h3>📷 Câmera deste aparelho</h3>
+<p class="hint">Quando estiver no celular, toque abaixo para solicitar permissão e transmitir diretamente para o OBS do escritório.</p>
+<video id="cameraPreview" autoplay muted playsinline></video>
 <div class="video-actions">
- <button id="cameraEnable" type="button">📹 Ativar câmera no reprodutor</button>
- <button id="cameraDisable" type="button" class="secondary">■ Desligar câmera</button>
+<button id="cameraStartLocal" type="button">📷 Ligar câmera deste aparelho</button>
+<button id="cameraFlip" type="button" class="secondary" disabled>🔄 Virar câmera</button>
+<button id="cameraStopLocal" type="button" class="secondary" disabled>■ Parar transmissão</button>
+</div>
+<p id="cameraSenderStatus" role="status" aria-live="polite">Toque em Ligar câmera para solicitar a permissão.</p>
+</section>
+<div class="video-actions">
+ <button id="cameraEnable" type="button" class="secondary">🖥️ Preparar fonte no OBS</button>
+ <button id="cameraDisable" type="button" class="secondary">■ Desligar fonte no OBS</button>
 </div>
 <p id="cameraStatus" role="status" aria-live="polite"></p>
-<p class="hint">Integração pelo serviço externo VDO.Ninja. ATENÇÃO: este console ainda não tem login; pessoas que acessarem o painel podem visualizar o link da câmera. Compartilhe o acesso somente com pessoas confiáveis. A câmera do celular só liga após você autorizar as permissões no próprio aparelho. O reprodutor de vídeos permanece independente.</p>
+<p class="hint">A câmera utiliza WebRTC e só solicita permissão ao tocar em Ligar câmera neste aparelho. ATENÇÃO: este console ainda não tem login; qualquer pessoa com acesso ao painel pode visualizar o canal da câmera. Não compartilhe links de envio. Algumas redes móveis podem bloquear ligações diretas WebRTC sem um servidor TURN.</p>
 </section>
 </section>
 <section class="card">
@@ -99,7 +110,7 @@
 <a class="camera-player-link" href="/camera.html" target="_blank" rel="noopener">▶ Abrir prévia da câmera</a>
 </div>
 <p class="hint">Coloque a fonte da câmera acima da fonte de vídeos no OBS. Quando estiver desligada, a página da câmera fica transparente. Se desejar mantê-la fora do ar, oculte a fonte no OBS.</p>
-<p class="hint">A fonte usa VDO.Ninja para receber o vídeo remoto. Ela não altera o reprodutor de vídeos, as transições ou a biblioteca.</p>
+<p class="hint">A fonte recebe WebRTC do navegador do celular e não altera o reprodutor de vídeos, as transições nem a biblioteca.</p>
 </section></main><main id="painel-microfone" class="tiktok-layout" hidden>
 <section class="card">
 <h1>🎤 Microfone remoto</h1>
@@ -126,4 +137,4 @@
 </ol>
 <p class="hint">Não compartilhe esse endereço: ele funciona como chave privada para o seu áudio. A conexão é experimental e algumas redes móveis podem bloquear o WebRTC.</p>
 </section>
-</main><script type="module" src="console.js"></script><script type="module" src="video-console.js"></script><script type="module" src="camera-console.js"></script><script type="module" src="microfone-console.js"></script></body></html>
+</main><script type="module" src="console.js"></script><script type="module" src="video-console.js"></script><script type="module" src="camera-console.js"></script><script src="camera-sender.js" defer></script><script type="module" src="microfone-console.js"></script></body></html>
