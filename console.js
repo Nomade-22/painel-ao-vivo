@@ -237,7 +237,7 @@ atualizarPerfil();
 $('perfilTikTok').addEventListener('change',()=>{$('perfilMensagem').textContent='Escolha alterada. Clique em Salvar preferência.';atualizarPerfil();});
 $('salvarPerfil').addEventListener('click',()=>{localStorage.setItem('painel-perfil-tiktok',$('perfilTikTok').value);$('perfilMensagem').textContent='Preferência salva neste navegador. A conexão com o TikTok ainda não está ativa.';});
 document.querySelectorAll('.tab').forEach(botao=>botao.addEventListener('click',()=>{
- for(const aba of ['editor','perfis','tiktok','videos','microfone'])$('painel-'+aba).hidden=botao.dataset.tab!==aba;
+ for(const aba of ['editor','perfis','tiktok','videos','camera','microfone'])$('painel-'+aba).hidden=botao.dataset.tab!==aba;
  document.querySelectorAll('.tab').forEach(t=>{const ativo=t===botao;t.classList.toggle('active',ativo);t.setAttribute('aria-selected',String(ativo));});
 }));
 
