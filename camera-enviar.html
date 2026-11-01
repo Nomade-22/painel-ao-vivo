@@ -10,6 +10,9 @@ main{max-width:760px;margin:0 auto;padding:14px}h1{font-size:22px;margin:0 0 7px
 .controls{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}
 button{cursor:pointer;color:#fff;background:#476ae6;border:0;border-radius:10px;padding:12px;font-size:14px;font-weight:700;flex:1 1 160px}
 button.secondary{background:#334765}button:disabled{opacity:.45;cursor:not-allowed}
+select{display:block;width:100%;margin:5px 0 13px;padding:12px;border:1px solid #3d5271;border-radius:10px;background:#1b2b45;color:#fff;font:14px system-ui}
+.stream-settings{padding:12px 12px 2px;border:1px solid #334965;border-radius:12px;background:#111f34;margin-top:12px}
+.stream-settings label{display:block;font-weight:650;font-size:13px}
 #internetStatus{padding:12px;background:#1a2e4c;border-radius:10px;margin:12px 0;font-size:14px;min-height:50px}
 #internetPublisher{width:100%;height:min(75vh,720px);border:1px solid #3b5273;border-radius:12px;background:#091221;display:block}
 #internetPublisher[hidden]{display:none!important}a{color:#acc8ff}
@@ -17,7 +20,21 @@ button.secondary{background:#334765}button:disabled{opacity:.45;cursor:not-allow
 </head>
 <body><main>
 <h1>📷 Câmera da LIVE — pela internet</h1>
-<p class="hint">Envie a imagem deste celular de casa para o OBS no escritório. A conexão usa VDO.Ninja com retransmissão pela internet para redes que bloqueiam conexões diretas.</p>
+<p class="hint">Envie a imagem deste celular de casa para o OBS no escritório. A conexão usa VDO.Ninja e tenta o caminho mais rápido até o escritório, com retransmissão se a rede exigir.</p>
+<section class="stream-settings" aria-label="Qualidade e rota da transmissão">
+<label for="videoPreset">Qualidade do envio
+<select id="videoPreset">
+<option value="economy">Leve — 360p, 18 FPS, ~550 kbps</option>
+<option value="balanced" selected>Equilibrado — 540p, 24 FPS, ~1 Mbps (recomendado)</option>
+<option value="quality">Mais qualidade — 720p, 24 FPS, ~1,8 Mbps</option>
+</select></label>
+<label for="connectionMode">Conexão entre casa e escritório
+<select id="connectionMode">
+<option value="auto" selected>Automática — tenta ligação rápida, usa servidor se precisar</option>
+<option value="relay">Compatível — força servidor intermediário (pode atrasar)</option>
+</select></label>
+<p class="hint">Para aplicar outra qualidade ou conexão durante uma live, desligue e ligue novamente. Se a opção Automática ficar sem imagem, tente Compatível.</p>
+</section>
 <div class="controls">
 <button id="startInternet" type="button">📷 Ligar câmera e conectar</button>
 <button id="stopInternet" class="secondary" type="button" disabled>■ Desligar transmissão</button>
