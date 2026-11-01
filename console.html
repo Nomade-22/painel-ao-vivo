@@ -78,27 +78,17 @@
 <div class="video-camera-setup">
  <button id="cameraGenerate" type="button" class="secondary">🔑 Gerar / renovar link da câmera</button>
  <label for="cameraPublishUrl">Link para abrir a câmera no celular<input id="cameraPublishUrl" type="url" readonly placeholder="Clique em Gerar link da câmera"></label>
- <div class="video-actions"><button id="cameraOpen" type="button">📱 Abrir câmera neste aparelho</button><button id="cameraCopy" type="button" class="secondary">📋 Copiar link</button><button id="cameraWhatsapp" type="button" class="secondary">💬 Enviar por WhatsApp</button></div>
- <p class="hint">No celular: abra o link, toque em “Ligar câmera” e autorize o navegador. A imagem aparecerá primeiro na prévia do celular e depois no OBS. Mantenha a página aberta e a tela ligada.</p>
+ <div class="video-actions"><button id="cameraOpen" type="button">📱 Abrir página de transmissão</button><button id="cameraCopy" type="button" class="secondary">📋 Copiar link</button><button id="cameraWhatsapp" type="button" class="secondary">💬 Enviar por WhatsApp</button></div>
+ <p class="hint">A câmera não abre dentro deste console. Abra a página de transmissão no celular, toque em “Ligar câmera” e permita o acesso. A imagem aparecerá somente na página do celular e na fonte de câmera do OBS.</p>
 </div>
 <label class="check video-camera-audio"><input type="checkbox" id="cameraAudio"> Incluir áudio do celular (deixe desligado se já utiliza o microfone remoto)</label>
-<section class="camera-local-panel" aria-label="Transmissão a partir deste aparelho">
-<h3>📷 Prévia local da câmera deste aparelho</h3>
-<p class="hint">Esta prévia é apenas a imagem capturada neste aparelho; ela não cria outro receptor e não interfere no OBS. Para transmitir, toque em Ligar câmera.</p>
-<video id="cameraPreview" autoplay muted playsinline></video>
-<div class="video-actions">
-<button id="cameraStartLocal" type="button">📷 Ligar câmera deste aparelho</button>
-<button id="cameraFlip" type="button" class="secondary" disabled>🔄 Virar câmera</button>
-<button id="cameraStopLocal" type="button" class="secondary" disabled>■ Parar transmissão</button>
-</div>
-<p id="cameraSenderStatus" role="status" aria-live="polite">Toque em Ligar câmera para solicitar a permissão.</p>
-</section>
+
 <div class="video-actions">
  <button id="cameraEnable" type="button" class="secondary">🖥️ Preparar fonte no OBS</button>
  <button id="cameraDisable" type="button" class="secondary">■ Desligar fonte no OBS</button>
 </div>
 <p id="cameraStatus" role="status" aria-live="polite"></p>
-<p class="hint">A câmera utiliza WebRTC e só solicita permissão ao tocar em Ligar câmera neste aparelho. ATENÇÃO: este console ainda não tem login; qualquer pessoa com acesso ao painel pode visualizar o canal da câmera. Não compartilhe links de envio. Algumas redes móveis podem bloquear ligações diretas WebRTC sem um servidor TURN.</p>
+<p class="hint">A câmera utiliza WebRTC. A captura e a prévia estão disponíveis exclusivamente na página de transmissão do celular; este console não solicita acesso à câmera. ATENÇÃO: o console ainda não tem login; qualquer pessoa com acesso ao painel pode visualizar o canal da câmera. Não compartilhe links de envio. Algumas redes móveis podem bloquear ligações WebRTC sem um servidor TURN.</p>
 </section>
 </section>
 <section class="card">
@@ -137,4 +127,4 @@
 </ol>
 <p class="hint">Não compartilhe esse endereço: ele funciona como chave privada para o seu áudio. A conexão é experimental e algumas redes móveis podem bloquear o WebRTC.</p>
 </section>
-</main><script type="module" src="console.js"></script><script type="module" src="video-console.js"></script><script type="module" src="camera-console.js"></script><script src="camera-sender.js" defer></script><script type="module" src="microfone-console.js"></script></body></html>
+</main><script type="module" src="console.js"></script><script type="module" src="video-console.js"></script><script type="module" src="camera-console.js"></script><script type="module" src="microfone-console.js"></script></body></html>
