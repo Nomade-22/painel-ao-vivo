@@ -8,7 +8,7 @@ const detail=document.getElementById('detalhe');
 const manual=document.getElementById('reproduzirManual');
 const onScreen=Boolean(manual);
 const videoEndpoint='/api/video'; // As duas listas compartilham a mesma saída e o mesmo estado.
-let playbackState=null,autoAdvancing=false;
+let playbackState=null,autoAdvancing=false,advanceGuard=null,advanceStartedAt=0;
 
 let active=main;
 let revision=null,queued=null,processing=false,polling=false,manualPending=null;
@@ -29,23 +29,56 @@ function explainError(v){
 }
 const standby=()=>active===main?backup:main;
 function setVideo(v,s){
- // IMPORTANTE: o loop nativo impede "ended" e o avanço da lista.
- // Mesmo uma lista de um único vídeo precisa encerrar para o servidor aplicar o loop da fila.
+ // Playlist avança pela aplicação, nunca pelo loop nativo do navegador/OBS.
  v.loop=s.mode==='playlist'?false:s.loop!==false;
  v.muted=s.muted!==false;
 }
+function playlistItems(s){
+ const group=s?.playlistChannel==='youtube'?'youtube':'tiktok';
+ return Array.isArray(s?.library)?s.library.filter(item=>(item.channel||'tiktok')===group):[];
+}
+function playlistNext(s){
+ const items=playlistItems(s);
+ if(!items.length)return null;
+ const at=items.findIndex(item=>item.url===s.url);
+ if(at<0)return items[0];
+ if(at+1<items.length)return items[at+1];
+ return s.playlistLoop!==false?items[0]:null;
+}
+// Prepara o próximo arquivo na janela de reserva, sem iniciar sua reprodução.
+// A troca continua passando pelo mesmo canvas de transição já existente.
+function preloadNext(s){
+ if(!s || s.mode!=='playlist' || !s.playing || !active.getAttribute('src'))return;
+ const entry=playlistNext(s);
+ if(!entry || entry.url===s.url)return;
+ const pane=standby();
+ if(pane===active || pane.getAttribute('src')===entry.url)return;
+ pane.pause();
+ pane.loop=false;
+ pane.muted=s.muted!==false;
+ pane.controls=false;
+ pane.preload='auto';
+ pane.style.opacity='0.001';
+ pane.style.zIndex='0';
+ pane.style.pointerEvents='none';
+ pane.src=entry.url;
+ pane.load();
+}
 function tryAdvance(v,ended=false){
- if(v!==active || v.loop || autoAdvancing || queued || processing)return;
+ if(v!==active || v.loop || autoAdvancing)return;
  const s=playbackState;
- if(!s || s.mode!=='playlist' || !s.playing || v.paused&& !ended&& !v.ended)return;
+ if(!s || s.mode!=='playlist' || !s.playing)return;
  if(v.getAttribute('src')!==s.url || !v.getAttribute('src'))return;
+ if(v.seeking && !ended)return;
  const duration=v.duration;
- // Quando o motor do OBS falha em emitir "ended", timeupdate e a checagem
- // periódica também podem trocar para o próximo. Uma pequena antecipação
- // reduz a pausa entre vídeos sem iniciar trocas durante seeks/manutenção.
- const nearEnd=Number.isFinite(duration)&&duration>=1&&!v.seeking&&
-  v.currentTime>=Math.max(0,duration-.35);
+ const nearEnd=Number.isFinite(duration)&&duration>0
+  && v.currentTime>=Math.max(0,duration-.25);
+ // Não depender só de "ended": OBS pode perder o evento final, então conferimos
+ // timeupdate, pause, seeking e um relógio periódico como alternativas.
  if(!ended && !v.ended && !nearEnd)return;
+ const key=String(s.command)+'|'+s.url;
+ if(advanceGuard===key && Date.now()-advanceStartedAt<12000)return;
+ if(processing && !v.ended && !ended)return;
  advancePlaylist().catch(e=>show('Erro ao passar ao próximo vídeo: '+e.message,true));
 }
 for(const v of [main,backup]){
@@ -65,6 +98,7 @@ for(const v of [main,backup]){
   else if(v===active)show('Vídeo concluído');
  });
  v.addEventListener('timeupdate',()=>tryAdvance(v));
+ v.addEventListener('pause',()=>tryAdvance(v));
 }
 
 // loadeddata pode ocorrer antes de haver um quadro realmente desenhado na tela do OBS.
@@ -211,6 +245,7 @@ async function finishSwap(old,next,s){
   active.style.pointerEvents=onScreen?'auto':'none';
   details('Arquivo: '+s.url.slice(0,160));
   show(s.playing?'Vídeo em reprodução':'Vídeo pausado');
+  preloadNext(s);
   return;
  }
  const ms=Math.max(300,Math.min(2500,Number(s.duration)||850));
@@ -258,6 +293,7 @@ async function finishSwap(old,next,s){
  button(false);
  show(s.playing?'Vídeo em reprodução':'Vídeo pausado');
  details('Arquivo: '+s.url.slice(0,160));
+ preloadNext(s);
 }
 async function apply(s){
  playbackState=s;
@@ -290,15 +326,19 @@ async function apply(s){
   if(!s.playing)active.pause();
   show(s.playing?'Vídeo em reprodução':'Vídeo pausado');
   details('Arquivo: '+url.slice(0,160));
+  preloadNext(s);
   return;
  }
  const old=active;
  const next=old.getAttribute('src')?standby():old;
  next.pause();
  if(next!==old)prepareNewPane(next);
- next.src=url;
- next.preload='auto';
- next.load();
+ // Se o próximo arquivo já foi pré-carregado, não descartar seu buffer.
+ if(next.getAttribute('src')!==url){
+  next.src=url;
+  next.preload='auto';
+  next.load();
+ }
  show(next===old?'Iniciando vídeo…':'Preparando próximo vídeo; o anterior permanece no ar…');
  try{
   await waitReady(next);
@@ -348,18 +388,49 @@ if(manual)manual.onclick=async()=>{
 };
 // O avanço é escrito no servidor; assim console, OBS e prévias seguem na mesma posição.
 async function advancePlaylist(){
- if(autoAdvancing||!playbackState)return;
+ if(autoAdvancing || !playbackState || playbackState.mode!=='playlist' || !playbackState.playing)return;
  autoAdvancing=true;
  const current=playbackState;
- try{
-  const r=await fetch(videoEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({action:'ended',command:current.command,url:current.url})});
-  const data=await r.json().catch(()=>({}));
-  if(!r.ok)throw Error(data.erro||'HTTP '+r.status);
-  if(!data.ignored&&data.command!==revision){
-   revision=data.command;schedule(data);
+ const key=String(current.command)+'|'+current.url;
+ advanceGuard=key;
+ advanceStartedAt=Date.now();
+ const entry=playlistNext(current);
+ // Troca local IMEDIATA sem depender da latência da API do servidor.
+ // Enquanto o servidor confirma, ignoramos temporariamente um GET antigo.
+ const optimistic={...current,url:entry?.url||current.url,playing:!!entry,
+  command:Math.max(Date.now(),Number(current.command||0)+1)};
+ revision=optimistic.command;
+ playbackState=optimistic;
+ schedule(optimistic);
+ let synced=false;
+ for(let attempt=0;attempt<3&&!synced;attempt++){
+  try{
+   const response=await fetch(videoEndpoint,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'ended',command:current.command,url:current.url})
+   });
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw Error(data.erro||'HTTP '+response.status);
+   if(data.command!==undefined){
+    revision=data.command;
+    // Outro controle pode ter mudado a lista enquanto a transição começava.
+    if(data.ignored && (data.url!==optimistic.url || !data.playing!==!optimistic.playing)){
+     playbackState=data;schedule(data);
+    }else{
+     playbackState={...data};
+    }
+    synced=true;
+   }
+  }catch(err){
+   show('Sincronização da playlist: tentativa '+(attempt+1)+' — '+err.message,true);
+   if(attempt<2)await sleep(900*(attempt+1));
   }
- }finally{autoAdvancing=false;}
+ }
+ if(!synced){
+  // A reprodução continua localmente até a conexão voltar.
+  show('Próximo vídeo iniciado; aguardando sincronização com o servidor.',true);
+ }
+ autoAdvancing=false;
 }
 async function poll(){
  if(polling)return;
@@ -368,10 +439,13 @@ async function poll(){
   const r=await fetch(videoEndpoint,{cache:'no-store'});
   if(!r.ok)throw Error('HTTP '+r.status);
   const s=await r.json();
+  // Não reverter a imagem ao vídeo terminado enquanto o avanço local
+  // aguarda resposta da função serverless.
+  if(autoAdvancing && s.command===Number(advanceGuard?.split('|')[0]))return;
   if(s.command!==revision){revision=s.command;schedule(s);}
  }catch(e){show('Falha de sincronização: '+e.message,true);}
  finally{polling=false;}
 }
 poll();
 setInterval(poll,1050);
-setInterval(()=>tryAdvance(active),850);
+setInterval(()=>tryAdvance(active),450);
