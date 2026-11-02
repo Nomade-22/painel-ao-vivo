@@ -1,248 +1,242 @@
-// Controle do TikTok e YouTube com biblioteca compartilhada e filas independentes.
-// O reprodutor original /video-obs.html continua sendo o TikTok.
+// Duas listas para organizar vídeos; UMA ÚNICA saída compartilhada em /video-obs.html.
 const $=id=>document.getElementById(id);
-const initial={url:'',playing:false,loop:true,muted:true,library:[],transition:'fade',duration:850,mode:'single',playlistLoop:true};
+const initial={url:'',playing:false,loop:true,muted:true,library:[],transition:'fade',
+ duration:850,mode:'single',playlistChannel:'tiktok',playlistLoop:true,
+ playlistLoops:{tiktok:true,youtube:true},command:0};
 const channels=['tiktok','youtube'];
 const names={tiktok:'TikTok',youtube:'YouTube'};
-const states={tiktok:{...initial},youtube:{...initial}};
-const requests={tiktok:Promise.resolve(),youtube:Promise.resolve()};
-let library=[],selected=localStorage.getItem('painel-video-canal-v1')==='youtube'?'youtube':'tiktok',loading=false;
-const endpoint=channel=>'/api/video'+(channel==='youtube'?'?channel=youtube':'');
-const status=msg=>{$('videoStatus').textContent=msg;};
+let state={...initial},library=[],selected='tiktok',loading=false,requests=Promise.resolve();
+try{selected=localStorage.getItem('painel-video-canal-v1')==='youtube'?'youtube':'tiktok';}catch{}
+const endpoint='/api/video';
+const status=message=>{$('videoStatus').textContent=message;};
 const group=item=>item.channel==='youtube'?'youtube':'tiktok';
 const playlist=channel=>library.filter(item=>group(item)===channel);
+const loopFor=channel=>state.playlistLoops?.[channel]!==false;
 function validURL(url){
  try{
-  const parsed=new URL(url);
-  if(parsed.protocol!=='https:')return false;
-  if(/(^|\.)(youtube\.com|youtu\.be)$/.test(parsed.hostname))return false;
-  return true;
+  const u=new URL(url);
+  return u.protocol==='https:'&&!/(^|\.)(youtube\.com|youtu\.be)$/.test(u.hostname);
  }catch{return false;}
 }
 function titleFromUrl(url){
  try{return decodeURIComponent(new URL(url).pathname.split('/').pop()||'Vídeo').replace(/\.(mp4|webm)$/i,'').slice(0,90)||'Vídeo';}
  catch{return 'Vídeo';}
 }
-const defaultState=data=>({...initial,...data,mode:data?.mode==='playlist'?'playlist':'single'});
-function displaySelected(changeUrl=false){
- const s=states[selected];
+function readSettings(){
+ return {loop:$('videoLoop').checked,muted:$('videoMuted').checked,
+  transition:$('videoTransition').value,duration:Number($('videoDuration').value)};
+}
+function renderControls(){
  $('videoTarget').value=selected;
- if(changeUrl || (!$('videoUrl').value.trim()&&s.url))$('videoUrl').value=s.url||'';
- $('videoLoop').checked=s.loop!==false;
- $('videoMuted').checked=s.muted!==false;
- $('videoTransition').value=s.transition||'fade';
- $('videoDuration').value=String(s.duration||850);
- $('videoDurationValue').textContent=(Number(s.duration||850)/1000).toFixed(2).replace('.',',')+' s';
- $('videoActiveName').textContent=s.url?(library.find(item=>item.url===s.url)?.name||titleFromUrl(s.url)):'Nenhum';
- $('videoActiveState').textContent=s.playing?(s.mode==='playlist'?'Lista em reprodução':'Vídeo único no ar'):
-  s.url?'Pausado':'Parado';
+ $('videoLoop').checked=state.loop!==false;
+ $('videoMuted').checked=state.muted!==false;
+ $('videoTransition').value=state.transition||'fade';
+ $('videoDuration').value=String(state.duration||850);
+ $('videoDurationValue').textContent=(Number(state.duration||850)/1000).toFixed(2).replace('.',',')+' s';
+ $('videoActiveName').textContent=state.url?(library.find(item=>item.url===state.url)?.name||titleFromUrl(state.url)):'Nenhum';
+ $('videoActiveState').textContent=state.playing?
+  (state.mode==='playlist'?'Lista '+names[state.playlistChannel]+' no ar':'Vídeo individual no ar'):
+  state.url?'Pausado':'Parado';
 }
 function renderRow(item,index,channel){
- const state=states[channel];
+ const isActive=state.url===item.url && state.playing;
  const row=document.createElement('div');
- row.className='video-library-item'+(state.url===item.url&&state.playing?' is-active':'');
+ row.className='video-library-item'+(isActive?' is-active':'');
  const detail=document.createElement('div');detail.className='video-library-info';
  const title=document.createElement('strong');title.textContent=(index+1)+'. '+item.name;title.title=item.name;
  const url=document.createElement('small');url.textContent=item.url;url.title=item.url;
  detail.append(title,url);
  const actions=document.createElement('div');actions.className='video-row-actions';
- const addButton=(text,label,onClick,css='secondary')=>{
-  const b=document.createElement('button');b.type='button';b.textContent=text;b.className=css;
-  b.setAttribute('aria-label',label);b.title=label;b.addEventListener('click',()=>{try{onClick();}catch(e){status(e.message);}});
-  actions.append(b);return b;
+ const button=(caption,label,fn,css='secondary')=>{
+  const b=document.createElement('button');b.type='button';b.textContent=caption;b.className=css;
+  b.title=label;b.setAttribute('aria-label',label);
+  b.onclick=()=>{try{fn();}catch(e){status('Falha: '+e.message);}};
+  actions.append(b);
+  return b;
  };
- addButton(state.url===item.url&&state.mode==='single'&&state.playing?'▶ No ar':'▶ Só este',
-  'Reproduzir somente '+item.name+' no '+names[channel],()=>{
-   selectChannel(channel);$('videoUrl').value=item.url;
-   update(channel,old=>({...old,mode:'single',url:item.url,playing:true,...settings(channel)}),
-    'Trocando para o vídeo individual: '+item.name).catch(()=>{});
-  },'video-library-play');
- addButton('↑','Subir '+item.name+' na lista '+names[channel],()=>reorder(item.url,channel,-1)).disabled=index===0;
- addButton('↓','Descer '+item.name+' na lista '+names[channel],()=>reorder(item.url,channel,1)).disabled=index===playlist(channel).length-1;
+ button(isActive&&state.mode==='single'?'▶ No ar':'▶ Só este','Tocar só '+item.name,()=>{
+  choose(channel);
+  $('videoUrl').value=item.url;
+  update(old=>({...old,mode:'single',playlistChannel:channel,url:item.url,playing:true,...readSettings()}),
+   'Reproduzindo '+item.name+' no mesmo visor OBS.').catch(()=>{});
+ },'video-library-play');
+ button('↑','Subir '+item.name,()=>reorder(item.url,channel,-1)).disabled=index===0;
+ button('↓','Descer '+item.name,()=>reorder(item.url,channel,1)).disabled=index===playlist(channel).length-1;
  const other=channel==='tiktok'?'youtube':'tiktok';
- addButton(channel==='tiktok'?'→ YouTube':'← TikTok','Mover '+item.name+' para '+names[other],()=>move(item.url,other),'video-row-move');
- addButton('✕','Remover '+item.name+' da biblioteca',()=>remove(item.url),'video-library-remove secondary');
+ button(channel==='tiktok'?'→ YouTube':'← TikTok','Mover para '+names[other],()=>move(item.url,other),'video-row-move');
+ button('✕','Remover da biblioteca',()=>remove(item.url),'video-library-remove secondary');
  row.append(detail,actions);
  return row;
 }
 function render(){
  $('videoCount').textContent=String(library.length);
  for(const channel of channels){
-  const name=channel==='tiktok'?'TikTok':'YouTube';
-  const list=$('videoLibrary'+name);
+  const n=names[channel],list=$('videoLibrary'+n),items=playlist(channel);
+  const active=state.playlistChannel===channel;
   list.replaceChildren();
-  const items=playlist(channel),s=states[channel];
-  $('videoCount'+name).textContent=String(items.length);
-  $('videoActive'+name).textContent=s.url?
-   (library.find(item=>item.url===s.url)?.name||titleFromUrl(s.url)):'Nenhum';
-  $('videoMode'+name).textContent=s.playing?(s.mode==='playlist'?'▶ Lista tocando':'▶ Vídeo individual'):
-   s.url?'Pausado':'Parado';
-  $('playlist'+name+'Loop').checked=s.playlistLoop!==false;
+  $('videoCount'+n).textContent=String(items.length);
+  $('videoActive'+n).textContent=active&&state.url?
+   (library.find(item=>item.url===state.url)?.name||titleFromUrl(state.url)):'Nenhum em reprodução';
+  $('videoMode'+n).textContent=active&&state.playing?
+   (state.mode==='playlist'?'▶ Lista no ar':'▶ Vídeo único no ar'):
+   active&&state.url?'Pausado':'Aguardando';
+  $('playlist'+n+'Loop').checked=loopFor(channel);
+  const card=list.closest('.video-platform-list');
+  card?.classList.toggle('playlist-on-air',active&&state.playing);
   if(!items.length){
    const empty=document.createElement('p');empty.className='hint';
-   empty.textContent='Nenhum vídeo nesta lista. Mova um vídeo usando as setas ou envie um arquivo.';
+   empty.textContent='Nenhum vídeo nesta lista. Mova vídeos ou envie um arquivo.';
    list.append(empty);
-  }else items.forEach((item,index)=>list.append(renderRow(item,index,channel)));
-  $('playlist'+name+'Play').disabled=!items.length;
-  $('playlist'+name+'Pause').disabled=!s.playing;
-  $('playlist'+name+'Stop').disabled=!s.url;
+  }else items.forEach((item,i)=>list.append(renderRow(item,i,channel)));
+  $('playlist'+n+'Play').disabled=!items.length;
+  $('playlist'+n+'Pause').disabled=!(active&&state.playing);
+  $('playlist'+n+'Stop').disabled=!(active&&state.url);
  }
- displaySelected(false);
+ renderControls();
 }
-function sync(channel,data,changeUrl=false){
- states[channel]=defaultState(data);
- if(channel==='tiktok')library=Array.isArray(data.library)?data.library:[];
- if(channel===selected)displaySelected(changeUrl);
+function sync(data){
+ state={...initial,...data,playlistLoops:{...initial.playlistLoops,...data.playlistLoops}};
+ library=Array.isArray(data.library)?data.library:[];
  render();
 }
-function selectChannel(channel){
+function choose(channel){
  if(!channels.includes(channel))return;
  selected=channel;
  try{localStorage.setItem('painel-video-canal-v1',channel);}catch{}
  $('videoAddTarget').value=channel;
- displaySelected(true);
- render();
+ renderControls();
 }
-function update(channel,modify,message){
- requests[channel]=requests[channel].catch(()=>{}).then(async()=>{
-  const proposed=modify(states[channel]);
-  const r=await fetch(endpoint(channel),{
-   method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(proposed)
-  });
+function update(modify,message){
+ requests=requests.catch(()=>{}).then(async()=>{
+  const next=modify(state);
+  const r=await fetch(endpoint,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});
   const data=await r.json().catch(()=>({}));
   if(!r.ok)throw Error(data.erro||'HTTP '+r.status);
-  sync(channel,data,false);
+  sync(data);
   if(message)status(message);
   return data;
  });
- return requests[channel].catch(e=>{status('Falha: '+e.message);throw e;});
+ return requests.catch(e=>{status('Falha: '+e.message);throw e;});
 }
 function updateLibrary(modify,message){
- return update('tiktok',old=>({...old,library:modify(library)}),message);
+ return update(old=>({...old,library:modify(old.library||[])}),message);
 }
 function move(url,destination){
  updateLibrary(old=>old.map(item=>item.url===url?{...item,channel:destination}:item),
-  'Vídeo movido para '+names[destination]+'.').catch(()=>{});
+  'Vídeo movido para a lista '+names[destination]+'.').catch(()=>{});
 }
 function reorder(url,channel,delta){
  const items=playlist(channel);
- const position=items.findIndex(item=>item.url===url),next=position+delta;
- if(position<0||next<0||next>=items.length)return;
+ const a=items.findIndex(item=>item.url===url),b=a+delta;
+ if(a<0||b<0||b>=items.length)return;
  updateLibrary(old=>{
-  const result=[...old],a=result.findIndex(item=>item.url===items[position].url);
-  const b=result.findIndex(item=>item.url===items[next].url);
-  [result[a],result[b]]=[result[b],result[a]];
-  return result;
- },'Ordem da lista '+names[channel]+' atualizada.').catch(()=>{});
+  const updated=[...old],ia=updated.findIndex(v=>v.url===items[a].url),ib=updated.findIndex(v=>v.url===items[b].url);
+  if(ia<0||ib<0)return old;
+  [updated[ia],updated[ib]]=[updated[ib],updated[ia]];
+  return updated;
+ },'Ordem dos vídeos atualizada.').catch(()=>{});
 }
 function remove(url){
  updateLibrary(old=>old.filter(item=>item.url!==url),'Vídeo removido da biblioteca.').catch(()=>{});
 }
 function addVideo(url,name,channel){
  url=url.trim();
- if(!validURL(url)){status('Informe link HTTPS direto de MP4/WebM. Links normais do YouTube não são arquivos de vídeo.');return Promise.resolve();}
+ if(!validURL(url)){status('Informe URL HTTPS direta de MP4/WebM. Links de páginas do YouTube não funcionam aqui.');return Promise.resolve();}
  return updateLibrary(old=>{
   const exists=old.find(item=>item.url===url);
   if(exists)return old.map(item=>item.url===url?{...item,channel,name:(name||item.name).trim().slice(0,90)}:item);
   if(old.length>=40)throw Error('Limite de 40 vídeos carregados.');
   return [...old,{url,name:(name||titleFromUrl(url)).trim().slice(0,90),channel}];
- },'Vídeo salvo na lista '+names[channel]+'. Use Só este ou Reproduzir lista.');
-}
-function settings(channel){
- if(channel!==selected)return {};
- return {loop:$('videoLoop').checked,muted:$('videoMuted').checked,
-  transition:$('videoTransition').value,duration:Number($('videoDuration').value)};
+ },'Vídeo salvo na pasta '+names[channel]+'.');
 }
 async function playSingle(mode){
- const channel=selected;
- const url=mode==='stop'?'':mode==='play'?$('videoUrl').value.trim():states[channel].url;
- if(mode==='play'&&!validURL(url)){status('Escolha um vídeo salvo ou informe URL HTTPS de MP4/WebM.');return;}
+ const url=mode==='stop'?'':mode==='play'?$('videoUrl').value.trim():state.url;
+ if(mode==='play'&&!validURL(url)){status('Escolha um vídeo salvo ou informe a URL de MP4/WebM.');return;}
  try{
-  await update(channel,old=>({...old,...settings(channel),mode:'single',url,playing:mode==='play'}),
-   mode==='play'?'Vídeo individual no '+names[channel]+'.':
-    mode==='pause'?'Vídeo pausado.':'Reprodução interrompida; listas preservadas.');
+  await update(old=>({...old,...readSettings(),
+   playlistChannel:selected,
+   mode:mode==='play'?'single':mode==='stop'?'single':old.mode,
+   url,playing:mode==='play'}),
+   mode==='play'?'Vídeo individual enviado para o OBS.':
+   mode==='pause'?'Reprodução pausada.':'Reprodução parada. Playlists preservadas.');
  }catch{}
 }
 async function playList(channel,action){
- const entries=playlist(channel);
- if(action==='play'&&!entries.length){status('Adicione vídeos à lista '+names[channel]+' primeiro.');return;}
+ const items=playlist(channel);
+ if(action==='play'&&!items.length){status('A lista '+names[channel]+' está vazia.');return;}
+ if(action!=='play' && state.playlistChannel!==channel){
+  status('A saída está com a lista '+names[state.playlistChannel]+'.');return;
+ }
  try{
-  await update(channel,old=>{
-   if(action==='play')return {...old,mode:'playlist',url:entries[0].url,playing:true,
-    playlistLoop:$('playlist'+names[channel]+'Loop').checked,...settings(channel)};
+  await update(old=>{
+   if(action==='play'){
+    const loops={...old.playlistLoops,[channel]:$('playlist'+names[channel]+'Loop').checked};
+    return {...old,playlistLoops:loops,playlistLoop:loops[channel],
+     playlistChannel:channel,mode:'playlist',url:items[0].url,playing:true};
+   }
    if(action==='pause')return {...old,playing:false};
-   return {...old,mode:'single',url:'',playing:false};
-  },action==='play'?'Lista '+names[channel]+' iniciada em sequência.':
-   action==='pause'?'Lista '+names[channel]+' pausada.':'Lista '+names[channel]+' interrompida.');
+   return {...old,url:'',playing:false,mode:'single'};
+  },
+  action==='play'?'Lista '+names[channel]+' tocando no reprodutor único do OBS.':
+  action==='pause'?'Lista pausada.':'Lista parada.').catch(()=>{});
  }catch{}
 }
-function jump(step){
+function jump(delta){
  const items=playlist(selected);
- if(!items.length){status('A lista '+names[selected]+' está vazia.');return;}
- const pos=items.findIndex(item=>item.url===states[selected].url);
- const next=items[pos<0?0:(pos+step+items.length)%items.length];
+ if(!items.length){status('Lista vazia.');return;}
+ const idx=items.findIndex(item=>item.url===state.url);
+ const next=items[idx<0?0:(idx+delta+items.length)%items.length];
  $('videoUrl').value=next.url;
- update(selected,old=>({...old,mode:'single',url:next.url,playing:true,...settings(selected)}),
-  'Trocando para '+next.name).catch(()=>{});
+ update(old=>({...old,...readSettings(),mode:'single',playlistChannel:selected,url:next.url,playing:true}),
+  'Reproduzindo '+next.name).catch(()=>{});
 }
-$('videoTarget').addEventListener('change',()=>selectChannel($('videoTarget').value));
+$('videoTarget').onchange=()=>choose($('videoTarget').value);
 $('videoPlay').onclick=()=>playSingle('play');
 $('videoPause').onclick=()=>playSingle('pause');
 $('videoStop').onclick=()=>playSingle('stop');
 $('videoPrevious').onclick=()=>jump(-1);
 $('videoNext').onclick=()=>jump(1);
-$('videoAdd').onclick=()=>{
- addVideo($('videoUrl').value,$('videoName').value,$('videoAddTarget').value)
-  .then(()=>{$('videoName').value='';}).catch(()=>{});
-};
+$('videoAdd').onclick=()=>addVideo($('videoUrl').value,$('videoName').value,
+ $('videoAddTarget').value).then(()=>{$('videoName').value='';}).catch(()=>{});
 for(const channel of channels){
- const name=names[channel];
- $('playlist'+name+'Play').onclick=()=>playList(channel,'play');
- $('playlist'+name+'Pause').onclick=()=>playList(channel,'pause');
- $('playlist'+name+'Stop').onclick=()=>playList(channel,'stop');
- $('playlist'+name+'Loop').addEventListener('change',()=>{
-  update(channel,old=>({...old,playlistLoop:$('playlist'+name+'Loop').checked}),
-   'Repetição da lista '+name+' atualizada.').catch(()=>{});
- });
+ const n=names[channel];
+ $('playlist'+n+'Play').onclick=()=>playList(channel,'play');
+ $('playlist'+n+'Pause').onclick=()=>playList(channel,'pause');
+ $('playlist'+n+'Stop').onclick=()=>playList(channel,'stop');
+ $('playlist'+n+'Loop').onchange=()=>{
+  const value=$('playlist'+n+'Loop').checked;
+  update(old=>({...old,playlistLoops:{...old.playlistLoops,[channel]:value},
+   playlistLoop:old.playlistChannel===channel?value:old.playlistLoop}),
+   'Repetição da lista '+n+' '+(value?'ativada.':'desativada.')).catch(()=>{});
+ };
 }
 for(const id of ['videoLoop','videoMuted','videoTransition']){
- $(id).addEventListener('change',()=>{
-  const channel=selected;
-  update(channel,old=>({...old,...settings(channel)})).catch(()=>{});
- });
+ $(id).onchange=()=>update(old=>({...old,...readSettings()})).catch(()=>{});
 }
-$('videoDuration').addEventListener('input',()=>{
+$('videoDuration').oninput=()=>{
  $('videoDurationValue').textContent=(Number($('videoDuration').value)/1000).toFixed(2).replace('.',',')+' s';
-});
-$('videoDuration').addEventListener('change',()=>{
- const channel=selected;update(channel,old=>({...old,...settings(channel)})).catch(()=>{});
-});
-async function loadAll(){
+};
+$('videoDuration').onchange=()=>update(old=>({...old,...readSettings()})).catch(()=>{});
+async function poll(){
  if(loading)return;loading=true;
  try{
-  const results=await Promise.all(channels.map(async channel=>{
-   const r=await fetch(endpoint(channel),{cache:'no-store'});
-   if(!r.ok)throw Error('HTTP '+r.status+' ('+names[channel]+')');
-   return r.json();
-  }));
-  // Não substituir a URL que o usuário está digitando ao sincronizar.
-  sync('tiktok',results[0]);
-  sync('youtube',results[1]);
- }catch(e){status('Não foi possível atualizar a biblioteca: '+e.message);}
+  // Não substituir os valores que o usuário digitou no campo de nova URL.
+  const r=await fetch(endpoint,{cache:'no-store'});
+  if(!r.ok)throw Error('HTTP '+r.status);
+  const data=await r.json();
+  if(data.command!==state.command||JSON.stringify(data.library)!==JSON.stringify(library))sync(data);
+ }catch(e){status('Não foi possível sincronizar o painel: '+e.message);}
  finally{loading=false;}
 }
 $('videoTarget').value=selected;
 $('videoAddTarget').value=selected;
-render();
-loadAll();
-setInterval(()=>{if(!document.hidden)loadAll();},3500);
-
-// Upload original preservado: apenas escolhemos a lista de destino ao salvar.
+render();poll();
+setInterval(()=>{if(!document.hidden)poll();},3500);
 $('videoUpload').addEventListener('click',async()=>{
  const f=$('videoFile').files?.[0];
  if(!f){status('Escolha um arquivo MP4 ou WebM.');return;}
  if(!['video/mp4','video/webm'].includes(f.type)){status('Formato não suportado. Use MP4 ou WebM.');return;}
- if(f.size>250*1024*1024){status('O limite é 250 MB por vídeo.');return;}
+ if(f.size>250*1024*1024){status('Limite de 250 MB por vídeo.');return;}
  $('videoUpload').disabled=true;$('uploadProgress').value=0;
  status('Enviando vídeo para a nuvem…');
  try{
@@ -255,7 +249,7 @@ $('videoUpload').addEventListener('click',async()=>{
   const channel=$('videoAddTarget').value;
   $('videoUrl').value=blob.url;
   await addVideo(blob.url,f.name.replace(/\.(mp4|webm)$/i,''),channel);
-  status('Upload concluído na lista '+names[channel]+'.');
+  status('Upload concluído e salvo na lista '+names[channel]+'.');
  }catch(e){status('Falha no upload ou salvamento: '+e.message);}
  finally{$('videoUpload').disabled=false;}
 });
