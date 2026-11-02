@@ -122,7 +122,8 @@ fetch('/api/avatar-pose?view=style&room='+room,{cache:'no-store'}).then(r=>r.jso
  if(d.imageUrl)$('skinStatus').textContent='✓ Visual personalizado ativo nesta sessão.';
 }).catch(()=>{});
 let stream=null,model=null,modelChoice=null,running=false,lastRun=0,lastSend=0,lastShown=0,
- inFlight=false,missing=0,wakeLock=null,lastVideoTime=-1,filtered={},lastFiltered=0,detectorMs=0,posesSeen=0;
+ inFlight=false,missing=0,wakeLock=null,lastVideoTime=-1,filtered={},lastFiltered=0,
+ detectorMs=0,posesSeen=0,netMs=0,lastAck=0,missCount=0,frameId=0,sessionId=0;
 const configKey='painel-avatar-tracking-v2';
 try{
  const saved=JSON.parse(localStorage.getItem(configKey)||'{}');
@@ -146,12 +147,19 @@ const clamp=x=>Math.min(1,Math.max(0,Number(x)||0));
 async function transmit(points,active=true){
  if(inFlight)return;
  inFlight=true;
+ const started=performance.now();
  try{
   const response=await fetch('/api/avatar-pose',{method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({room,points,active}),cache:'no-store',keepalive:!active});
+   body:JSON.stringify({room,points,active,sequence:frameId}),cache:'no-store'});
   if(!response.ok)throw Error('HTTP '+response.status);
+  const delay=performance.now()-started;
+  netMs=netMs?netMs*.75+delay*.25:delay;
+  lastAck=performance.now();
  }catch(e){
-  if(running)status('Movimento detectado, mas a sincronização está instável: '+e.message);
+  if(running && performance.now()-lastShown>1200){
+   status('Conexão instável: '+e.message+'. A câmera continua rastreando localmente.');
+   lastShown=performance.now();
+  }
  }finally{inFlight=false;}
 }
 async function setupModel(){
@@ -169,41 +177,49 @@ async function setupModel(){
  modelChoice=selected;
 }
 function smoothPose(raw,ms){
- // Filtro adaptativo: elimina microtremores sem "colar" braços e mãos.
- const elapsed=Math.max(35,Math.min(250,ms-lastFiltered||80));
+ // Filtro de confiança com memória. Se o MediaPipe perder um cotovelo/pulso
+ // durante alguns frames, preservamos a última posição válida (não baixamos braço).
+ // Evitamos dupla filtragem forte: o OBS fará a interpolação visual.
+ const elapsed=lastFiltered?Math.max(20,Math.min(180,ms-lastFiltered)):65;
  lastFiltered=ms;
  const mode=$('trackingSensitivity').value;
- const base=mode==='fast'?.64:mode==='stable'?.28:.43;
  const out={};
  for(const [name,p] of Object.entries(raw)){
-  const prev=filtered[name],confidence=p[2];
-  if(!prev){out[name]=p;filtered[name]=p;continue;}
-  if(confidence<.32){
-   // Segurar a última posição válida quando uma mão sai momentaneamente do quadro.
-   out[name]=[prev[0],prev[1],Math.max(.1,prev[2]*.89)];
-   filtered[name]=out[name];continue;
+  const prev=filtered[name];
+  const confidence=p[2];
+  const isHand=/Wrist|Index/.test(name),isArm=/Elbow/.test(name);
+  const minimum=isHand?.48:isArm?.46:.40;
+  if(!prev){
+   filtered[name]=[p[0],p[1],confidence];
+   out[name]=filtered[name];continue;
   }
-  const movement=Math.hypot(p[0]-prev[0],p[1]-prev[1]);
-  const accel=Math.min(.31,movement*1.8);
-  const alpha=Math.min(.9,(base+accel)*Math.min(1.4,elapsed/80));
-  const rejection=movement>.36 && confidence<.6;
-  const amount=rejection?.13:alpha;
-  out[name]=[
-   Math.min(1,Math.max(0,prev[0]+(p[0]-prev[0])*amount)),
-   Math.min(1,Math.max(0,prev[1]+(p[1]-prev[1])*amount)),
-   confidence
-  ];
-  filtered[name]=out[name];
+  const dist=Math.hypot(p[0]-prev[0],p[1]-prev[1]);
+  // Um único salto grande com detecção fraca não deve arrancar o braço.
+  const unreliable=confidence<minimum || (dist>.43&&confidence<.75);
+  if(unreliable){
+   out[name]=[prev[0],prev[1],.45];continue;
+  }
+  const base=mode==='fast'?.73:mode==='stable'?.37:.57;
+  const small=dist<.008?(mode==='fast'?.42:.12):base;
+  const alpha=Math.min(.94,(small+Math.min(.21,dist*1.7))*
+   Math.max(.65,Math.min(1.3,elapsed/68)));
+  const next=[prev[0]+(p[0]-prev[0])*alpha,
+              prev[1]+(p[1]-prev[1])*alpha,
+              confidence];
+  filtered[name]=next;
+  out[name]=next;
  }
  return out;
 }
+
 async function tick(ms){
  if(!running)return;
  requestAnimationFrame(tick);
  const video=$('localPreview');
  if(!video.videoWidth || video.readyState<2)return;
  // Não repetir inferência do mesmo quadro. Em celulares lentos diminuímos FPS.
- const interval=detectorMs>85?125:65;
+ // Não agendar mais inferências do que o aparelho consegue executar.
+ const interval=detectorMs>105?125:detectorMs>60?90:65;
  if(ms-lastRun<interval || video.currentTime===lastVideoTime)return;
  lastRun=ms;lastVideoTime=video.currentTime;
  let result;
@@ -212,10 +228,14 @@ async function tick(ms){
  catch(e){status('Falha ao rastrear: '+e.message);return;}
  detectorMs=.76*detectorMs+.24*(performance.now()-clock);
  if(!result){
-  missing++;
-  if(ms-lastShown>1500){status('Não detectei os braços. Afaste um pouco o celular e ilumine o ambiente.');lastShown=ms;}
+  missing++;missCount++;
+  if(ms-lastShown>1400){
+   status('Corpo fora do enquadramento ('+missCount+' quadros). Afaste o celular e ilumine o ambiente.');
+   lastShown=ms;
+  }
   return;
  }
+ missCount=0;
  const raw={};
  for(const [name,index] of Object.entries(joints)){
   const p=result[index];
@@ -223,15 +243,16 @@ async function tick(ms){
  }
  const points=smoothPose(raw,ms);
  posesSeen++;
- // 5 a 7 atualizações por segundo para reduzir atraso sem sobrecarregar a Vercel.
- if(ms-lastSend>=170 && required.every(name=>points[name])){
-  lastSend=ms;
-  if(!inFlight)void transmit(points,true);
-  if(ms-lastShown>1400){
-   status('✓ Rastreando '+$('trackingQuality').value.toUpperCase()+
-    ' · gestos sincronizados · '+Math.round(detectorMs)+' ms/quadro');
-   lastShown=ms;
-  }
+ // Sempre enviar a pose mais recente; nunca enfileirar requisições antigas.
+ if(ms-lastSend>=105 && !inFlight && required.every(name=>points[name])){
+  lastSend=ms;frameId++;
+  void transmit(points,true);
+ }
+ if(ms-lastShown>1200){
+  status('✓ Rastreamento '+$('trackingQuality').value.toUpperCase()+
+   ' · '+Math.round(detectorMs)+'ms por inferência · rede '+Math.round(netMs)+'ms'+
+   (netMs>350?' · conexão lenta':''));
+  lastShown=ms;
  }
 }
 async function start(){
@@ -240,12 +261,12 @@ async function start(){
  try{
   // Solicitar permissão antes de carregar o modelo, mantendo o gesto do usuário.
   stream=await navigator.mediaDevices.getUserMedia({video:{
-   facingMode:'user',width:{ideal:640},height:{ideal:480},frameRate:{ideal:20,max:24}
+   facingMode:'user',width:{ideal:640},height:{ideal:480},frameRate:{ideal:24,max:30}
   },audio:false});
   $('localPreview').srcObject=stream;
   await $('localPreview').play();
   await setupModel();
-  running=true;lastRun=0;lastSend=0;lastVideoTime=-1;filtered={};lastFiltered=0;detectorMs=0;posesSeen=0;
+  running=true;lastRun=0;lastSend=0;lastVideoTime=-1;filtered={};lastFiltered=0;detectorMs=0;posesSeen=0;netMs=0;lastAck=0;missCount=0;
   $('trackingQuality').disabled=true;
   try{wakeLock=await navigator.wakeLock?.request('screen')}catch{}
   $('stop').disabled=false;
