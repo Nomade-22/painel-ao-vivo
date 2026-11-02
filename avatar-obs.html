@@ -173,11 +173,16 @@ function drawAvatar(t){
  const factor=clamp(270/dist,670,1600);
  const centerX=500+clamp((shoulderCenterX-.5)*230,-80,80);
  const centerY=480+clamp((shoulderCenterY-.46)*120,-45,45);
- const L={x:centerX-150,y:centerY},R={x:centerX+150,y:centerY};
+ // O usuário está de frente para a câmera: braços e mãos se posicionam
+ // conforme o lado real detectado, sem cruzar o peito quando a imagem é espelhada.
+ const L={x:centerX+clamp((l.x-shoulderCenterX)*factor,-205,205),y:centerY};
+ const R={x:centerX+clamp((r.x-shoulderCenterX)*factor,-205,205),y:centerY};
  const map=(part,name)=>{
   const p=point(name);
-  const defaultElbow={x:part==='left'?L.x-95:R.x+95,y:centerY+120};
-  const defaultWrist={x:part==='left'?L.x-145:R.x+145,y:centerY+205};
+  const anchor=part==='left'?L:R;
+  const outward=anchor.x>=centerX?1:-1;
+  const defaultElbow={x:anchor.x+outward*95,y:centerY+120};
+  const defaultWrist={x:anchor.x+outward*145,y:centerY+205};
   const fallback=name.includes('Elbow')?defaultElbow:defaultWrist;
   if(p.v<.35)return fallback;
   return{
