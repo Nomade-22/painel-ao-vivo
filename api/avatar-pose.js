@@ -3,6 +3,14 @@ import {getCache} from '@vercel/functions';
 // Experimento isolado: somente coordenadas corporais, NUNCA frames de câmera.
 // Room é um token aleatório; compartilhe o link da fonte somente com quem controla a live.
 const cache=getCache({namespace:'painel-avatar-pose-v1'});
+const visualCache=getCache({namespace:'painel-avatar-visual-v1'});
+const safeImageUrl=url=>{
+ if(url==='')return true;
+ if(typeof url!=='string'||url.length>1700)return false;
+ try{const u=new URL(url);
+  return u.protocol==='https:'&&u.hostname.endsWith('.public.blob.vercel-storage.com')&&/\.(png|jpeg|jpg|webp)$/i.test(u.pathname);
+ }catch{return false;}
+};
 const keyPattern=/^[a-f0-9]{32}$/;
 const joints=['nose','leftShoulder','rightShoulder','leftElbow','rightElbow','leftWrist','rightWrist','leftHip','rightHip'];
 const extraJoints=['leftEar','rightEar','leftIndex','rightIndex'];
@@ -16,6 +24,15 @@ export default async function handler(req,res){
   const body=req.method==='POST'?parse(req):{};
   const room=String((req.method==='GET'?req.query?.room:body?.room)||'');
   if(!keyPattern.test(room))return res.status(400).json({error:'Sessão inválida'});
+  if(req.method==='GET'&&req.query?.view==='style'){
+   const saved=await visualCache.get(room);
+   return res.status(200).json({imageUrl:saved?.imageUrl||''});
+  }
+  if(req.method==='POST'&&body.action==='style'){
+   if(!safeImageUrl(body.imageUrl))return res.status(400).json({error:'Imagem inválida'});
+   await visualCache.set(room,{imageUrl:body.imageUrl},{ttl:2592000,name:'Arte do astronauta'});
+   return res.status(200).json({ok:true,imageUrl:body.imageUrl});
+  }
   if(req.method==='GET'){
    const data=await cache.get(room);
    if(!data||Date.now()-Number(data.ts)>8000)
