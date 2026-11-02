@@ -1,67 +1,245 @@
+// Console de animações; preserva ações salvas e dispara tudo pela MESMA fonte OBS.
 const $=id=>document.getElementById(id);
-let state={actions:[],command:0},pending=Promise.resolve(),editingId=null;
-const status=message=>{$('animacoesStatus').textContent=message;};
-const effectNames={hearts:'Corações',confetti:'Confetes',stars:'Estrelas',banner:'Faixa animada',burst:'Destaque',rain:'Chuva de emojis',fireworks:'Fogos'};
-function render(){
+const effectLegacy={banner:'Faixa animada',burst:'Destaque com impacto',stars:'Estrelas brilhantes'};
+let state={actions:[],command:0,catalogue:[]},pending=Promise.resolve();
+let editingId=null,selectedEffect='confetti',category='Todas',awaitingPreview=null;
+let catalogue=[],loading=false;
+const notify=message=>{$('animacoesStatus').textContent=message};
+const actionName=id=>catalogue.find(x=>x.id===id)?.name||effectLegacy[id]||id;
+const safeColor=color=>/^#[\da-f]{6}$/i.test(color||'')?color:'#647cff';
+const categories=['Todas','Festa','Carinho','Luxo e vendas','Diversão','Psicodélico'];
+const localFilters=()=>({
+ color:$('animacoesQuickColor').value,
+ duration:Math.round(Number($('animacoesQuickDuration').value)*1000),
+ intensity:Number($('animacoesQuickIntensity').value),
+ speed:Number($('animacoesQuickSpeed').value),
+ position:$('animacoesQuickPosition').value,
+ loop:$('animacoesQuickLoop').checked
+});
+function findSelected(){return catalogue.find(x=>x.id===selectedEffect)||catalogue[0]}
+function sync(data){
+ state={...data,actions:Array.isArray(data.actions)?data.actions:[]};
+ catalogue=Array.isArray(data.catalogue)?data.catalogue:catalogue;
+ $('animacoesCatalogCount').textContent=String(catalogue.length);
+ const selector=$('animacoesEffect');
+ if(catalogue.length && selector.dataset.catalogueVersion!==String(catalogue.length)){
+  const extras=['banner','burst','stars'];
+  const options=[...extras.map(id=>({id,name:effectLegacy[id]})),...catalogue.map(x=>({id:x.id,name:x.name}))];
+  const chosen=selector.value;
+  selector.replaceChildren();
+  for(const o of options){
+   const node=document.createElement('option');node.value=o.id;node.textContent=o.name;
+   selector.append(node);
+  }
+  selector.value=options.some(x=>x.id===chosen)?chosen:'banner';
+  selector.dataset.catalogueVersion=String(catalogue.length);
+ }
+ renderActions();
+ renderCategories();
+ renderGallery();
+ if(!findSelected()&&catalogue.length)selectEffect(catalogue[0].id,true);
+}
+function send(payload,message){
+ pending=pending.catch(()=>false).then(async()=>{
+  const res=await fetch('/api/animacoes',{
+   method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
+  });
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok)throw Error(data.erro||'HTTP '+res.status);
+  sync(data);
+  if(message)notify(message);
+  return true;
+ }).catch(e=>{notify('Falha: '+e.message);return false});
+ return pending;
+}
+function button(title,onClick,cls='secondary'){
+ const b=document.createElement('button');b.type='button';b.textContent=title;b.className=cls;
+ b.onclick=onClick;return b;
+}
+function renderActions(){
  const area=$('animacoesLibrary');area.replaceChildren();
  $('animacoesCount').textContent=state.actions.length;
- if(!state.actions.length){const p=document.createElement('p');p.className='hint';p.textContent='Crie sua primeira ação para usar na LIVE.';area.append(p);}
+ if(!state.actions.length){
+  const empty=document.createElement('p');empty.className='hint';
+  empty.textContent='Nenhuma ação guardada. Escolha uma animação da galeria e clique em Salvar como ação.';
+  area.append(empty);return;
+ }
  for(const action of state.actions){
   const item=document.createElement('div');item.className='extra-action-item';
   const emoji=document.createElement('span');emoji.className='extra-action-emoji';emoji.textContent=action.emoji;
   const info=document.createElement('div');info.className='extra-library-info';
   const title=document.createElement('strong');title.textContent=action.name;
-  const subtitle=document.createElement('small');subtitle.textContent=effectNames[action.effect]+' · '+(action.duration/1000).toFixed(1)+'s'+(action.message?' · '+action.message:'');
-  info.append(title,subtitle);
-  const fire=document.createElement('button');fire.type='button';fire.textContent='▶ Acionar';
-  fire.onclick=()=>send({triggerId:action.id},'Ação enviada: '+action.name);
-  const edit=document.createElement('button');edit.type='button';edit.className='secondary';edit.textContent='Editar';
-  edit.onclick=()=>{
+  const detail=document.createElement('small');
+  detail.textContent=actionName(action.effect)+' · '+(action.duration/1000).toFixed(1)+'s'+
+    (action.loop?' · ♾ Loop':'')+(action.message?' · '+action.message:'');
+  info.append(title,detail);
+  const play=button('▶ Acionar',()=>send({triggerId:action.id},'Ação enviada ao OBS: '+action.name),'animation-play-action');
+  const preview=button('👁 Prévia',()=>localPreview(action));
+  const edit=button('Editar',()=>{
    editingId=action.id;
    $('animacoesName').value=action.name;$('animacoesEffect').value=action.effect;
-   $('animacoesEmoji').value=action.emoji;$('animacoesMessage').value=action.message;
-   $('animacoesColor').value=action.color;$('animacoesDuration').value=action.duration/1000;
+   $('animacoesEmoji').value=action.emoji;$('animacoesMessage').value=action.message||'';
+   $('animacoesColor').value=safeColor(action.color);
+   $('animacoesDuration').value=action.duration/1000;
+   $('animacoesIntensity').value=action.intensity||65;
+   $('animacoesSpeed').value=action.speed||1;
+   $('animacoesPosition').value=action.position||'full';
+   $('animacoesLoop').checked=action.loop===true;
    $('animacoesSave').textContent='Salvar alterações';
+   $('animacoesName').scrollIntoView({behavior:'smooth',block:'center'});
    $('animacoesName').focus();
-  };
-  const remove=document.createElement('button');remove.type='button';remove.className='secondary';remove.textContent='✕';
-  remove.title='Excluir ação';remove.setAttribute('aria-label','Excluir '+action.name);
-  remove.onclick=()=>{
+  });
+  const remove=button('✕',()=>{
    if(editingId===action.id)resetForm();
-   send({actions:state.actions.filter(a=>a.id!==action.id)},'Ação removida.');
-  };
-  item.append(emoji,info,fire,edit,remove);area.append(item);
+   send({actions:state.actions.filter(x=>x.id!==action.id)},'Ação removida.');
+  });
+  remove.title='Excluir '+action.name;remove.setAttribute('aria-label','Excluir '+action.name);
+  item.append(emoji,info,play,preview,edit,remove);area.append(item);
  }
 }
-function send(payload,message){
- pending=pending.catch(()=>{}).then(async()=>{
-  const r=await fetch('/api/animacoes',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-  const json=await r.json().catch(()=>({}));if(!r.ok)throw Error(json.erro||'HTTP '+r.status);
-  state=json;render();status(message||'Sincronizado com o OBS.');
-  return true;
- }).catch(error=>{status('Falha: '+error.message);return false;});
- return pending;
+function renderCategories(){
+ const area=$('animacoesCategories');area.replaceChildren();
+ for(const name of categories){
+  const b=button(name,()=>{
+   category=name;renderCategories();renderGallery();
+  },category===name?'animation-category active':'animation-category');
+  b.setAttribute('aria-pressed',String(category===name));
+  area.append(b);
+ }
+}
+function selectEffect(id,onlyIfMissing=false){
+ const item=catalogue.find(x=>x.id===id);
+ if(!item)return;
+ if(onlyIfMissing&&catalogue.some(x=>x.id===selectedEffect))return;
+ selectedEffect=id;
+ $('animacoesSelectedEmoji').textContent=item.emoji;
+ $('animacoesSelectedName').textContent=item.name;
+ $('animacoesQuickColor').value=safeColor(item.color);
+ $('animacoesQuickDuration').value=item.duration/1000;
+ $('animacoesQuickIntensity').value=item.intensity;
+ $('animacoesQuickSpeed').value=item.speed;
+ $('animacoesQuickPosition').value=item.position;
+ $('animacoesQuickLoop').checked=item.loop;
+ showLabels();renderGallery();
+}
+function showLabels(){
+ $('animacoesIntensityOut').textContent=$('animacoesQuickIntensity').value+'%';
+ $('animacoesSpeedOut').textContent=Number($('animacoesQuickSpeed').value).toFixed(1).replace('.',',')+'×';
+}
+function renderGallery(){
+ const area=$('animacoesGallery');area.replaceChildren();
+ const items=catalogue.filter(x=>category==='Todas'||x.category===category);
+ for(const item of items){
+  const tile=document.createElement('div');
+  tile.className='animation-effect-tile'+(item.id===selectedEffect?' chosen':'');
+  tile.style.setProperty('--tile-color',item.color);
+  const icon=document.createElement('div');icon.className='animation-effect-icon';
+  icon.textContent=item.emoji;
+  const title=document.createElement('strong');title.textContent=item.name;
+  const cat=document.createElement('small');cat.textContent=item.category;
+  const actions=document.createElement('div');actions.className='animation-tile-actions';
+  actions.append(
+   button('👁 Prévia',()=>{selectEffect(item.id);previewSelected()},'secondary'),
+   button('▶ Acionar',()=>{selectEffect(item.id);triggerSelected()},'animation-play-action')
+  );
+  tile.onclick=e=>{if(e.target.closest('button'))return;selectEffect(item.id)};
+  tile.append(icon,title,cat,actions);
+  area.append(tile);
+ }
+}
+function selectedAction(){
+ const item=findSelected();
+ return item?{...item,...localFilters(),name:item.name,message:''}:null;
+}
+function postPreview(effect){
+ const frame=$('animacoesPreviewFrame');
+ if(!frame?.contentWindow)return false;
+ try{frame.contentWindow.postMessage({
+  channel:'painel-animacoes-preview',action:effect?'play':'stop',effect
+ },location.origin);return true}catch{return false}
+}
+function localPreview(action){
+ awaitingPreview=action;
+ postPreview(action);
+ notify('Prévia local: '+action.name+'. Ela não aparece na transmissão.');
+}
+function previewSelected(){
+ const a=selectedAction();
+ if(a)localPreview(a);
+}
+function triggerSelected(){
+ const item=findSelected();if(!item){notify('Selecione um efeito.');return}
+ send({presetId:item.id,options:localFilters()},'Efeito enviado ao OBS: '+item.name);
+}
+function copyToEditor(){
+ const item=selectedAction();if(!item)return;
+ resetForm();
+ $('animacoesName').value=item.name;
+ $('animacoesEffect').value=item.effect;
+ $('animacoesEmoji').value=item.emoji;
+ $('animacoesColor').value=item.color;
+ $('animacoesMessage').value='';
+ $('animacoesDuration').value=item.duration/1000;
+ $('animacoesIntensity').value=item.intensity;
+ $('animacoesSpeed').value=item.speed;
+ $('animacoesPosition').value=item.position;
+ $('animacoesLoop').checked=item.loop;
+ $('animacoesName').scrollIntoView({behavior:'smooth',block:'center'});
+ notify('Configuração pronta para salvar como ação personalizada.');
 }
 function resetForm(){
- editingId=null;$('animacoesName').value='';$('animacoesEffect').value='banner';
- $('animacoesEmoji').value='✨';$('animacoesMessage').value='';$('animacoesColor').value='#647cff';
- $('animacoesDuration').value='5';$('animacoesSave').textContent='＋ Salvar ação';
+ editingId=null;
+ $('animacoesName').value='';$('animacoesEffect').value='banner';
+ $('animacoesEmoji').value='✨';$('animacoesMessage').value='';
+ $('animacoesColor').value='#647cff';
+ $('animacoesDuration').value='5';$('animacoesIntensity').value='65';
+ $('animacoesSpeed').value='1';$('animacoesPosition').value='full';
+ $('animacoesLoop').checked=false;$('animacoesSave').textContent='＋ Salvar ação';
 }
 $('animacoesReset').onclick=resetForm;
-$('animacoesStop').onclick=()=>send({stop:true},'Animações interrompidas no OBS.');
-$('animacoesSave').onclick=()=>{
+$('animacoesSave').onclick=async()=>{
  const name=$('animacoesName').value.trim();
- if(!name){status('Dê um nome para a ação.');return;}
- if(!editingId&&state.actions.length>=30){status('Limite de 30 ações.');return;}
+ if(!name){notify('Dê um nome para a ação.');return}
+ if(!editingId&&state.actions.length>=80){notify('Limite de 80 ações personalizadas.');return}
  const action={
-  id:editingId||'acao-'+Date.now().toString(36),name:name.slice(0,55),
-  effect:$('animacoesEffect').value,emoji:$('animacoesEmoji').value.trim()||'✨',
-  message:$('animacoesMessage').value.trim(),color:$('animacoesColor').value,
-  duration:Math.round(Number($('animacoesDuration').value)*1000)
+  id:editingId||'acao-'+Date.now().toString(36),
+  name:name.slice(0,55),effect:$('animacoesEffect').value,
+  emoji:$('animacoesEmoji').value.trim()||'✨',
+  message:$('animacoesMessage').value.trim(),
+  color:$('animacoesColor').value,
+  duration:Math.round(Number($('animacoesDuration').value)*1000),
+  intensity:Number($('animacoesIntensity').value),
+  speed:Number($('animacoesSpeed').value),
+  position:$('animacoesPosition').value,
+  loop:$('animacoesLoop').checked
  };
- const exists=state.actions.some(a=>a.id===action.id);
- const actions=exists?state.actions.map(a=>a.id===action.id?action:a):[...state.actions,action];
- send({actions},'Ação salva no histórico. Clique em Acionar para testá-la.').then(ok=>{if(ok)resetForm();});
+ const has=state.actions.some(x=>x.id===action.id);
+ const actions=has?state.actions.map(x=>x.id===action.id?action:x):[...state.actions,action];
+ const ok=await send({actions},'Ação salva. Você pode acioná-la a qualquer momento.');
+ if(ok)resetForm();
 };
-fetch('/api/animacoes',{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('HTTP '+r.status);state=await r.json();render();})
- .catch(error=>status('Não foi possível carregar as ações: '+error.message));
+$('animacoesStop').onclick=()=>send({stop:true},'Animação parada no OBS.');
+$('animacoesQuickPlay').onclick=triggerSelected;
+$('animacoesQuickPreview').onclick=previewSelected;
+$('animacoesQuickSave').onclick=copyToEditor;
+$('animacoesPreviewStop').onclick=()=>{
+ awaitingPreview=null;postPreview(null);notify('Prévia interrompida.');
+};
+$('animacoesIntensityOut').textContent='65%';
+for(const id of ['animacoesQuickIntensity','animacoesQuickSpeed'])$(id).oninput=showLabels;
+$('animacoesPreviewFrame').addEventListener('load',()=>{
+ if(awaitingPreview)postPreview(awaitingPreview);
+});
+async function load(){
+ if(loading)return;loading=true;
+ try{
+  const response=await fetch('/api/animacoes',{cache:'no-store'});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const data=await response.json();
+  if(!catalogue.length||data.command!==state.command||
+    JSON.stringify(data.actions)!==JSON.stringify(state.actions))sync(data);
+ }catch(e){notify('Não foi possível sincronizar animações: '+e.message)}
+ finally{loading=false}
+}
+showLabels();load();
+setInterval(()=>{if(!document.hidden)load()},4500);
