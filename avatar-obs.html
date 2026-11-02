@@ -484,7 +484,7 @@ function drawAvatar(t){
   const outward=anchor.x>=cx?1:-1;
   const fallback={x:anchor.x+outward*(name.includes('Elbow')?88:145),
    y:cy+(name.includes('Elbow')?130:228)};
-  if(p.v<.35)return fallback;
+  if(p.v<.35)return {x:clamp(cx+(p.x-meanX)*factor,12,988),y:clamp(cy+(p.y-meanY)*factor,140,798)};
   return {x:clamp(cx+(p.x-meanX)*factor,12,988),
    y:clamp(cy+(p.y-meanY)*factor,140,798)};
  };
@@ -521,7 +521,7 @@ function drawAvatar(t){
 }
 function draw(time){
  requestAnimationFrame(draw);
- if(time-frameTime<(lite?63:46))return;
+ if(time-frameTime<(lite?40:33))return;
  frameTime=time;
  resize();
  const cw=canvas.width,ch=canvas.height;
