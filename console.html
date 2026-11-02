@@ -87,6 +87,7 @@
 <div class="video-platform-status"><strong id="videoModeTikTok">Parado</strong><small id="videoActiveTikTok">Nenhum</small></div>
 </div>
 <div id="videoLibraryTikTok" class="video-library-list" aria-live="polite"></div>
+<label class="playlist-timed-label">⏱ Repetir cada vídeo por<select id="playlistTikTokMinutes"><option value="0">Ao terminar o vídeo (atual)</option><option value="1">1 minuto por vídeo</option><option value="2">2 minutos por vídeo</option><option value="3">3 minutos por vídeo</option><option value="5">5 minutos por vídeo</option><option value="10">10 minutos por vídeo</option><option value="15">15 minutos por vídeo</option><option value="30">30 minutos por vídeo</option></select></label>
 <label class="check playlist-loop-check"><input id="playlistTikTokLoop" type="checkbox" checked> ♾ Repetir lista inteira</label>
 <div class="video-playlist-actions">
 <button id="playlistTikTokPlay" type="button">▶ Reproduzir lista</button>
@@ -100,6 +101,7 @@
 <div class="video-platform-status"><strong id="videoModeYouTube">Parado</strong><small id="videoActiveYouTube">Nenhum</small></div>
 </div>
 <div id="videoLibraryYouTube" class="video-library-list" aria-live="polite"></div>
+<label class="playlist-timed-label">⏱ Repetir cada vídeo por<select id="playlistYouTubeMinutes"><option value="0">Ao terminar o vídeo (atual)</option><option value="1">1 minuto por vídeo</option><option value="2">2 minutos por vídeo</option><option value="3">3 minutos por vídeo</option><option value="5">5 minutos por vídeo</option><option value="10">10 minutos por vídeo</option><option value="15">15 minutos por vídeo</option><option value="30">30 minutos por vídeo</option></select></label>
 <label class="check playlist-loop-check"><input id="playlistYouTubeLoop" type="checkbox" checked> ♾ Repetir lista inteira</label>
 <div class="video-playlist-actions">
 <button id="playlistYouTubePlay" type="button">▶ Reproduzir lista</button>
@@ -108,7 +110,7 @@
 </div>
 </section>
 </div>
-<p class="hint">Para passar automaticamente de um vídeo para o seguinte, clique em <strong>▶ Reproduzir lista</strong> na coluna desejada. O botão <strong>▶ Só este</strong> reproduz apenas aquele arquivo e não avança a fila. A lista inteira repete quando o loop estiver ligado; todas as trocas usam a transição configurada.</p>
+<p class="hint">Em <strong>⏱ Repetir cada vídeo por</strong>, selecione um tempo ou mantenha a troca ao terminar (modo original). O vídeo escolhido repete sem transições intermediárias e, depois do tempo, passa ao seguinte com o efeito configurado. O botão <strong>▶ Só este</strong> continua reproduzindo apenas o arquivo selecionado. ♾ Repetir lista inteira controla a volta ao primeiro vídeo.</p>
 </section>
 <section class="video-transition-panel" aria-label="Controles e transições de vídeos únicos">
 <h2>🎛 Reprodutor único e transições</h2>
