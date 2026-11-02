@@ -29,7 +29,7 @@ async function checkStyle(){
  if(!validRoom||stylePolling)return;
  stylePolling=true;
  try{
-  const r=await fetch('/api/avatar-style?room='+room,{cache:'no-store'});
+  const r=await fetch('/api/avatar-pose?view=style&room='+room,{cache:'no-store'});
   if(!r.ok)return;
   const data=await r.json(),url=data.imageUrl||'';
   if(url===styleUrl)return;
