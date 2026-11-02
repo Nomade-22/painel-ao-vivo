@@ -14,7 +14,8 @@ input[type=text]{width:100%;padding:12px;color:#fff;background:#0c1428;border:1p
 label{display:block;margin:12px 0}.label{font-weight:700;color:#dce7ff}
 .note{font-size:13px;color:#a6bfde}a{color:#acd4ff;overflow-wrap:anywhere}
 #status{background:#0a1830;border-radius:10px;padding:11px 13px;color:#bde8fe;min-height:45px}
-#localPreview{display:none;width:100%;max-height:260px;object-fit:contain;border:1px solid #405e85;border-radius:12px;transform:scaleX(-1)}
+#localPreview{display:block;width:100%;max-height:260px;object-fit:contain;border:1px solid #405e85;border-radius:12px;transform:scaleX(-1)}
+.camera-hidden{position:absolute!important;left:-10000px!important;top:0!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
 #avatarPreview{display:block;width:100%;height:min(63vw,430px);min-height:270px;border:1px solid #456085;border-radius:12px;background:#050b1d}
 .copybox{display:flex;gap:7px;flex-wrap:wrap}.copybox input{flex:1;min-width:190px}
 small{color:#b2c0dc}.warning{color:#ffcd8c}
@@ -29,7 +30,7 @@ small{color:#b2c0dc}.warning{color:#ffcd8c}
 <p class="note">Fique de frente para a câmera, com ombros, braços e mãos visíveis. Este teste usa o modelo leve de rastreamento corporal.</p>
 <div class="row"><button id="start">▶ Iniciar captura</button><button id="stop" class="secondary" disabled>■ Desligar câmera</button></div>
 <label><input id="show" type="checkbox"> Mostrar minha câmera somente nesta página para ajustar a posição (não é enviada)</label>
-<video id="localPreview" autoplay muted playsinline></video>
+<video id="localPreview" class="camera-hidden" autoplay muted playsinline></video>
 <p id="status" role="status">Câmera desligada. Nada está sendo capturado.</p>
 <small>Privacidade: somente coordenadas temporárias são enviadas ao servidor. A câmera nunca aparece no reprodutor do OBS. Não compartilhe este link nem o código de sessão com terceiros.</small>
 </div>
@@ -69,7 +70,7 @@ $('copy').onclick=async()=>{
  try{await navigator.clipboard.writeText(link.href);$('copy').textContent='Copiado ✓';}
  catch{const input=$('obsLink');input.select();document.execCommand('copy');$('copy').textContent='Copiado ✓';}
 };
-$('show').onchange=()=>$('localPreview').style.display=$('show').checked?'block':'none';
+$('show').onchange=()=>$('localPreview').classList.toggle('camera-hidden',!$('show').checked);
 let stream=null,model=null,running=false,lastRun=0,lastSend=0,lastShown=0,inFlight=false,missing=0,wakeLock=null;
 const joints={nose:0,leftShoulder:11,rightShoulder:12,leftElbow:13,rightElbow:14,leftWrist:15,rightWrist:16,leftHip:23,rightHip:24};
 const status=s=>$('status').textContent=s;
