@@ -20,3 +20,14 @@ html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent
 @keyframes effect-pop{0%{opacity:0;transform:translate(-50%,-50%) scale(.4)}12%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}22%{transform:translate(-50%,-50%) scale(1)}87%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(.95)}}
 @keyframes effect-caption-in{0%{opacity:0;transform:translate(-50%,25px)}15%{opacity:1;transform:translate(-50%,0)}85%{opacity:1}100%{opacity:0}}
 @keyframes effect-spark{0%{opacity:0;transform:translate(0,0) scale(.5)}25%{opacity:1}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.25)}}
+
+
+/* Canvas translúcido dos efeitos avançados: fundo da LIVE permanece 100% livre. */
+.effect-canvas{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none;z-index:1}
+.effect-particle{z-index:2}
+.effect-banner,.effect-caption{z-index:3;pointer-events:none}
+.effect-banner.effect-loop{animation-iteration-count:infinite}
+.effect-caption.effect-caption-loop{animation-iteration-count:infinite}
+@media(prefers-reduced-motion:reduce){
+ .effect-particle{filter:none}
+}
