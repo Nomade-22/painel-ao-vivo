@@ -29,12 +29,24 @@ function explainError(v){
 }
 const standby=()=>active===main?backup:main;
 function setVideo(v,s){
- // No modo lista, o evento "ended" chama o próximo com a mesma transição.
- // Com um vídeo na lista, o loop nativo economiza processamento.
- const activeList=s.playlistChannel==='youtube'?'youtube':'tiktok';
- const playlistCount=(s.library||[]).filter(item=>(item.channel||'tiktok')===activeList).length;
- v.loop=s.mode==='playlist'?s.playlistLoop!==false&&playlistCount<=1:s.loop!==false;
+ // IMPORTANTE: o loop nativo impede "ended" e o avanço da lista.
+ // Mesmo uma lista de um único vídeo precisa encerrar para o servidor aplicar o loop da fila.
+ v.loop=s.mode==='playlist'?false:s.loop!==false;
  v.muted=s.muted!==false;
+}
+function tryAdvance(v,ended=false){
+ if(v!==active || v.loop || autoAdvancing || queued || processing)return;
+ const s=playbackState;
+ if(!s || s.mode!=='playlist' || !s.playing || v.paused&& !ended&& !v.ended)return;
+ if(v.getAttribute('src')!==s.url || !v.getAttribute('src'))return;
+ const duration=v.duration;
+ // Quando o motor do OBS falha em emitir "ended", timeupdate e a checagem
+ // periódica também podem trocar para o próximo. Uma pequena antecipação
+ // reduz a pausa entre vídeos sem iniciar trocas durante seeks/manutenção.
+ const nearEnd=Number.isFinite(duration)&&duration>=1&&!v.seeking&&
+  v.currentTime>=Math.max(0,duration-.35);
+ if(!ended && !v.ended && !nearEnd)return;
+ advancePlaylist().catch(e=>show('Erro ao passar ao próximo vídeo: '+e.message,true));
 }
 for(const v of [main,backup]){
  v.playsInline=true;
@@ -49,13 +61,10 @@ for(const v of [main,backup]){
  v.addEventListener('waiting',()=>{if(v===active&&!v.paused)show('Aguardando dados do vídeo…');});
  v.addEventListener('playing',()=>{if(v===active){show('Vídeo em reprodução');button(false);}});
  v.addEventListener('ended',()=>{
-  if(v!==active||v.loop)return;
-  if(!playbackState||playbackState.mode!=='playlist'||!playbackState.playing){
-   show('Vídeo concluído');return;
-  }
-  if(v.getAttribute('src')!==playbackState.url || queued)return;
-  advancePlaylist().catch(e=>show('Não foi possível avançar a lista: '+e.message,true));
+  if(v===active&&playbackState?.mode==='playlist')tryAdvance(v,true);
+  else if(v===active)show('Vídeo concluído');
  });
+ v.addEventListener('timeupdate',()=>tryAdvance(v));
 }
 
 // loadeddata pode ocorrer antes de haver um quadro realmente desenhado na tela do OBS.
@@ -272,6 +281,11 @@ async function apply(s){
  }
  for(const v of [main,backup])setVideo(v,s);
  if(active.getAttribute('src')===url){
+  // Uma lista de um item também avança pelo servidor: reiniciar o mesmo
+  // arquivo no começo, em vez de permanecer preso no último quadro.
+  if(s.playing && s.mode==='playlist' && active.ended){
+   try{active.currentTime=0;}catch{}
+  }
   if(s.playing && active.paused)await startVideo(active,active,s);
   if(!s.playing)active.pause();
   show(s.playing?'Vídeo em reprodução':'Vídeo pausado');
@@ -360,3 +374,4 @@ async function poll(){
 }
 poll();
 setInterval(poll,1050);
+setInterval(()=>tryAdvance(active),850);
