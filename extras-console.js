@@ -59,6 +59,40 @@ animations.innerHTML=`
   <h1>✨ Animações e ações da LIVE</h1>
   <p>Crie efeitos semelhantes às ações do TikFinity, com seus nomes, textos e emojis. Use os botões <strong>Acionar</strong> para dispará-los no OBS quando desejar.</p>
   <div class="extra-warning">⚠️ Ações manuais: ainda não há leitura automática de curtidas, comentários, presentes ou compras da Shopee ou do TikTok.</div>
+  <div class="extra-panel animation-gallery-panel">
+   <div class="animation-gallery-top">
+    <div><h2>🎆 Coleção de animações de tela inteira <span class="video-count" id="animacoesCatalogCount">25</span></h2>
+     <p class="hint">Escolha um efeito, faça uma prévia e envie ao mesmo reprodutor de animações do OBS. Corações e confetes continuam disponíveis.</p></div>
+    <div class="animation-tag">25 EFEITOS</div>
+   </div>
+   <div id="animacoesCategories" class="animation-categories" role="group" aria-label="Filtrar por categoria"></div>
+   <div id="animacoesGallery" class="animation-gallery" aria-live="polite"></div>
+   <div class="animation-layout">
+    <div class="animation-controls">
+     <h3>⚙️ Personalizar efeito</h3>
+     <p class="hint">Configurações para prévia e acionamento; não alteram suas ações já salvas.</p>
+     <div class="animation-selected"><span id="animacoesSelectedEmoji">🎉</span><strong id="animacoesSelectedName">Confetes premium</strong></div>
+     <div class="animation-setting-grid">
+      <label>Cor principal <input id="animacoesQuickColor" type="color" value="#f59e0b"></label>
+      <label>Duração (s) <input id="animacoesQuickDuration" type="number" min="1.5" max="30" step=".5" value="6"></label>
+      <label>Intensidade <output id="animacoesIntensityOut">65%</output><input id="animacoesQuickIntensity" type="range" min="20" max="100" step="5" value="65"></label>
+      <label>Velocidade <output id="animacoesSpeedOut">1,0×</output><input id="animacoesQuickSpeed" type="range" min=".4" max="2.5" step=".1" value="1"></label>
+      <label>Distribuição<select id="animacoesQuickPosition"><option value="full">🌐 Tela inteira</option><option value="center">🎯 Centro</option><option value="edges">🖼️ Bordas</option></select></label>
+      <label class="animation-loop-label"><input id="animacoesQuickLoop" type="checkbox"> ♾️ Loop até clicar em Parar</label>
+     </div>
+     <div class="video-actions">
+      <button id="animacoesQuickPreview" type="button" class="secondary">👁 Ver prévia</button>
+      <button id="animacoesQuickPlay" type="button">▶ Acionar no OBS</button>
+      <button id="animacoesQuickSave" type="button" class="secondary">＋ Salvar como ação</button>
+     </div>
+     <div class="video-actions"><button id="animacoesPreviewStop" type="button" class="secondary">■ Parar prévia</button></div>
+    </div>
+    <div class="animation-preview-panel">
+     <div class="animation-preview-head"><strong>👀 Prévia particular</strong><small>Não aparece na LIVE</small></div>
+     <iframe id="animacoesPreviewFrame" title="Prévia local das animações, separada do OBS" src="/animacoes.html?preview=1" loading="lazy"></iframe>
+    </div>
+   </div>
+  </div>
   <div class="extra-panel">
    <h2>🎛️ Minhas ações <span class="video-count" id="animacoesCount">0</span></h2>
    <div id="animacoesLibrary" class="extra-library" aria-live="polite"></div>
@@ -72,7 +106,11 @@ animations.innerHTML=`
     <label>Emoji<input id="animacoesEmoji" maxlength="16" value="✨" placeholder="❤️"></label>
     <label>Cor do efeito<input id="animacoesColor" type="color" value="#647cff"></label>
     <label>Mensagem (opcional)<input id="animacoesMessage" maxlength="160" placeholder="Obrigado por participar!"></label>
-    <label>Duração (segundos)<input id="animacoesDuration" type="number" min="1.5" max="12" step="0.5" value="5"></label>
+    <label>Duração (segundos)<input id="animacoesDuration" type="number" min="1.5" max="30" step="0.5" value="5"></label>
+    <label>Intensidade (%)<input id="animacoesIntensity" type="number" min="20" max="100" step="5" value="65"></label>
+    <label>Velocidade (0,4–2,5×)<input id="animacoesSpeed" type="number" min=".4" max="2.5" step=".1" value="1"></label>
+    <label>Distribuição<select id="animacoesPosition"><option value="full">Tela inteira</option><option value="center">Centro</option><option value="edges">Bordas</option></select></label>
+    <label class="animation-loop-label"><input id="animacoesLoop" type="checkbox"> ♾️ Repetir até parar</label>
    </div>
    <div class="video-actions"><button id="animacoesSave" type="button">＋ Salvar ação</button><button id="animacoesReset" type="button" class="secondary">Limpar editor</button></div>
   </div>
