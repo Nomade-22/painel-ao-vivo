@@ -51,7 +51,7 @@ function caption(a){
  stage.append(el);
 }
 function sprinkle(a,count,kind){
- const colors=palette;
+ const colors=[a.color,...palette];
  for(let i=0;i<count;i++){
   const c=kind==='confetti'?'':a.emoji;
   const e=make('span','effect-particle '+kind,c);
@@ -67,6 +67,7 @@ function sprinkle(a,count,kind){
 }
 function popup(a,kind='effect-banner'){
  const banner=make('div',kind);
+ if(a.loop)banner.classList.add('effect-loop');
  banner.style.setProperty('--accent',a.color);
  banner.append(make('span','effect-hero',a.emoji));
  const words=make('div','effect-copy');words.append(make('strong','effect-title',a.name));
