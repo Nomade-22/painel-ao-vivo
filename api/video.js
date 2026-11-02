@@ -6,11 +6,14 @@ const cache=getCache({namespace:'painel-video-v1'});
 const initial={
  url:'',playing:false,loop:true,muted:true,command:0,library:[],
  transition:'fade',duration:850,mode:'single',playlistChannel:'tiktok',
- playlistLoop:true,playlistLoops:{tiktok:true,youtube:true}
+ playlistLoop:true,playlistLoops:{tiktok:true,youtube:true},
+ playlistMinutes:{tiktok:0,youtube:0},playlistStartedAt:0
 };
 const isHttps=url=>{try{const u=new URL(url);return u.protocol==='https:'&&Boolean(u.hostname);}catch{return false;}};
 const groupOf=item=>item?.channel==='youtube'?'youtube':'tiktok';
 const safeLoop=v=>v!==false;
+const validMinutes=[0,1,2,3,5,10,15,30];
+const minutesOf=value=>validMinutes.includes(Number(value))?Number(value):0;
 function cleanLibrary(items){
  if(!Array.isArray(items))return [];
  const seen=new Set(),out=[];
@@ -37,6 +40,12 @@ function normalize(value){
  return {...initial,...v,
   library:cleanLibrary(v.library),mode:v.mode==='playlist'?'playlist':'single',
   playlistChannel,playlistLoops,playlistLoop:playlistLoops[playlistChannel],
+  playlistMinutes:{
+   tiktok:minutesOf(v.playlistMinutes?.tiktok),
+   youtube:minutesOf(v.playlistMinutes?.youtube)
+  },
+  playlistStartedAt:Number.isFinite(Number(v.playlistStartedAt))&&Number(v.playlistStartedAt)>0?
+   Number(v.playlistStartedAt):0,
   playing:!!v.playing,loop:safeLoop(v.loop),muted:safeLoop(v.muted),
   transition:['fade','black','cut'].includes(v.transition)?v.transition:'fade',
   duration:Math.max(300,Math.min(2500,Number(v.duration)||850)),
@@ -70,7 +79,8 @@ export default async function handler(req,res){
    const index=items.findIndex(item=>item.url===current.url);
    const isLast=index>=items.length-1;
    const next=isLast?(current.playlistLoop?items[0]:null):items[index+1];
-   const result={...current,url:next?.url||current.url,playing:!!next,command:nextCommand(current)};
+   const result={...current,url:next?.url||current.url,playing:!!next,
+    playlistStartedAt:Date.now(),command:nextCommand(current)};
    await cache.set('video',result,{ttl:2592000,name:'Biblioteca e playlist única da LIVE'});
    return res.status(200).json({ok:true,...result});
   }
@@ -95,10 +105,32 @@ export default async function handler(req,res){
    // Compatibilidade com controladores anteriores que ajustavam apenas o loop atual.
    playlistLoops[playlistChannel]=!!b.playlistLoop;
   }
+  let playlistMinutes={...current.playlistMinutes};
+  if(b.playlistMinutes!==undefined){
+   if(!b.playlistMinutes||typeof b.playlistMinutes!=='object'||Array.isArray(b.playlistMinutes))
+    return res.status(400).json({erro:'Tempo por vídeo inválido'});
+   for(const channel of ['tiktok','youtube']){
+    if(b.playlistMinutes[channel]!==undefined){
+     if(!validMinutes.includes(Number(b.playlistMinutes[channel])))
+      return res.status(400).json({erro:'Tempo por vídeo inválido'});
+     playlistMinutes[channel]=minutesOf(b.playlistMinutes[channel]);
+    }
+   }
+  }
+  const requestedMode=b.mode===undefined?current.mode:b.mode;
+  const requestedPlaying=Boolean(url)&&(b.playing===undefined?current.playing:!!b.playing);
+  const restarting=requestedMode==='playlist' && requestedPlaying &&
+   (url!==current.url || current.mode!=='playlist' ||
+    !current.playing || playlistChannel!==current.playlistChannel ||
+    (b.playlistStartedAt!==undefined &&
+     Number(b.playlistStartedAt)!==Number(current.playlistStartedAt)));
+  const playlistStartedAt=restarting || (requestedMode==='playlist'&&requestedPlaying&&!current.playlistStartedAt)?
+   Date.now():current.playlistStartedAt;
   const result={
-   ...current,url,playing:Boolean(url)&&(b.playing===undefined?current.playing:!!b.playing),
+   ...current,url,playing:requestedPlaying,
    mode:b.mode===undefined?current.mode:b.mode,
    playlistChannel,playlistLoops,playlistLoop:playlistLoops[playlistChannel],
+   playlistMinutes,playlistStartedAt,
    loop:b.loop===undefined?current.loop:!!b.loop,muted:b.muted===undefined?current.muted:!!b.muted,
    library:b.library===undefined?current.library:cleanLibrary(b.library),
    transition,duration:b.duration===undefined?current.duration:Math.max(300,Math.min(2500,Number(b.duration)||850)),
