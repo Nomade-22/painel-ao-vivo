@@ -3,6 +3,8 @@ import { handleUploadPresigned } from '@vercel/blob/client';
 
 const MAX_SIZE = 250 * 1024 * 1024;
 const VIDEO_TYPES = ['video/mp4', 'video/webm'];
+const IMAGE_TYPES=['image/webp','image/png','image/jpeg'];
+const MAX_IMAGE_SIZE=8*1024*1024;
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -24,14 +26,14 @@ export default async function handler(req, res) {
       request: req,
       onUploadCompleted: async () => {},
       getSignedToken: async (pathname) => {
-        if (typeof pathname !== 'string' || !/^videos\/[a-zA-Z0-9_.,() -]{1,160}\.(mp4|webm)$/i.test(pathname)) {
-          throw new Error('Nome ou extensão do arquivo inválido');
-        }
+        const video=typeof pathname==='string' && /^videos\/[a-zA-Z0-9_.,() -]{1,160}\.(mp4|webm)$/i.test(pathname);
+        const avatar=typeof pathname==='string' && /^avatars\/[a-zA-Z0-9_.,() -]{1,120}\.(png|webp|jpg|jpeg)$/i.test(pathname);
+        if(!video&&!avatar)throw new Error('Nome ou extensão do arquivo inválido');
         const token = await issueSignedToken({
           pathname,
           operations: ['put'],
-          allowedContentTypes: VIDEO_TYPES,
-          maximumSizeInBytes: MAX_SIZE,
+          allowedContentTypes: avatar?IMAGE_TYPES:VIDEO_TYPES,
+          maximumSizeInBytes: avatar?MAX_IMAGE_SIZE:MAX_SIZE,
           validUntil: Date.now() + 15 * 60 * 1000,
         });
         return { token, urlOptions: { addRandomSuffix: true } };
