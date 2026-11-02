@@ -5,6 +5,7 @@ import {getCache} from '@vercel/functions';
 const cache=getCache({namespace:'painel-avatar-pose-v1'});
 const keyPattern=/^[a-f0-9]{32}$/;
 const joints=['nose','leftShoulder','rightShoulder','leftElbow','rightElbow','leftWrist','rightWrist','leftHip','rightHip'];
+const extraJoints=['leftEar','rightEar','leftIndex','rightIndex'];
 const validPoint=p=>Array.isArray(p)&&p.length===3&&p.every(n=>typeof n==='number'&&Number.isFinite(n))&&p[0]>=0&&p[0]<=1&&p[1]>=0&&p[1]<=1&&p[2]>=0&&p[2]<=1;
 const parse=req=>typeof req.body==='string'?JSON.parse(req.body):req.body||{};
 export default async function handler(req,res){
@@ -31,6 +32,13 @@ export default async function handler(req,res){
   for(const name of joints){
    const p=body.points[name];
    if(!validPoint(p))return res.status(400).json({error:'Ponto corporal inválido'});
+   points[name]=p.map(n=>Math.round(n*10000)/10000);
+  }
+  // Compatibilidade com celulares que usam a captura antiga de 9 pontos.
+  for(const name of extraJoints){
+   const p=body.points[name];
+   if(p===undefined)continue;
+   if(!validPoint(p))return res.status(400).json({error:'Ponto corporal adicional inválido'});
    points[name]=p.map(n=>Math.round(n*10000)/10000);
   }
   const data={active:true,ts:Date.now(),points};
