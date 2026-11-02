@@ -171,3 +171,17 @@
  #painel-videos .video-platform-list .video-row-actions{justify-content:flex-end}
  #painel-videos .video-platform-list .video-row-actions button{padding:8px 9px}
 }
+
+
+/* Tempo opcional por vídeo antes de passar ao próximo na mesma fonte OBS. */
+#painel-videos .playlist-timed-label{
+  display:block;margin:12px 0 4px;color:#dceaff;font-size:13px;font-weight:700;
+}
+#painel-videos .playlist-timed-label select{
+  display:block;width:100%;margin:6px 0 0;padding:10px 12px;
+  color:#eaf3ff;background:#0e1c30;border:1px solid #466489;border-radius:9px;
+  font-size:13px;
+}
+#painel-videos .playlist-timed-label select:focus-visible{
+  outline:2px solid #85b9ff;outline-offset:2px;
+}
