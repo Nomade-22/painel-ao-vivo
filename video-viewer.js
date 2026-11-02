@@ -7,8 +7,7 @@ const notice=document.getElementById('aviso');
 const detail=document.getElementById('detalhe');
 const manual=document.getElementById('reproduzirManual');
 const onScreen=Boolean(manual);
-const videoChannel=document.body.dataset.channel==='youtube'?'youtube':'tiktok';
-const videoEndpoint='/api/video'+(videoChannel==='youtube'?'?channel=youtube':'');
+const videoEndpoint='/api/video'; // As duas listas compartilham a mesma saída e o mesmo estado.
 let playbackState=null,autoAdvancing=false;
 
 let active=main;
@@ -32,7 +31,8 @@ const standby=()=>active===main?backup:main;
 function setVideo(v,s){
  // No modo lista, o evento "ended" chama o próximo com a mesma transição.
  // Com um vídeo na lista, o loop nativo economiza processamento.
- const playlistCount=(s.library||[]).filter(item=>(item.channel||'tiktok')===videoChannel).length;
+ const activeList=s.playlistChannel==='youtube'?'youtube':'tiktok';
+ const playlistCount=(s.library||[]).filter(item=>(item.channel||'tiktok')===activeList).length;
  v.loop=s.mode==='playlist'?s.playlistLoop!==false&&playlistCount<=1:s.loop!==false;
  v.muted=s.muted!==false;
 }
