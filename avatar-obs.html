@@ -18,10 +18,12 @@ const room=params.get('room')||'';
 const validRoom=/^[a-f0-9]{32}$/.test(room);
 const background=params.get('background')!=='0';
 const debug=params.get('debug')==='1';
+const mirrored=params.get('mirror')!=='0';
 const canvas=document.getElementById('stage'),ctx=canvas.getContext('2d',{alpha:true});
 const label=document.getElementById('status');
 label.hidden=!debug;
-let target=null,received=0,stopped=false,polling=false,localFrame=0;
+let target=null,received=0,stopped=false,polling=false,localFrame=0,poseTime=0;
+let connectionState='aguardando';
 const lerp=(a,b,t)=>a+(b-a)*t;
 const clamp=(x,min,max)=>Math.min(max,Math.max(min,x));
 const rnd=seed=>{const v=Math.sin(seed*127.1+seed*seed*.11)*43758.5453;return v-Math.floor(v)};
@@ -29,7 +31,7 @@ const stars=Array.from({length:260},(_,i)=>({
  x:rnd(i*7+2)*1000,y:rnd(i*5+11)*800,r:.4+rnd(i*3+9)*2.1,
  a:.3+rnd(i*6+13)*.7,c:i%5===0?'#ff67f4':i%4===0?'#49ddff':'#e0dbff'
 }));
-const points={nose:[.5,.27,1],leftShoulder:[.37,.49,1],rightShoulder:[.63,.49,1],
+const points={nose:[.5,.27,1],leftEar:[.43,.29,1],rightEar:[.57,.29,1],leftIndex:[.20,.8,1],rightIndex:[.80,.8,1],leftShoulder:[.37,.49,1],rightShoulder:[.63,.49,1],
  leftElbow:[.3,.65,1],rightElbow:[.7,.65,1],
  leftWrist:[.25,.78,1],rightWrist:[.75,.78,1],
  leftHip:[.42,.83,1],rightHip:[.58,.83,1]};
@@ -52,24 +54,34 @@ async function poll(){
   const r=await fetch('/api/avatar-pose?room='+room,{cache:'no-store'});
   if(!r.ok)throw Error('HTTP '+r.status);
   const data=await r.json();
-  if(data.active&&data.points){target=data.points;received=Date.now();stopped=false;}
-  else if(data.active===false){target=null;stopped=true;}
+  if(data.active&&data.points){target=data.points;received=Date.now();stopped=false;connectionState='conectado';}
+  else if(data.active===false){target=null;stopped=true;connectionState='desconectado';}
  }catch{}
  finally{polling=false;}
 }
 function point(name){
  const p=smoothed[name]||points[name];
- return {x:1-clamp(Number(p?.[0]??.5),0,1),y:clamp(Number(p?.[1]??.5),0,1),v:clamp(Number(p?.[2]??0),0,1)};
+ const x=clamp(Number(p?.[0]??.5),0,1);
+ return {x:mirrored?1-x:x,y:clamp(Number(p?.[1]??.5),0,1),v:clamp(Number(p?.[2]??0),0,1)};
 }
 function nextTargets(){
- if(!target||Date.now()-received>9500)return;
- const strength=.18;
- for(const key of Object.keys(points)){
-  if(!Array.isArray(target[key])||target[key].length!==3)continue;
+ if(!target||Date.now()-received>6000)return;
+ const now=performance.now();
+ const dt=poseTime?Math.min(80,now-poseTime):45;
+ poseTime=now;
+ for(const key of Object.keys(target)){
+  const incoming=target[key];
+  if(!Array.isArray(incoming)||incoming.length!==3)continue;
   const prev=smoothed[key];
-  if(target[key][2]<.32)continue;
-  for(let i=0;i<2;i++)prev[i]=lerp(prev[i],target[key][i],strength);
-  prev[2]=target[key][2];
+  if(!prev){smoothed[key]=[...incoming];continue;}
+  if(incoming[2]<.25){prev[2]*=.95;continue;}
+  const dist=Math.hypot(incoming[0]-prev[0],incoming[1]-prev[1]);
+  const speed=clamp(.29+dist*2.2,.29,.78);
+  const alpha=1-Math.pow(1-speed,Math.max(.3,dt/46));
+  // Grandes saltos incorretos não mudam instantaneamente o braço.
+  const gate=dist>.35&&incoming[2]<.65?.12:alpha;
+  for(let i=0;i<2;i++)prev[i]=lerp(prev[i],incoming[i],gate);
+  prev[2]=incoming[2];
  }
 }
 // VISUAL PREMIUM — inspirado no astronauta cósmico rosa/ciano da referência.
@@ -419,7 +431,9 @@ function drawAvatar(t){
  const factor=clamp(272/shoulderSpan,650,1540);
  const cx=500+clamp((meanX-.5)*250,-85,85);
  const cy=480+clamp((meanY-.46)*120,-45,45);
- const neckTilt=clamp((Lp.y-Rp.y)*.92,-.20,.20);
+ const earL=point('leftEar'),earR=point('rightEar');
+ const earTilt=earL.v>.55&&earR.v>.55?clamp((earL.y-earR.y)*1.8,-.3,.3):0;
+ const neckTilt=clamp((Lp.y-Rp.y)*.75+earTilt*.38,-.30,.30);
  const shoulder=(p)=>({
   x:cx+clamp((p.x-meanX)*factor,-202,202),
   y:cy+clamp((p.y-meanY)*factor*.6,-32,34)
@@ -434,8 +448,25 @@ function drawAvatar(t){
   return {x:clamp(cx+(p.x-meanX)*factor,12,988),
    y:clamp(cy+(p.y-meanY)*factor,140,798)};
  };
- const le=armMap(left,'left','leftElbow'),lw=armMap(left,'left','leftWrist');
- const re=armMap(right,'right','rightElbow'),rw=armMap(right,'right','rightWrist');
+ const shapeArm=(root,elbowName,wristName)=>{
+  const e=point(elbowName),w=point(wristName);
+  const toCanvas=p=>({x:clamp(cx+(p.x-meanX)*factor,8,992),
+                      y:clamp(cy+(p.y-meanY)*factor,110,795)});
+  const ep=toCanvas(e),wp=toCanvas(w);
+  const fallbackE=armMap(root,'auto',elbowName);
+  const fallbackW=armMap(root,'auto',wristName);
+  if(e.v<.38)return [fallbackE,fallbackW];
+  const length=(a,b)=>Math.max(1,Math.hypot(b.x-a.x,b.y-a.y));
+  const project=(a,b,max)=>{
+   const d=length(a,b),size=clamp(d,max*.28,max*1.05);
+   return {x:a.x+(b.x-a.x)/d*size,y:a.y+(b.y-a.y)/d*size};
+  };
+  const newE=project(root,ep,161);
+  const newW=w.v>.36?project(newE,wp,166):fallbackW;
+  return [newE,newW];
+ };
+ const [le,lw]=shapeArm(left,'leftElbow','leftWrist');
+ const [re,rw]=shapeArm(right,'rightElbow','rightWrist');
  // Sombra dos braços e brilhos vêm antes do tronco para manter profundidade.
  armArt(left,le,lw,'#42e2ff');
  armArt(right,re,rw,'#ff56d7');
@@ -466,7 +497,7 @@ function draw(time){
  }
 }
 requestAnimationFrame(draw);
-if(validRoom){poll();setInterval(poll,530);}
+if(validRoom){poll();setInterval(poll,220);}
 else if(debug){label.textContent='Abra avatar-camera.html para obter uma sessão segura.';}
 })();
 </script></body></html>
