@@ -31,7 +31,7 @@ small{color:#b2c0dc}.warning{color:#ffcd8c}
 <h2>1. Ativar câmera do celular</h2>
 <p class="note">Fique de frente para a câmera, deixando cabeça, ombros, cotovelos e mãos visíveis. Use boa iluminação e apoie o celular para evitar tremores.</p>
 <label class="label" for="trackingQuality">Precisão do rastreamento</label>
-<select id="trackingQuality"><option value="full" selected>🎯 Preciso — mais detalhes dos braços (recomendado)</option><option value="lite">⚡ Leve — para celulares mais lentos</option></select>
+<select id="trackingQuality"><option value="full">🎯 Preciso — mais pesado (testar somente se o celular aguentar)</option><option value="lite" selected>⚡ Leve — recomendado para live com menos atraso</option></select>
 <label class="label" for="trackingSensitivity">Sensibilidade dos movimentos</label>
 <select id="trackingSensitivity"><option value="natural" selected>Natural — movimentos suaves e responsivos</option><option value="fast">Rápida — responde mais depressa</option><option value="stable">Estável — filtra tremores</option></select>
 <p class="note">Ajuste o tipo de rastreamento <strong>antes de iniciar</strong>. A sensibilidade pode ser alterada durante a captura.</p>
@@ -268,7 +268,9 @@ async function tick(ms){
  if(ms-lastShown>1200){
   status('✓ Rastreamento '+$('trackingQuality').value.toUpperCase()+
    ' · '+Math.round(detectorMs)+'ms por inferência · rede '+Math.round(netMs)+'ms'+
-   (netMs>350?' · conexão lenta':''));
+   (netMs>350?' · conexão lenta':'')+
+   (detectorMs>105?' · tente modo LEVE ao reiniciar':'')+
+   (missCount>3?' · enquadre os braços':''));
   lastShown=ms;
  }
 }
