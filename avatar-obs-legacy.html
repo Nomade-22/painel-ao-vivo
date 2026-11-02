@@ -1,0 +1,472 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Avatar Astronauta — Fonte OBS</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:transparent}
+#stage{display:block;width:100%;height:100%;background:transparent;object-fit:contain}
+#status{position:fixed;left:0;right:0;bottom:0;text-align:center;font:14px system-ui;color:#c7d9ff;background:#101b39d9;padding:9px;pointer-events:none}
+#status[hidden]{display:none}
+</style></head>
+<body><canvas id="stage" aria-label="Astronauta neon que acompanha movimentos, sem mostrar a câmera real"></canvas>
+<div id="status" hidden></div>
+<script>
+(()=>{
+'use strict';
+const params=new URLSearchParams(location.search);
+const room=params.get('room')||'';
+const validRoom=/^[a-f0-9]{32}$/.test(room);
+const background=params.get('background')!=='0';
+const debug=params.get('debug')==='1';
+const canvas=document.getElementById('stage'),ctx=canvas.getContext('2d',{alpha:true});
+const label=document.getElementById('status');
+label.hidden=!debug;
+let target=null,received=0,stopped=false,polling=false,localFrame=0;
+const lerp=(a,b,t)=>a+(b-a)*t;
+const clamp=(x,min,max)=>Math.min(max,Math.max(min,x));
+const rnd=seed=>{const v=Math.sin(seed*127.1+seed*seed*.11)*43758.5453;return v-Math.floor(v)};
+const stars=Array.from({length:260},(_,i)=>({
+ x:rnd(i*7+2)*1000,y:rnd(i*5+11)*800,r:.4+rnd(i*3+9)*2.1,
+ a:.3+rnd(i*6+13)*.7,c:i%5===0?'#ff67f4':i%4===0?'#49ddff':'#e0dbff'
+}));
+const points={nose:[.5,.27,1],leftShoulder:[.37,.49,1],rightShoulder:[.63,.49,1],
+ leftElbow:[.3,.65,1],rightElbow:[.7,.65,1],
+ leftWrist:[.25,.78,1],rightWrist:[.75,.78,1],
+ leftHip:[.42,.83,1],rightHip:[.58,.83,1]};
+let smoothed={...Object.fromEntries(Object.entries(points).map(([k,v])=>[k,[...v]]))};
+let frameTime=0;
+const colour={
+ hot:'#ff46db',blue:'#27e5ff',white:'#f5efff',dark:'#080824',shadow:'#22254c'
+};
+function resize(){
+ const w=Math.max(2,canvas.clientWidth),h=Math.max(2,canvas.clientHeight);
+ const dpr=Math.min(1.25,window.devicePixelRatio||1);
+ const newW=Math.round(w*dpr),newH=Math.round(h*dpr);
+ if(canvas.width!==newW||canvas.height!==newH){canvas.width=newW;canvas.height=newH;}
+}
+window.addEventListener('resize',resize);resize();
+async function poll(){
+ if(!validRoom||polling)return;
+ polling=true;
+ try{
+  const r=await fetch('/api/avatar-pose?room='+room,{cache:'no-store'});
+  if(!r.ok)throw Error('HTTP '+r.status);
+  const data=await r.json();
+  if(data.active&&data.points){target=data.points;received=Date.now();stopped=false;}
+  else if(data.active===false){target=null;stopped=true;}
+ }catch{}
+ finally{polling=false;}
+}
+function point(name){
+ const p=smoothed[name]||points[name];
+ return {x:1-clamp(Number(p?.[0]??.5),0,1),y:clamp(Number(p?.[1]??.5),0,1),v:clamp(Number(p?.[2]??0),0,1)};
+}
+function nextTargets(){
+ if(!target||Date.now()-received>9500)return;
+ const strength=.18;
+ for(const key of Object.keys(points)){
+  if(!Array.isArray(target[key])||target[key].length!==3)continue;
+  const prev=smoothed[key];
+  if(target[key][2]<.32)continue;
+  for(let i=0;i<2;i++)prev[i]=lerp(prev[i],target[key][i],strength);
+  prev[2]=target[key][2];
+ }
+}
+// VISUAL PREMIUM — inspirado no astronauta cósmico rosa/ciano da referência.
+// A câmera continua fornecendo APENAS 9 posições corporais; nenhuma imagem do usuário.
+const lite=params.get('quality')==='lite';
+const TAU=Math.PI*2;
+const backdrop=document.createElement('canvas');
+backdrop.width=1000;backdrop.height=800;
+const bg=backdrop.getContext('2d',{alpha:true});
+function gStops(g,stops){for(const [at,col] of stops)g.addColorStop(at,col);return g;}
+function radial(x,y,r,stops,context=ctx){
+ return gStops(context.createRadialGradient(x-r*.22,y-r*.3,0,x,y,r),stops);
+}
+function linear(x,y,xx,yy,stops,context=ctx){
+ return gStops(context.createLinearGradient(x,y,xx,yy),stops);
+}
+function ellipse(x,y,rx,ry,fill,stroke=null,line=2){
+ ctx.beginPath();ctx.ellipse(x,y,Math.max(1,rx),Math.max(1,ry),0,0,TAU);
+ if(fill){ctx.fillStyle=fill;ctx.fill();}
+ if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=line;ctx.stroke();}
+}
+function rounded(x,y,w,h,r,fill,stroke=null,lw=1){
+ ctx.beginPath();ctx.roundRect(x,y,w,h,r);
+ if(fill){ctx.fillStyle=fill;ctx.fill();}
+ if(stroke){ctx.lineWidth=lw;ctx.strokeStyle=stroke;ctx.stroke();}
+}
+function glow(x,y,r,col,alpha=1,context=ctx){
+ const g=context.createRadialGradient(x,y,0,x,y,r);
+ g.addColorStop(0,col);g.addColorStop(1,'transparent');
+ context.save();context.globalAlpha=alpha;context.fillStyle=g;
+ context.fillRect(x-r,y-r,2*r,2*r);context.restore();
+}
+function strokePath(points,color,width=2,blur=0){
+ ctx.save();ctx.strokeStyle=color;ctx.lineCap='round';ctx.lineJoin='round';ctx.lineWidth=width;
+ if(blur){ctx.shadowBlur=blur;ctx.shadowColor=color;}
+ ctx.beginPath();points(ctx);ctx.stroke();ctx.restore();
+}
+function spark(x,y,r,color,alpha=1){
+ ctx.save();ctx.globalAlpha=alpha;ctx.fillStyle=color;
+ ctx.fillRect(x-r*.28,y-r*.28,r*.56,r*.56);
+ ctx.strokeStyle=color;ctx.lineWidth=Math.max(.6,r*.14);
+ ctx.beginPath();ctx.moveTo(x-r*2,y);ctx.lineTo(x+r*2,y);
+ ctx.moveTo(x,y-r*2);ctx.lineTo(x,y+r*2);ctx.stroke();ctx.restore();
+}
+// Galáxia calculada uma única vez: menos carga de CPU na live.
+function buildBackdrop(){
+ const g=bg.createRadialGradient(540,320,30,540,400,720);
+ g.addColorStop(0,'#1b1049');g.addColorStop(.25,'#0b1146');
+ g.addColorStop(.57,'#11062b');g.addColorStop(1,'#02030e');
+ bg.fillStyle=g;bg.fillRect(0,0,1000,800);
+ if(lite)return;
+ const clouds=[
+  [170,195,245,'#ae09fa',.36],[260,115,250,'#f300c5',.30],
+  [385,190,170,'#2820ff',.44],[720,155,280,'#ff0c9c',.4],
+  [840,320,215,'#6c0cce',.45],[115,460,295,'#1b50ed',.45],
+  [800,510,235,'#05a0fa',.40],[480,620,290,'#930af1',.35],
+  [500,90,150,'#dd3ecf',.35],[960,130,180,'#3e29ec',.36],
+  [80,630,180,'#ee21ab',.37],[680,675,255,'#0b68eb',.28]
+ ];
+ for(const [x,y,r,col,a] of clouds)glow(x,y,r,col,a,bg);
+ bg.save();bg.translate(500,320);bg.rotate(-.18);
+ for(let i=10;i>=0;i--){
+  bg.save();
+  bg.shadowColor=i%3?'#d307e9':'#13bfff';bg.shadowBlur=22;
+  bg.strokeStyle=i%3===0?'#ff5fb9':i%2?'#7111ed':'#27bafc';
+  bg.globalAlpha=.11+(10-i)*.022;
+  bg.lineWidth=8+i*.65;
+  bg.beginPath();bg.ellipse(0,0,348+i*4,277+i*4,0,-.2,Math.PI*1.83);bg.stroke();
+  bg.restore();
+ }
+ bg.restore();
+ for(let i=0;i<420;i++){
+  const x=rnd(i*11+7)*1000,y=rnd(i*13+9)*800;
+  const r=.3+rnd(i*19+11)*1.4;
+  bg.globalAlpha=.24+rnd(i*23+1)*.66;
+  bg.fillStyle=i%5===0?'#ff9bf9':i%6===0?'#36eaff':'#dae6ff';
+  bg.beginPath();bg.arc(x,y,r,0,TAU);bg.fill();
+ }
+ bg.globalAlpha=1;
+}
+buildBackdrop();
+const dust=Array.from({length:33},(_,i)=>({
+ x:rnd(i*7+7)*1000,y:rnd(i*9+23)*800,
+ radius:1.1+rnd(i*13+3)*1.6,speed:.3+rnd(i*16+8)*.7,
+ color:i%3?'#e969ff':'#49eaff'
+}));
+function drawBackground(t){
+ ctx.drawImage(backdrop,0,0);
+ if(!lite){
+  // Halo vivo, mas discreto: evita recompor a nuvem pesada em cada frame.
+  ctx.save();ctx.translate(500,320);ctx.rotate(-.18+Math.sin(t*.07)*.008);
+  ctx.globalAlpha=.64+.15*Math.sin(t*.5);
+  ctx.strokeStyle='#ff4dd7';ctx.shadowColor='#f615d3';ctx.shadowBlur=20;
+  ctx.lineWidth=5;ctx.beginPath();ctx.ellipse(0,0,372,299,0,-.55,Math.PI*1.58);ctx.stroke();
+  ctx.shadowColor='#12dcff';ctx.strokeStyle='#39d7fa';
+  ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(0,0,382,309,0,Math.PI*.62,Math.PI*1.9);ctx.stroke();
+  ctx.restore();
+ }
+ for(const d of dust){
+  const a=.33+.35*Math.sin(t*d.speed+d.x);
+  ctx.globalAlpha=clamp(a,.12,.86);
+  ctx.fillStyle=d.color;ctx.beginPath();
+  ctx.arc(d.x,d.y,d.radius,0,TAU);ctx.fill();
+ }
+ ctx.globalAlpha=1;
+ // Energia rosa/azul à frente do traje, mas atrás dos braços.
+ for(let k=0;k<3;k++){
+  ctx.save();ctx.strokeStyle=k%2?'#0ad7ff':'#ff35c3';
+  ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=lite?7:16;
+  ctx.globalAlpha=.28;ctx.lineWidth=4+k*2;
+  ctx.beginPath();
+  for(let i=0;i<=32;i++){
+   const x=i*31.25,y=727+k*21+Math.sin(i*.48+t*.85+k)*18;
+   if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+  }
+  ctx.stroke();ctx.restore();
+ }
+}
+function fabricSegment(a,b,r,side,accent){
+ const dx=b.x-a.x,dy=b.y-a.y,len=Math.max(1,Math.hypot(dx,dy));
+ ctx.save();ctx.translate(a.x,a.y);ctx.rotate(Math.atan2(dy,dx));
+ const top=linear(0,-r,0,r,[
+  [0,'#170e31'],[.1,'#9f7dc0'],[.25,'#f6d0eb'],
+  [.42,'#b3a0c6'],[.62,'#514566'],[.86,'#27254d'],[1,'#10152c']
+ ]);
+ ctx.save();ctx.shadowColor=accent;ctx.shadowBlur=9;
+ rounded(-18,-r,len+36,2*r,r,top,'#cda5e5',2);
+ ctx.restore();
+ // Costura e tecido plissado, seguindo o braço.
+ for(let i=0;i<5;i++){
+  const px=16+i*(len-32)/4;
+  if(px>len-6)continue;
+  strokePath(p=>{
+   p.moveTo(px,-r*.83);p.bezierCurveTo(px+5,-r*.3,px-9,r*.1,px+3,r*.82);
+  },i%2?'#40324f':'#f6d8f9',i%2?2:1,.0);
+ }
+ rounded(10,-r*.78,Math.max(1,len-18),5,3,accent);
+ rounded(16,r*.72,Math.max(1,len-26),3,2,'#d7c4f6');
+ rounded(20,-r*.09,Math.max(1,len-40),6,3,'#2b284e');
+ // Anéis rígidos metálicos na manga.
+ for(let px of [20,len-27]){
+  const metal=linear(0,-r,0,r,[[0,'#211e38'],[.24,'#fcdaef'],[.46,'#8e7aa7'],[.74,'#40394e'],[1,'#111326']]);
+  rounded(px,-r*1.05,16,r*2.1,7,metal,'#f0baf1',2);
+  rounded(px+4,-r*.94,3,r*1.9,2,accent);
+ }
+ ctx.restore();
+}
+function joint(x,y,r,accent){
+ ctx.save();ctx.shadowColor=accent;ctx.shadowBlur=12;
+ ellipse(x,y,r,r,radial(x-4,y-9,r*1.2,[
+  [0,'#fff1ff'],[.27,'#ae9dc1'],[.56,'#7c7091'],[1,'#202138']
+ ]),'#d8bcde',3);
+ ctx.restore();
+ ellipse(x,y,r*.65,r*.65,radial(x-5,y-5,r,[[0,'#e9e4fd'],[.6,'#5c4d80'],[1,'#15182b']]),accent,3);
+ ellipse(x,y,r*.24,r*.24,accent);
+}
+function glove(wrist,elbow,accent){
+ const angle=Math.atan2(wrist.y-elbow.y,wrist.x-elbow.x);
+ ctx.save();ctx.translate(wrist.x,wrist.y);ctx.rotate(angle);
+ const g=linear(-34,-35,35,40,[[0,'#fff5ff'],[.26,'#bda9d3'],[.65,'#675577'],[1,'#17182c']]);
+ ctx.save();ctx.shadowColor=accent;ctx.shadowBlur=12;
+ rounded(-38,-30,74,61,22,g,accent,3);ctx.restore();
+ rounded(-35,-28,18,56,10,'#433353','#eecaf3',2);
+ rounded(0,-18,27,37,11,linear(0,-18,25,36,[[0,'#ece7fa'],[1,'#776487']]),'#b6a0d5');
+ for(let i=0;i<4;i++){
+  const y=-24+i*15;
+  rounded(30,y,27,11,5,linear(30,y,52,y+12,[[0,'#c3b0d2'],[1,'#29203c']]),accent,1.3);
+ }
+ ctx.restore();
+}
+function armArt(a,e,w,accent){
+ fabricSegment(a,e,39,'upper',accent);
+ fabricSegment(e,w,33,'fore',accent);
+ joint(a.x,a.y,35,accent);
+ joint(e.x,e.y,29,accent);
+ glove(w,e,accent);
+}
+function hose(cx,cy,flip){
+ ctx.save();
+ ctx.strokeStyle='#131425';ctx.lineWidth=30;ctx.lineCap='round';
+ ctx.beginPath();ctx.moveTo(cx+flip*98,cy+78);
+ ctx.bezierCurveTo(cx+flip*153,cy+136,cx+flip*132,cy+244,cx+flip*93,cy+294);ctx.stroke();
+ ctx.strokeStyle='#7f83b4';ctx.lineWidth=18;ctx.stroke();
+ ctx.strokeStyle='#28c8fb';ctx.lineWidth=2;ctx.stroke();
+ // sulcos no tubo
+ for(let i=0;i<11;i++){
+  const y=cy+101+i*17;
+  const x=cx+flip*(127+11*Math.sin(i*.34));
+  strokePath(p=>{p.moveTo(x-flip*9,y-3);p.lineTo(x+flip*9,y+3);},'#23243d',2);
+ }
+ ctx.restore();
+}
+function armorBody(cx,cy,t,roll){
+ ctx.save();ctx.translate(cx,cy);ctx.rotate(roll);
+ // Mochila, ombreiras e pescoço da roupa.
+ rounded(-176,-61,352,354,108,linear(-160,-80,156,310,[
+  [0,'#f3b2e5'],[.27,'#8a86af'],[.51,'#777099'],[1,'#12142e']
+ ]),'#c86fd9',5);
+ const shell=linear(-140,-70,160,300,[
+  [0,'#fff0ff'],[.2,'#cdbbdb'],[.4,'#807ba5'],
+  [.7,'#5b567b'],[1,'#11142e']
+ ]);
+ rounded(-144,-43,288,350,79,shell,'#e4b9f5',5);
+ // Costuras laterais e acolchoado.
+ for(const side of [-1,1]){
+  ctx.save();
+  ctx.strokeStyle=side===1?'#ff39c8':'#46dafa';
+  ctx.shadowColor=ctx.strokeStyle;ctx.shadowBlur=8;ctx.lineWidth=3;
+  ctx.beginPath();ctx.moveTo(side*118,-2);
+  ctx.bezierCurveTo(side*146,68,side*126,225,side*100,289);ctx.stroke();
+  ctx.restore();
+  for(let i=0;i<5;i++){
+   rounded(side*111-(side===-1?20:0),43+i*42,20,5,3,'#ded0f6');
+  }
+ }
+ // placa peitoral com contorno cromado.
+ const breast=linear(-98,55,111,271,[
+  [0,'#c4c0e6'],[.28,'#3d416d'],[.52,'#201d44'],[1,'#080d23']
+ ]);
+ rounded(-108,78,216,193,31,breast,'#d8c7fa',4);
+ rounded(-93,93,186,164,22,linear(-93,90,93,245,[
+  [0,'#4a4e87'],[.32,'#161d41'],[1,'#090d24']
+ ]),'#40ccf5',2.4);
+ // Luzes lineares, circuito e a estrela central.
+ for(const side of [-1,1]){
+  strokePath(p=>{p.moveTo(side*16,153);p.lineTo(side*56,132);p.lineTo(side*76,140);},side===1?'#ff3bdf':'#4fddff',3,7);
+  strokePath(p=>{p.moveTo(side*17,183);p.lineTo(side*56,197);p.lineTo(side*71,197);},'#949bc7',2);
+ }
+ ctx.save();ctx.shadowColor='#21eaff';ctx.shadowBlur=21;
+ ellipse(0,169,39,39,radial(0,169,48,[[0,'#b5faff'],[.35,'#33bafe'],[.7,'#173584'],[1,'#070f31']]),'#9dedff',4);
+ ctx.restore();
+ ellipse(0,169,24,24,'#131a57','#3eebff',3);
+ spark(0,169,8,'#effbff',.9);
+ // Controle ambiental, botões e nervuras.
+ rounded(-78,213,156,41,9,'#131b3f','#a693c9',2);
+ for(let i=0;i<6;i++){
+  rounded(-66+i*22,225,13,8,3,i%3===0?'#ff4cd7':'#47dfff');
+ }
+ // Ombreiras blindadas prateadas com aros neon.
+ for(const side of [-1,1]){
+  const x=side*150;
+  ellipse(x,14,64,64,radial(x-12,0,97,[
+   [0,'#fff3fc'],[.36,'#a9a3c3'],[.7,'#5d5878'],[1,'#1a1d36']
+  ]),side===1?'#ff43db':'#3fd9f9',4);
+  ellipse(x,10,44,40,'#5a567c','#cbbde3',2);
+  strokePath(p=>{p.arc(x,7,49,Math.PI*1.12,Math.PI*1.78);},'#ffffff',3);
+ }
+ // Cintos metálicos e tiras na cintura.
+ rounded(-130,272,260,30,12,linear(0,270,0,305,[[0,'#dcb9e6'],[.34,'#525476'],[1,'#17172b']]),'#bb65e5',3);
+ for(const x of [-110,-67,58,101]){
+  rounded(x-8,274,16,27,5,'#3c375b','#bfaddc',2);
+ }
+ ctx.restore();
+}
+function visorNebula(t){
+ const glass=radial(0,17,171,[
+  [0,'#0b0e2b'],[.34,'#090d2e'],[.73,'#171044'],[1,'#020514']
+ ]);
+ ellipse(0,19,153,132,glass);
+ ctx.save();ctx.beginPath();ctx.ellipse(0,19,152,131,0,0,TAU);ctx.clip();
+ glow(-92,55,165,'#d900cf',.58);
+ glow(100,-12,149,'#00bfff',.55);
+ glow(-5,99,120,'#5725f6',.75);
+ glow(-35,-20,80,'#fa2198',.33);
+ // Reflexo de nebulosa no visor, em vez de uma face.
+ for(let i=0;i<7;i++){
+  const phase=i*.67+t*.13;
+  strokePath(p=>{
+   p.moveTo(-176,30+Math.sin(phase)*15+i*9);
+   p.bezierCurveTo(-80,4+i*18,25,118-i*15,184,4+i*12);
+  },i%2?'#d624f3':'#36baf8',1.6+i%3,.0);
+ }
+ for(let i=0;i<95;i++){
+  const x=rnd(i*17+7)*304-152;
+  const y=rnd(i*21+11)*264-113;
+  ctx.globalAlpha=.35+rnd(i*37+5)*.5;
+  ellipse(x,y,.6+rnd(i*7)*1.3,.6+rnd(i*7)*1.3,
+   i%5===0?'#ff70f0':'#c8e9ff');
+ }
+ ctx.globalAlpha=1;
+ glow(-33,38,58,'#ff60df',.55);
+ glow(81,33,60,'#5ae2ff',.42);
+ // reflexo especular de vidro curvo
+ const shine=linear(-132,-99,125,105,[
+  [0,'rgba(255,255,255,.43)'],[.13,'rgba(255,255,255,.03)'],
+  [.37,'rgba(255,255,255,0)'],[.76,'rgba(255,255,255,.02)'],
+  [1,'rgba(146,250,255,.16)']
+ ]);
+ ellipse(0,19,153,132,shine);
+ ctx.restore();
+}
+function helmet(cx,cy,tilt,t){
+ ctx.save();ctx.translate(cx,cy);ctx.rotate(tilt);
+ // Sombra da gola antes do casco.
+ ellipse(0,155,153,65,'#17132c','#ef8ce9',5);
+ ctx.save();ctx.shadowColor='#eb49d1';ctx.shadowBlur=lite?11:23;
+ ellipse(0,-11,185,205,radial(-19,-58,218,[
+  [0,'#fff0ff'],[.21,'#debadb'],[.43,'#9c7da7'],
+  [.7,'#65557e'],[.9,'#393556'],[1,'#1a1936']
+ ]),'#f5c1f5',7);
+ ctx.restore();
+ // Segmentos do casco e costuras em meia-lua.
+ strokePath(p=>{p.ellipse(0,-11,174,195,0,Math.PI*1.1,Math.PI*1.8);},
+ '#f8e5ff',5);
+ strokePath(p=>{p.ellipse(0,-10,164,184,0,Math.PI*.05,Math.PI*.8);},
+ '#f151c4',3,8);
+ for(const side of [-1,1]){
+  ellipse(side*173,58,25,34,linear(side*175,32,side*169,93,[
+   [0,'#f8e3fa'],[.52,'#8c6c9e'],[1,'#30304c']
+  ]),'#f9a7ec',3);
+  ellipse(side*174,59,12,15,'#252244','#42d7fb',2);
+  rounded(side*167-7,-4,15,23,5,'#d9c8ee','#8d83b3',1);
+ }
+ // moldura cromada ao redor do visor
+ ellipse(0,19,165,145,radial(-30,-28,194,[
+  [0,'#fff2ff'],[.23,'#bc9cd2'],[.53,'#4a4874'],[1,'#170c29']
+ ]),'#f7c4f0',7);
+ ellipse(0,19,156,137,'#0b0927','#18152e',5);
+ visorNebula(t);
+ ctx.save();ctx.shadowColor='#38dfff';ctx.shadowBlur=lite?3:12;
+ ctx.beginPath();ctx.ellipse(0,19,155,135,0,0,TAU);
+ ctx.strokeStyle='#46ddfb';ctx.lineWidth=3;ctx.stroke();ctx.restore();
+ // reflexos alongados no vidro
+ strokePath(p=>{
+  p.moveTo(-134,-26);
+  p.bezierCurveTo(-108,-97,-46,-112,-10,-107);
+ },'rgba(255,255,255,.86)',5);
+ strokePath(p=>{
+  p.moveTo(138,26);
+  p.bezierCurveTo(151,77,117,122,93,133);
+ },'rgba(88,245,255,.7)',4);
+ // colar cervical com estrias e costuras
+ rounded(-117,142,234,62,25,linear(0,142,0,207,[
+  [0,'#fad4ee'],[.16,'#82738e'],[.46,'#423f66'],[.76,'#db9ecb'],[1,'#1a1c37']
+ ]),'#f2d9ff',5);
+ for(let i=0;i<8;i++){
+  rounded(-97+i*26,181,13,7,3,i%2?'#11142c':'#37dffc');
+ }
+ rounded(-71,201,142,20,9,'#39345a','#f19ddf',3);
+ rounded(-41,205,82,12,6,'#120d2e','#52ecfc',2);
+ ctx.restore();
+}
+function drawAvatar(t){
+ const Lp=point('leftShoulder'),Rp=point('rightShoulder'),np=point('nose');
+ const meanX=(Lp.x+Rp.x)*.5,meanY=(Lp.y+Rp.y)*.5;
+ const shoulderSpan=Math.max(.12,Math.abs(Lp.x-Rp.x));
+ const factor=clamp(272/shoulderSpan,650,1540);
+ const cx=500+clamp((meanX-.5)*250,-85,85);
+ const cy=480+clamp((meanY-.46)*120,-45,45);
+ const neckTilt=clamp((Lp.y-Rp.y)*.92,-.20,.20);
+ const shoulder=(p)=>({
+  x:cx+clamp((p.x-meanX)*factor,-202,202),
+  y:cy+clamp((p.y-meanY)*factor*.6,-32,34)
+ });
+ const left=shoulder(Lp),right=shoulder(Rp);
+ const armMap=(anchor,part,name)=>{
+  const p=point(name);
+  const outward=anchor.x>=cx?1:-1;
+  const fallback={x:anchor.x+outward*(name.includes('Elbow')?88:145),
+   y:cy+(name.includes('Elbow')?130:228)};
+  if(p.v<.35)return fallback;
+  return {x:clamp(cx+(p.x-meanX)*factor,12,988),
+   y:clamp(cy+(p.y-meanY)*factor,140,798)};
+ };
+ const le=armMap(left,'left','leftElbow'),lw=armMap(left,'left','leftWrist');
+ const re=armMap(right,'right','rightElbow'),rw=armMap(right,'right','rightWrist');
+ // Sombra dos braços e brilhos vêm antes do tronco para manter profundidade.
+ armArt(left,le,lw,'#42e2ff');
+ armArt(right,re,rw,'#ff56d7');
+ armorBody(cx,cy,t,neckTilt*.26);
+ hose(cx,cy,1);hose(cx,cy,-1);
+ const hx=cx+clamp((np.x-meanX)*factor*.32,-57,57);
+ const hy=cy-170+clamp((np.y-meanY+.24)*85,-28,30)+Math.sin(t*.72)*2;
+ helmet(hx,hy,neckTilt+Math.sin(t*.35)*.009,t);
+}
+function draw(time){
+ requestAnimationFrame(draw);
+ if(time-frameTime<(lite?63:46))return;
+ frameTime=time;
+ resize();
+ const cw=canvas.width,ch=canvas.height;
+ ctx.clearRect(0,0,cw,ch);
+ const sx=cw/1000,sy=ch/800,scale=Math.min(sx,sy);
+ const x0=(cw-1000*scale)*.5,y0=(ch-800*scale)*.5;
+ ctx.save();ctx.translate(x0,y0);ctx.scale(scale,scale);
+ if(background)drawBackground(time/1000);
+ nextTargets();
+ drawAvatar(time/1000);
+ ctx.restore();
+ if(debug){
+  const age=received?Math.round((Date.now()-received)/1000):'-';
+  label.textContent='Avatar astronauta | '+(received&&age<8?'Movimentos conectados':'Aguardando celular')+
+   ' | Atualizado há: '+age+'s | Imagem real nunca enviada';
+ }
+}
+requestAnimationFrame(draw);
+if(validRoom){poll();setInterval(poll,530);}
+else if(debug){label.textContent='Abra avatar-camera.html para obter uma sessão segura.';}
+})();
+</script></body></html>
