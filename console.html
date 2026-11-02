@@ -59,6 +59,12 @@
 </div></details>
 <div class="editor-extra-actions"><button id="resetarEstilo" type="button" class="secondary">↺ Limpar efeitos</button><small>O texto e a imagem serão preservados.</small></div>
 </section><h2>Imagem sobre o vídeo</h2><label>URL pública da imagem (PNG, JPG, WebP ou GIF)<input id="imagem" type="url" placeholder="https://exemplo.com/imagem.png"></label><div class="controls"><label>Largura da imagem (px)<input id="imagemLargura" type="number" min="50" max="1000" value="300"></label><label>Posição<select id="imagemPosicao"><option value="acima">Acima do texto</option><option value="abaixo">Abaixo do texto</option></select></label></div><div class="actions"><button id="publicar">Enviar agora</button><label class="check"><input id="automatico" type="checkbox" checked> Atualização automática</label></div></div><p id="erro" role="alert"></p></section><section class="card preview-card"><div class="topline"><h2>Prévia</h2><span>Visualização local</span></div><div id="preview" class="preview">Seu texto aparecerá aqui</div><p class="hint">Na LIVE, o fundo é sempre transparente: aparecerão apenas o texto e, se você configurar, a imagem. Use <a href="obs.html" target="_blank" rel="noopener">obs.html</a> como fonte Navegador do OBS.</p></section></main><main id="painel-perfis" class="tiktok-layout" hidden><section class="card"><h1>Escolher perfil do TikTok</h1><p>Escolha qual conta pretende usar. Somente um perfil será selecionado por vez.</p><label for="perfilTikTok">Perfil da transmissão<select id="perfilTikTok"><option value="v2jdigital">@v2jdigital</option><option value="khouse.of">@khouse.of</option></select></label><div class="topline"><span>Perfil escolhido: <strong id="perfilAtivo">@v2jdigital</strong></span></div><p id="perfilMensagem" role="status"></p><button id="salvarPerfil" type="button">Salvar preferência</button></section></main><main id="painel-tiktok" class="tiktok-layout" hidden><section class="card"><h2>Integração com a LIVE</h2><p>Escolha o perfil na aba Perfis antes de iniciar uma LIVE.</p><p>Preparada para configuração posterior. Ainda não existe conexão automática com o TikTok, nem leitura de entradas, comentários, seguidores ou presentes.</p><p class="hint">Você poderá usar o editor e a visualização OBS normalmente enquanto preparamos o conector.</p></section></main><main id="painel-videos" class="tiktok-layout" hidden>
+<section class="video-obs-strip" aria-label="Links dos reprodutores para OBS">
+  <strong class="video-obs-strip-title">🖥 Fontes para OBS</strong>
+  <span class="video-obs-strip-link"><strong>🎵 TikTok:</strong> <a href="/video-obs.html" target="_blank" rel="noopener">Abrir fonte OBS</a> <a class="video-obs-preview" href="/video.html" target="_blank" rel="noopener">Prévia</a></span>
+  <span class="video-obs-strip-link"><strong>▶ YouTube:</strong> <a href="/video-youtube-obs.html" target="_blank" rel="noopener">Abrir fonte OBS</a> <a class="video-obs-preview" href="/video-youtube.html" target="_blank" rel="noopener">Prévia</a></span>
+  <small class="video-obs-strip-note">Cada plataforma tem seu próprio endereço; o TikTok permanece inalterado.</small>
+</section>
 <section class="card">
 <h1>🎬 Biblioteca e playlists de vídeos</h1>
 <p>Organize seus arquivos para TikTok ou YouTube, escolha a ordem e reproduza a lista inteira automaticamente. A opção de tocar um vídeo individual continua disponível. Use URLs diretas HTTPS de MP4 ou WebM.</p>
@@ -126,19 +132,7 @@
 <p id="videoStatus" role="status" aria-live="polite"></p>
 </section>
 </section>
-<section class="card">
-<h2>🖥 Reprodutores independentes para OBS</h2>
-<p>O endereço antigo continua sendo o TikTok. Para usar a lista do YouTube, adicione uma segunda fonte Navegador no OBS com o novo endereço, sem substituir a fonte TikTok.</p>
-<div class="video-obs-links">
-<div><strong>🎵 TikTok — fonte existente</strong>
-<a href="/video-obs.html" target="_blank" rel="noopener">video-obs.html</a>
-<small>Prévia no navegador: <a href="/video.html" target="_blank" rel="noopener">video.html</a></small></div>
-<div><strong>▶ YouTube — nova fonte</strong>
-<a href="/video-youtube-obs.html" target="_blank" rel="noopener">video-youtube-obs.html</a>
-<small>Prévia no navegador: <a href="/video-youtube.html" target="_blank" rel="noopener">video-youtube.html</a></small></div>
-</div>
-<p class="hint">Vídeos do YouTube nesta biblioteca são arquivos MP4/WebM próprios. Links normais de páginas do YouTube continuam sendo controlados pelo painel específico <a href="/youtube-console.html" target="_blank" rel="noopener">YouTube</a>.</p>
-</section>
+
 </main><main id="painel-camera" class="tiktok-layout" hidden><section class="card"><section class="video-camera-panel" aria-label="Câmera remota do celular">
 <h2>📱 Câmera remota do celular</h2>
 <p class="hint">A câmera de casa chega ao OBS do escritório pela internet através do VDO.Ninja (com retransmissão TURN). Ela continua separada dos vídeos gravados.</p>
