@@ -7,6 +7,9 @@ const notice=document.getElementById('aviso');
 const detail=document.getElementById('detalhe');
 const manual=document.getElementById('reproduzirManual');
 const onScreen=Boolean(manual);
+const videoChannel=document.body.dataset.channel==='youtube'?'youtube':'tiktok';
+const videoEndpoint='/api/video'+(videoChannel==='youtube'?'?channel=youtube':'');
+let playbackState=null,autoAdvancing=false;
 
 let active=main;
 let revision=null,queued=null,processing=false,polling=false,manualPending=null;
@@ -27,7 +30,10 @@ function explainError(v){
 }
 const standby=()=>active===main?backup:main;
 function setVideo(v,s){
- v.loop=s.loop!==false;
+ // No modo lista, o evento "ended" chama o próximo com a mesma transição.
+ // Com um vídeo na lista, o loop nativo economiza processamento.
+ const playlistCount=(s.library||[]).filter(item=>(item.channel||'tiktok')===videoChannel).length;
+ v.loop=s.mode==='playlist'?s.playlistLoop!==false&&playlistCount<=1:s.loop!==false;
  v.muted=s.muted!==false;
 }
 for(const v of [main,backup]){
@@ -42,7 +48,14 @@ for(const v of [main,backup]){
  });
  v.addEventListener('waiting',()=>{if(v===active&&!v.paused)show('Aguardando dados do vídeo…');});
  v.addEventListener('playing',()=>{if(v===active){show('Vídeo em reprodução');button(false);}});
- v.addEventListener('ended',()=>{if(v===active&&!v.loop)show('Vídeo concluído');});
+ v.addEventListener('ended',()=>{
+  if(v!==active||v.loop)return;
+  if(!playbackState||playbackState.mode!=='playlist'||!playbackState.playing){
+   show('Vídeo concluído');return;
+  }
+  if(v.getAttribute('src')!==playbackState.url || queued)return;
+  advancePlaylist().catch(e=>show('Não foi possível avançar a lista: '+e.message,true));
+ });
 }
 
 // loadeddata pode ocorrer antes de haver um quadro realmente desenhado na tela do OBS.
@@ -238,6 +251,7 @@ async function finishSwap(old,next,s){
  details('Arquivo: '+s.url.slice(0,160));
 }
 async function apply(s){
+ playbackState=s;
  manualPending=null;
  const url=typeof s.url==='string'?s.url:'';
  if(!url){
@@ -318,11 +332,26 @@ if(manual)manual.onclick=async()=>{
   catch(e){show('Não foi possível iniciar: '+e.message,true);}
  }
 };
+// O avanço é escrito no servidor; assim console, OBS e prévias seguem na mesma posição.
+async function advancePlaylist(){
+ if(autoAdvancing||!playbackState)return;
+ autoAdvancing=true;
+ const current=playbackState;
+ try{
+  const r=await fetch(videoEndpoint,{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({action:'ended',command:current.command,url:current.url})});
+  const data=await r.json().catch(()=>({}));
+  if(!r.ok)throw Error(data.erro||'HTTP '+r.status);
+  if(!data.ignored&&data.command!==revision){
+   revision=data.command;schedule(data);
+  }
+ }finally{autoAdvancing=false;}
+}
 async function poll(){
  if(polling)return;
  polling=true;
  try{
-  const r=await fetch('/api/video',{cache:'no-store'});
+  const r=await fetch(videoEndpoint,{cache:'no-store'});
   if(!r.ok)throw Error('HTTP '+r.status);
   const s=await r.json();
   if(s.command!==revision){revision=s.command;schedule(s);}
