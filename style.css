@@ -157,15 +157,15 @@
 #painel-videos .video-obs-strip-link a{color:#a3bfff;text-decoration:underline;text-underline-offset:3px}
 #painel-videos .video-obs-strip-link .video-obs-preview{font-size:12px;color:#91a8d0}
 #painel-videos .video-obs-strip-note{font-size:11px;color:#9fafc7}
-#painel-videos>.card:first-of-type{padding:22px}
+#painel-videos>.card{padding:22px}
 #painel-videos .video-platform-list .video-library-list{max-height:520px}
 @media(max-width:800px){
  #painel-videos{gap:12px;padding:16px 4vw}
  #painel-videos .video-obs-strip{padding:11px 14px;gap:8px 16px}
  #painel-videos .video-obs-strip-note{flex:1 1 100%}
- #painel-videos>.card:first-of-type{padding:16px}
+ #painel-videos>.card{padding:16px}
 }
-@media(min-width:950px){
+@media(min-width:1200px){
  #painel-videos .video-platform-list .video-library-item{flex-direction:row;align-items:center}
  #painel-videos .video-platform-list .video-library-info{flex:1;min-width:120px}
  #painel-videos .video-platform-list .video-row-actions{justify-content:flex-end}
