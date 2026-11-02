@@ -22,7 +22,7 @@ const mirrored=params.get('mirror')!=='0';
 const canvas=document.getElementById('stage'),ctx=canvas.getContext('2d',{alpha:true});
 const label=document.getElementById('status');
 label.hidden=!debug;
-let target=null,received=0,stopped=false,polling=false,localFrame=0,poseTime=0;
+let target=null,received=0,stopped=false,polling=false,localFrame=0,poseTime=0,lastServerTs=0;
 let connectionState='aguardando';
 let styleImage=null,styleUrl='',stylePolling=false;
 async function checkStyle(){
@@ -74,8 +74,15 @@ async function poll(){
   const r=await fetch('/api/avatar-pose?room='+room,{cache:'no-store'});
   if(!r.ok)throw Error('HTTP '+r.status);
   const data=await r.json();
-  if(data.active&&data.points){target=data.points;received=Date.now();stopped=false;connectionState='conectado';}
-  else if(data.active===false){target=null;stopped=true;connectionState='desconectado';}
+  if(data.active&&data.points){
+   // Não interpretar a mesma resposta do cache como um novo movimento.
+   if(Number(data.ts)>lastServerTs){
+    target=data.points;lastServerTs=Number(data.ts);received=Date.now();
+    stopped=false;connectionState='conectado';
+   }
+  }else if(data.active===false){
+   target=null;stopped=true;connectionState='desconectado';
+  }
  }catch{}
  finally{polling=false;}
 }
@@ -85,25 +92,26 @@ function point(name){
  return {x:mirrored?1-x:x,y:clamp(Number(p?.[1]??.5),0,1),v:clamp(Number(p?.[2]??0),0,1)};
 }
 function nextTargets(){
- if(!target||Date.now()-received>6000)return;
+ if(!target || Date.now()-received>7500)return;
  const now=performance.now();
- const dt=poseTime?Math.min(80,now-poseTime):45;
+ const dt=poseTime?Math.max(10,Math.min(90,now-poseTime)):33;
  poseTime=now;
+ // O celular já filtra oscilações. Aqui fazemos só interpolação rápida
+ // para não somar duas suavizações pesadas e vários segundos de atraso.
  for(const key of Object.keys(target)){
-  const incoming=target[key];
+  const incoming=target[key],prev=smoothed[key];
   if(!Array.isArray(incoming)||incoming.length!==3)continue;
-  const prev=smoothed[key];
   if(!prev){smoothed[key]=[...incoming];continue;}
-  if(incoming[2]<.25){prev[2]*=.95;continue;}
+  if(incoming[2]<.35)continue; // segurar última coordenada quando perde o ponto
   const dist=Math.hypot(incoming[0]-prev[0],incoming[1]-prev[1]);
-  const speed=clamp(.29+dist*2.2,.29,.78);
-  const alpha=1-Math.pow(1-speed,Math.max(.3,dt/46));
-  // Grandes saltos incorretos não mudam instantaneamente o braço.
-  const gate=dist>.35&&incoming[2]<.65?.12:alpha;
-  for(let i=0;i<2;i++)prev[i]=lerp(prev[i],incoming[i],gate);
+  const wrist=/Wrist|Index/.test(key),joint=/Elbow/.test(key);
+  const speed=dist>.075?(wrist?.82:joint?.73:.67):wrist?.53:.42;
+  const alpha=1-Math.pow(1-speed,dt/33);
+  for(let i=0;i<2;i++)prev[i]=lerp(prev[i],incoming[i],alpha);
   prev[2]=incoming[2];
  }
 }
+
 // VISUAL PREMIUM — inspirado no astronauta cósmico rosa/ciano da referência.
 // A câmera continua fornecendo APENAS 9 posições corporais; nenhuma imagem do usuário.
 const lite=params.get('quality')==='lite';
@@ -464,13 +472,21 @@ function photoSuit(cx,cy,np,neckTilt,meanX,factor){
  ctx.restore();
  return true;
 }
+let rigState=null;
 function drawAvatar(t){
  const Lp=point('leftShoulder'),Rp=point('rightShoulder'),np=point('nose');
  const meanX=(Lp.x+Rp.x)*.5,meanY=(Lp.y+Rp.y)*.5;
- const shoulderSpan=Math.max(.12,Math.abs(Lp.x-Rp.x));
- const factor=clamp(272/shoulderSpan,650,1540);
- const cx=500+clamp((meanX-.5)*250,-85,85);
- const cy=480+clamp((meanY-.46)*120,-45,45);
+ // Impede que uma detecção instável de ombro redimensione o astronauta
+ // inteiro, arremessando braços e cabeça para outras posições.
+ const shoulderSpan=Math.max(.16,Math.abs(Lp.x-Rp.x));
+ const idealFactor=clamp(272/shoulderSpan,710,1370);
+ const idealCX=500+clamp((meanX-.5)*250,-85,85);
+ const idealCY=480+clamp((meanY-.46)*120,-45,45);
+ if(!rigState){rigState={cx:idealCX,cy:idealCY,factor:idealFactor};}
+ rigState.cx=lerp(rigState.cx,idealCX,.24);
+ rigState.cy=lerp(rigState.cy,idealCY,.24);
+ rigState.factor=lerp(rigState.factor,idealFactor,.15);
+ const {cx,cy,factor}=rigState;
  const earL=point('leftEar'),earR=point('rightEar');
  const earTilt=earL.v>.55&&earR.v>.55?clamp((earL.y-earR.y)*1.8,-.3,.3):0;
  const neckTilt=clamp((Lp.y-Rp.y)*.75+earTilt*.38,-.30,.30);
