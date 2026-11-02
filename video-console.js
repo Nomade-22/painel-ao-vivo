@@ -2,7 +2,8 @@
 const $=id=>document.getElementById(id);
 const initial={url:'',playing:false,loop:true,muted:true,library:[],transition:'fade',
  duration:850,mode:'single',playlistChannel:'tiktok',playlistLoop:true,
- playlistLoops:{tiktok:true,youtube:true},command:0};
+ playlistLoops:{tiktok:true,youtube:true},playlistMinutes:{tiktok:0,youtube:0},
+ playlistStartedAt:0,command:0};
 const channels=['tiktok','youtube'];
 const names={tiktok:'TikTok',youtube:'YouTube'};
 let state={...initial},library=[],selected='tiktok',loading=false,requests=Promise.resolve();
@@ -81,6 +82,7 @@ function render(){
    (state.mode==='playlist'?'▶ Lista no ar':'▶ Vídeo único no ar'):
    active&&state.url?'Pausado':'Aguardando';
   $('playlist'+n+'Loop').checked=loopFor(channel);
+  $('playlist'+n+'Minutes').value=String(state.playlistMinutes?.[channel]||0);
   const card=list.closest('.video-platform-list');
   card?.classList.toggle('playlist-on-air',active&&state.playing);
   if(!items.length){
@@ -95,7 +97,9 @@ function render(){
  renderControls();
 }
 function sync(data){
- state={...initial,...data,playlistLoops:{...initial.playlistLoops,...data.playlistLoops}};
+ state={...initial,...data,
+  playlistLoops:{...initial.playlistLoops,...data.playlistLoops},
+  playlistMinutes:{...initial.playlistMinutes,...data.playlistMinutes}};
  library=Array.isArray(data.library)?data.library:[];
  render();
 }
@@ -171,7 +175,10 @@ async function playList(channel,action){
   await update(old=>{
    if(action==='play'){
     const loops={...old.playlistLoops,[channel]:$('playlist'+names[channel]+'Loop').checked};
+    const minutes={...old.playlistMinutes,
+     [channel]:Number($('playlist'+names[channel]+'Minutes').value)||0};
     return {...old,playlistLoops:loops,playlistLoop:loops[channel],
+     playlistMinutes:minutes,playlistStartedAt:Date.now(),
      playlistChannel:channel,mode:'playlist',url:items[0].url,playing:true};
    }
    if(action==='pause')return {...old,playing:false};
@@ -208,6 +215,15 @@ for(const channel of channels){
   update(old=>({...old,playlistLoops:{...old.playlistLoops,[channel]:value},
    playlistLoop:old.playlistChannel===channel?value:old.playlistLoop}),
    'Repetição da lista '+n+' '+(value?'ativada.':'desativada.')).catch(()=>{});
+ };
+ $('playlist'+n+'Minutes').onchange=()=>{
+  const minutes=Number($('playlist'+n+'Minutes').value)||0;
+  update(old=>({...old,playlistMinutes:{...old.playlistMinutes,[channel]:minutes},
+   // Reinicia apenas o relógio da lista que já está no ar, sem trocar de vídeo.
+   playlistStartedAt:old.mode==='playlist'&&old.playlistChannel===channel&&old.playing?
+    Date.now():old.playlistStartedAt}),
+   minutes?'O vídeo atual ficará em loop por '+minutes+' minuto(s) antes da troca.':
+   'Modo original restaurado: avançar quando o vídeo terminar.').catch(()=>{});
  };
 }
 for(const id of ['videoLoop','videoMuted','videoTransition']){
