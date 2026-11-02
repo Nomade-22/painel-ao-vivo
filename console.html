@@ -69,6 +69,7 @@
 <section class="video-library-panel" aria-label="Vídeos carregados e listas separadas">
 <h2>Vídeos carregados <span class="video-count" id="videoCount">0</span></h2>
 <div class="video-library-add">
+<label class="video-library-url">Link direto do vídeo (MP4/WebM)<input id="videoUrl" type="url" placeholder="https://servidor.com/video.mp4"></label>
 <label>Nome do vídeo (opcional)<input id="videoName" type="text" maxlength="90" placeholder="Ex.: Produto 1, DJ espaço, Promoção"></label>
 <label>Salvar na lista<select id="videoAddTarget"><option value="tiktok">🎵 TikTok</option><option value="youtube">▶ YouTube</option></select></label>
 <button id="videoAdd" type="button">＋ Salvar link do vídeo</button>
@@ -108,8 +109,7 @@
 <h2>🎛 Controle individual e transições</h2>
 <div class="controls"><label>Controlar reprodutor
 <select id="videoTarget"><option value="tiktok">🎵 TikTok</option><option value="youtube">▶ YouTube</option></select></label>
-<label>Endereço MP4/WebM para tocar um vídeo
-<input id="videoUrl" type="url" placeholder="https://servidor.com/video.mp4"></label></div>
+<div class="video-control-help">Para tocar um vídeo avulso por URL, cole o endereço no campo <strong>Link direto do vídeo</strong> acima e clique em <strong>▶ Reproduzir só um</strong>. Ou use <strong>▶ Só este</strong> na lista.</div></div>
 <div class="video-live-info"><strong>🎥 Na tela: <span id="videoActiveName">Nenhum</span></strong><small id="videoActiveState">Parado</small></div>
 <div class="controls"><label>Transição entre vídeos<select id="videoTransition">
 <option value="fade" selected>Dissolver suavemente</option><option value="black">Passar pelo preto</option><option value="cut">Corte instantâneo</option>
