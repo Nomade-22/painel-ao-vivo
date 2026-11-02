@@ -154,7 +154,7 @@ async function playSingle(mode){
  if(mode==='play'&&!validURL(url)){status('Escolha um vídeo salvo ou informe a URL de MP4/WebM.');return;}
  try{
   await update(old=>({...old,...readSettings(),
-   playlistChannel:selected,
+   playlistChannel:mode==='play'?selected:old.playlistChannel,
    mode:mode==='play'?'single':mode==='stop'?'single':old.mode,
    url,playing:mode==='play'}),
    mode==='play'?'Vídeo individual enviado para o OBS.':
