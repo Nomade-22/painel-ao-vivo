@@ -24,6 +24,26 @@ const label=document.getElementById('status');
 label.hidden=!debug;
 let target=null,received=0,stopped=false,polling=false,localFrame=0,poseTime=0;
 let connectionState='aguardando';
+let styleImage=null,styleUrl='',stylePolling=false;
+async function checkStyle(){
+ if(!validRoom||stylePolling)return;
+ stylePolling=true;
+ try{
+  const r=await fetch('/api/avatar-style?room='+room,{cache:'no-store'});
+  if(!r.ok)return;
+  const data=await r.json(),url=data.imageUrl||'';
+  if(url===styleUrl)return;
+  styleUrl=url;
+  styleImage=null;
+  if(url){
+   const img=new Image();
+   img.onload=()=>{if(styleUrl===url)styleImage=img;};
+   img.onerror=()=>{if(styleUrl===url)styleImage=null;};
+   img.src=url;
+  }
+ }catch{}
+ finally{stylePolling=false;}
+}
 const lerp=(a,b,t)=>a+(b-a)*t;
 const clamp=(x,min,max)=>Math.min(max,Math.max(min,x));
 const rnd=seed=>{const v=Math.sin(seed*127.1+seed*seed*.11)*43758.5453;return v-Math.floor(v)};
@@ -424,6 +444,26 @@ function helmet(cx,cy,tilt,t){
  rounded(-41,205,82,12,6,'#120d2e','#52ecfc',2);
  ctx.restore();
 }
+function photoSuit(cx,cy,np,neckTilt,meanX,factor){
+ if(!styleImage||!styleImage.naturalWidth)return false;
+ const iw=styleImage.naturalWidth,ih=styleImage.naturalHeight;
+ const dw=410,dh=605;
+ const x=cx-dw/2,y=cy-385;
+ const seam=.55;
+ // Tronco estável e capacete acompanhando a cabeça independentemente.
+ ctx.save();
+ ctx.drawImage(styleImage,0,ih*seam,iw,ih*(1-seam),
+  x,y+dh*seam,dw,dh*(1-seam));
+ ctx.restore();
+ const headX=clamp((np.x-meanX)*factor*.32,-45,45);
+ const headY=clamp((np.y-(point('leftShoulder').y+point('rightShoulder').y)/2+.25)*80,-25,30);
+ ctx.save();
+ ctx.translate(cx+headX,y+dh*seam/2+headY);
+ ctx.rotate(neckTilt*.58);
+ ctx.drawImage(styleImage,0,0,iw,ih*seam,-dw/2,-dh*seam/2,dw,dh*seam);
+ ctx.restore();
+ return true;
+}
 function drawAvatar(t){
  const Lp=point('leftShoulder'),Rp=point('rightShoulder'),np=point('nose');
  const meanX=(Lp.x+Rp.x)*.5,meanY=(Lp.y+Rp.y)*.5;
@@ -467,14 +507,17 @@ function drawAvatar(t){
  };
  const [le,lw]=shapeArm(left,'leftElbow','leftWrist');
  const [re,rw]=shapeArm(right,'rightElbow','rightWrist');
- // Sombra dos braços e brilhos vêm antes do tronco para manter profundidade.
+ // Novo visual: fotografia artística (capacete+tronco), com braços articulados.
+ // O desenho clássico permanece disponível caso a foto não esteja configurada.
  armArt(left,le,lw,'#42e2ff');
  armArt(right,re,rw,'#ff56d7');
- armorBody(cx,cy,t,neckTilt*.26);
- hose(cx,cy,1);hose(cx,cy,-1);
- const hx=cx+clamp((np.x-meanX)*factor*.32,-57,57);
- const hy=cy-170+clamp((np.y-meanY+.24)*85,-28,30)+Math.sin(t*.72)*2;
- helmet(hx,hy,neckTilt+Math.sin(t*.35)*.009,t);
+ if(!photoSuit(cx,cy,np,neckTilt,meanX,factor)){
+  armorBody(cx,cy,t,neckTilt*.26);
+  hose(cx,cy,1);hose(cx,cy,-1);
+  const hx=cx+clamp((np.x-meanX)*factor*.32,-57,57);
+  const hy=cy-170+clamp((np.y-meanY+.24)*85,-28,30)+Math.sin(t*.72)*2;
+  helmet(hx,hy,neckTilt+Math.sin(t*.35)*.009,t);
+ }
 }
 function draw(time){
  requestAnimationFrame(draw);
@@ -497,7 +540,7 @@ function draw(time){
  }
 }
 requestAnimationFrame(draw);
-if(validRoom){poll();setInterval(poll,220);}
+if(validRoom){poll();setInterval(poll,220);checkStyle();setInterval(checkStyle,5000);}
 else if(debug){label.textContent='Abra avatar-camera.html para obter uma sessão segura.';}
 })();
 </script></body></html>
