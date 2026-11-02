@@ -1,6 +1,52 @@
 {
   "functions": {
-    "api/painel.js": {"regions":["gru1"]},
-    "api/microfone.js": {"regions":["gru1"]}
-  }
+    "api/painel.js": {
+      "regions": [
+        "gru1"
+      ]
+    },
+    "api/microfone.js": {
+      "regions": [
+        "gru1"
+      ]
+    }
+  },
+  "headers": [
+    {
+      "source": "/animacoes-obs.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/animacoes.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/animacoes-player.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/animacoes-base.css",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    }
+  ]
 }
