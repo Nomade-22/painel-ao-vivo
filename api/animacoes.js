@@ -43,7 +43,7 @@ function cleanActions(items){
 }
 function normalize(data){
  const v=data&&typeof data==='object'?data:{};
- return {actions:cleanActions(v.actions),lastEvent:v.lastEvent?cleanAction(v.lastEvent,0):null,
+ return {actions:cleanActions(v.actions),lastEvent:v.lastEvent?{...cleanAction(v.lastEvent,0),startedAt:Math.max(0,Number(v.lastEvent.startedAt)||0)}:null,
   command:Number(v.command)||0};
 }
 export default async function handler(req,res){
@@ -68,7 +68,7 @@ export default async function handler(req,res){
   // Somente configurações visuais permitidas, não altera ações guardadas.
   const allowed=['duration','intensity','speed','position','color','loop','message'];
   const settings={};for(const k of allowed){if(overrides[k]!==undefined)settings[k]=overrides[k]}
-  lastEvent=cleanAction({...template,...settings},0);
+  lastEvent={...cleanAction({...template,...settings},0),startedAt:Date.now()};
   command=Math.max(Date.now(),command+1);
  }
  if(body.stop===true){lastEvent=null;command=Math.max(Date.now(),command+1);}
