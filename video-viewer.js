@@ -36,9 +36,21 @@ function explainError(v){
  return 'Não foi possível carregar o vídeo.';
 }
 const standby=()=>active===main?backup:main;
+const playlistMinutes=s=>{
+ if(s?.mode!=='playlist')return 0;
+ const minutes=Number(s?.playlistMinutes?.[s.playlistChannel]||0);
+ return Number.isFinite(minutes)&&minutes>0?minutes:0;
+};
+const timedRemaining=s=>{
+ const minutes=playlistMinutes(s);
+ if(!minutes)return Infinity;
+ const started=Number(s?.playlistStartedAt||0);
+ return started>0?started+minutes*60000-Date.now():Infinity;
+};
 function setVideo(v,s){
- // Playlist avança pela aplicação, nunca pelo loop nativo do navegador/OBS.
- v.loop=s.mode==='playlist'?false:s.loop!==false;
+ // No modo temporizado o loop nativo repete o mesmo arquivo, sem preparar
+ // novas fontes ou aplicar transições; no modo clássico a lista avança ao fim.
+ v.loop=s.mode==='playlist'?playlistMinutes(s)>0:s.loop!==false;
  v.muted=s.muted!==false;
 }
 function playlistItems(s){
@@ -57,6 +69,9 @@ function playlistNext(s){
 // A troca continua passando pelo mesmo canvas de transição já existente.
 function preloadNext(s){
  if(!s || s.mode!=='playlist' || !s.playing || !active.getAttribute('src'))return;
+ // Um vídeo de 20 s pode ficar em loop por 5 minutos. Não consumir rede/CPU
+ // carregando o próximo durante todo esse período: preparar apenas no final.
+ if(playlistMinutes(s)>0 && timedRemaining(s)>12000)return;
  const entry=playlistNext(s);
  if(!entry || entry.url===s.url)return;
  const pane=standby();
@@ -76,16 +91,26 @@ function tryAdvance(v,ended=false){
  if(v!==active || autoAdvancing)return;
  const s=playbackState;
  if(!s || s.mode!=='playlist' || !s.playing)return;
- // Recuperar players ainda com loop=true por uma atualização do estado da live.
- if(v.loop)v.loop=false;
  if(v.getAttribute('src')!==s.url || !v.getAttribute('src'))return;
- if(v.seeking && !ended)return;
- const duration=v.duration;
- const nearEnd=Number.isFinite(duration)&&duration>0
-  && v.currentTime>=Math.max(0,duration-.25);
- // Não depender só de "ended": OBS pode perder o evento final, então conferimos
- // timeupdate, pause, seeking e um relógio periódico como alternativas.
- if(!ended && !v.ended && !nearEnd)return;
+ const minutes=playlistMinutes(s);
+ if(minutes){
+  // Repetir o arquivo nativamente até o tempo configurado. O relógio não
+  // depende do evento ended, que o OBS pode deixar de emitir.
+  if(!v.loop)v.loop=true;
+  const remaining=timedRemaining(s);
+  if(remaining>0){
+   if(remaining<=12000)preloadNext(s);
+   return;
+  }
+ }else{
+  // Comportamento original preservado: avançar ao terminar.
+  if(v.loop)v.loop=false;
+  if(v.seeking && !ended)return;
+  const duration=v.duration;
+  const nearEnd=Number.isFinite(duration)&&duration>0
+   && v.currentTime>=Math.max(0,duration-.25);
+  if(!ended && !v.ended && !nearEnd)return;
+ }
  const key=String(s.command)+'|'+s.url;
  if(advanceGuard===key && Date.now()-advanceStartedAt<12000)return;
  if(processing && !v.ended && !ended)return;
@@ -423,6 +448,7 @@ async function advancePlaylist(){
  // Troca local IMEDIATA sem depender da latência da API do servidor.
  // Enquanto o servidor confirma, ignoramos temporariamente um GET antigo.
  const optimistic={...current,url:entry?.url||current.url,playing:!!entry,
+  playlistStartedAt:Date.now(),
   command:Math.max(Date.now(),Number(current.command||0)+1)};
  revision=optimistic.command;
  playbackState=optimistic;
@@ -498,6 +524,8 @@ if(new URLSearchParams(location.search).get('debug')==='1'){
    'OBS / vídeo: '+filename(v.getAttribute('src'))+'\n'+
    'Modo: '+(s.mode||'-')+' | Lista: '+(s.playlistChannel||'-')+
    ' | Itens: '+list.length+' | Repetir: '+String(s.playlistLoop)+
+   ' | Min/vídeo: '+playlistMinutes(s)+
+   (playlistMinutes(s)>0?' | Restam: '+Math.max(0,Math.ceil(timedRemaining(s)/1000))+'s':'')+
    '\nTempo: '+time+'/'+duration+' s | Pausado: '+v.paused+
    ' | Finalizado: '+v.ended+' | Loop nativo: '+v.loop+
    '\nPróximo: '+filename(next?.url)+' | Troca: '+(processing?'em andamento':'livre')+
