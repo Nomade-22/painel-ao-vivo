@@ -18,6 +18,7 @@ label{display:block;margin:12px 0}.label{font-weight:700;color:#dce7ff}
 .camera-hidden{position:absolute!important;left:-10000px!important;top:0!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
 #skinFile{display:block;width:100%;color:#c5d9f4;padding:12px;border:1px solid #466489;border-radius:8px;background:#0e1930}
 #avatarPreview{display:block;width:100%;height:min(63vw,430px);min-height:270px;border:1px solid #456085;border-radius:12px;background:#050b1d}
+#avatarPreview[hidden]{display:none!important}
 .copybox{display:flex;gap:7px;flex-wrap:wrap}.copybox input{flex:1;min-width:190px}
 small{color:#b2c0dc}.warning{color:#ffcd8c}
 </style></head>
@@ -44,8 +45,12 @@ small{color:#b2c0dc}.warning{color:#ffcd8c}
 <h2>2. Reprodutor do astronauta no OBS</h2>
 <p class="note">No OBS do escritório, adicione uma fonte <strong>Navegador</strong> com o endereço abaixo. Pode manter a câmera remota atual desativada neste teste.</p>
 <div class="copybox"><input id="obsLink" type="text" readonly aria-label="Link do avatar para OBS"><button id="copy">Copiar</button></div>
-<p><a id="open" target="_blank" rel="noopener noreferrer">Abrir prévia em outra aba</a></p>
-<iframe id="avatarPreview" title="Prévia do astronauta sem mostrar a pessoa" referrerpolicy="no-referrer"></iframe>
+<p><a id="open" target="_blank" rel="noopener noreferrer">Abrir prévia no computador do escritório</a></p>
+<div class="row">
+<button type="button" id="previewToggle" class="secondary">▶ Ver prévia do avatar (somente com câmera desligada)</button>
+</div>
+<iframe id="avatarPreview" title="Prévia opcional do astronauta sem mostrar a pessoa" referrerpolicy="no-referrer" hidden></iframe>
+<p class="note">Para reduzir atrasos, a animação do astronauta não roda neste celular durante o rastreamento. Veja os movimentos na fonte do OBS.</p>
 <p class="note">Este teste é separado das fontes atuais <code>camera-obs.html</code> e <code>video-obs.html</code>. Nenhuma delas foi alterada.</p>
 </div>
 <div class="card">
@@ -81,8 +86,20 @@ try{localStorage.setItem(key,room)}catch{}
 const link=new URL('/avatar-obs.html',location.origin);
 link.searchParams.set('room',room);
 $('obsLink').value=link.href;
-$('avatarPreview').src=link.href;
+// NÃO iniciar duas animações no celular. OBS é o único reprodutor contínuo.
 $('open').href=link.href;
+let previewVisible=false;
+function preview(show){
+ previewVisible=show && !running;
+ const frame=$('avatarPreview');
+ frame.hidden=!previewVisible;
+ if(previewVisible)frame.src=link.href;
+ else frame.removeAttribute('src'); // interrompe imediatamente renderização + polling
+ $('previewToggle').textContent=previewVisible?'■ Fechar prévia':'▶ Ver prévia do avatar (somente com câmera desligada)';
+ $('previewToggle').disabled=running;
+}
+$('previewToggle').onclick=()=>preview(!previewVisible);
+
 $('copy').onclick=async()=>{
  try{await navigator.clipboard.writeText(link.href);$('copy').textContent='Copiado ✓';}
  catch{const input=$('obsLink');input.select();document.execCommand('copy');$('copy').textContent='Copiado ✓';}
@@ -265,18 +282,20 @@ async function start(){
   },audio:false});
   $('localPreview').srcObject=stream;
   await $('localPreview').play();
+  // Evita disputar GPU/CPU entre a IA e a animação pesada na mesma página.
+  preview(false);
   await setupModel();
   running=true;lastRun=0;lastSend=0;lastVideoTime=-1;filtered={};lastFiltered=0;detectorMs=0;posesSeen=0;netMs=0;lastAck=0;missCount=0;
   $('trackingQuality').disabled=true;
   try{wakeLock=await navigator.wakeLock?.request('screen')}catch{}
-  $('stop').disabled=false;
+  $('stop').disabled=false;$('previewToggle').disabled=true;
   status('Câmera ativa; buscando posição corporal…');
   requestAnimationFrame(tick);
  }catch(e){
   status('Não foi possível iniciar: '+e.message);
   if(stream)for(const track of stream.getTracks())track.stop();
   stream=null;
-  $('start').disabled=false;$('trackingQuality').disabled=false;
+  $('start').disabled=false;$('trackingQuality').disabled=false;$('previewToggle').disabled=false;
  }
 }
 async function stop(){
@@ -284,7 +303,7 @@ async function stop(){
  if(stream)for(const track of stream.getTracks())track.stop();
  stream=null;
  $('localPreview').srcObject=null;
- $('stop').disabled=true;$('start').disabled=false;$('trackingQuality').disabled=false;
+ $('stop').disabled=true;$('start').disabled=false;$('trackingQuality').disabled=false;$('previewToggle').disabled=false;
  try{await wakeLock?.release()}catch{}
  wakeLock=null;
  try{await fetch('/api/avatar-pose',{method:'POST',headers:{'Content-Type':'application/json'},
