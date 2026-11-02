@@ -118,9 +118,10 @@ animations.innerHTML=`
  </section>
  <section class="card">
   <h2>🎇 Reprodutor de animações separado</h2>
+  <p class="hint"><strong>OBS atualizado:</strong> copie este link com o sufixo de versão para atualizar uma fonte Navegador antiga sem perder a mesma fonte no OBS.</p>
   <p>Adicione a URL abaixo como outra <strong>fonte Navegador</strong> no OBS. O fundo é transparente; os efeitos aparecem apenas quando você aciona um botão.</p>
-  <label>Link da fonte OBS<input id="animacoesObsUrl" readonly value="${location.origin}/animacoes-obs.html"></label>
-  <div class="video-actions"><button id="animacoesCopy" type="button">📋 Copiar link do OBS</button><a class="extra-link" href="animacoes-obs.html" target="_blank" rel="noopener">Abrir fonte transparente ↗</a><a class="extra-link" href="animacoes.html" target="_blank" rel="noopener">Abrir reprodutor de teste ↗</a></div>
+  <label>Link da fonte OBS<input id="animacoesObsUrl" readonly value="${location.origin}/animacoes-obs.html?v=obs-effects-full-v4-20261102"></label>
+  <div class="video-actions"><button id="animacoesCopy" type="button">📋 Copiar link do OBS</button><a class="extra-link" href="animacoes-obs.html?v=obs-effects-full-v4-20261102" target="_blank" rel="noopener">Abrir fonte transparente ↗</a><a class="extra-link" href="animacoes.html" target="_blank" rel="noopener">Abrir reprodutor de teste ↗</a></div>
   <div class="extra-instructions"><strong>Como testar:</strong><ol><li>Abra o reprodutor ou adicione a fonte no OBS.</li><li>Volte à aba Animações.</li><li>Clique em <strong>Acionar</strong> em uma ação salva.</li><li>A animação aparecerá na outra tela e sumirá automaticamente.</li></ol></div>
   <p class="hint">Efeitos gerados com CSS, sem música ou vídeo pesado. São independentes dos vídeos, textos e câmera do nosso console.</p>
  </section>`;
