@@ -13,7 +13,15 @@ let playbackState=null,autoAdvancing=false,advanceGuard=null,advanceStartedAt=0;
 let active=main;
 let revision=null,queued=null,processing=false,polling=false,manualPending=null;
 const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+// OBS pode suspender requestAnimationFrame em fontes que não estejam visíveis.
+ // Nunca manter a troca de vídeos bloqueada esperando quadros para sempre.
+const nextFrame=()=>new Promise(resolve=>{
+ let finished=false;
+ const complete=()=>{if(finished)return;finished=true;clearTimeout(timeout);resolve();};
+ const timeout=setTimeout(complete,320);
+ try{requestAnimationFrame(()=>requestAnimationFrame(complete));}
+ catch{complete();}
+});
 
 const show=(message,error=false)=>{
  if(notice){notice.textContent=message;notice.style.color=error?'#ff9999':'#dfe7fb';}
@@ -65,9 +73,11 @@ function preloadNext(s){
  pane.load();
 }
 function tryAdvance(v,ended=false){
- if(v!==active || v.loop || autoAdvancing)return;
+ if(v!==active || autoAdvancing)return;
  const s=playbackState;
  if(!s || s.mode!=='playlist' || !s.playing)return;
+ // Recuperar players ainda com loop=true por uma atualização do estado da live.
+ if(v.loop)v.loop=false;
  if(v.getAttribute('src')!==s.url || !v.getAttribute('src'))return;
  if(v.seeking && !ended)return;
  const duration=v.duration;
@@ -214,27 +224,42 @@ async function canvasBlend(old,next,ms,mode){
  // Primeiro quadro completo antes de apresentar o canvas, evitando piscar preto.
  paintTransition(old,next,0,mode,w,h);
  transitionCanvas.style.display='block';
- // Duração baseada no relógio real, com limite de ~30 desenhos/s.
+ // Renderizar até ~30 quadros/s, mas com temporizador de segurança.
+ // Se o OBS bloquear requestAnimationFrame, saímos da animação e trocamos
+ // mesmo assim para o vídeo seguinte, sem deixar a playlist congelada.
  await new Promise(resolve=>{
+  let finished=false;
+  const finish=()=>{
+   if(finished)return;
+   finished=true;
+   if(transitionFrame && typeof cancelAnimationFrame==='function'){
+    try{cancelAnimationFrame(transitionFrame);}catch{}
+   }
+   transitionFrame=0;
+   clearTimeout(watchdog);
+   resolve();
+  };
+  const watchdog=setTimeout(finish,Math.max(1000,ms+800));
   const start=performance.now();
   let previous=-Infinity;
-  const draw=(now)=>{
+  const draw=now=>{
+   if(finished)return;
    const fraction=Math.min(1,(now-start)/ms);
-   if(now-previous>=31||fraction>=1){
+   if(now-previous>=31 || fraction>=1){
     const smooth=fraction*fraction*(3-2*fraction);
     try{paintTransition(old,next,smooth,mode,w,h);}
-    catch(err){
-     console.warn('[Transição] Falha no canvas:',err);
-     transitionFrame=0;
-     resolve();
+    catch(error){
+     console.warn('[Transição] Canvas não disponível:',error);
+     finish();
      return;
     }
     previous=now;
    }
-   if(fraction>=1){transitionFrame=0;resolve();}
+   if(fraction>=1)finish();
    else transitionFrame=requestAnimationFrame(draw);
   };
-  transitionFrame=requestAnimationFrame(draw);
+  try{transitionFrame=requestAnimationFrame(draw);}
+  catch{finish();}
  });
  return true;
 }
@@ -445,6 +470,40 @@ async function poll(){
   if(s.command!==revision){revision=s.command;schedule(s);}
  }catch(e){show('Falha de sincronização: '+e.message,true);}
  finally{polling=false;}
+}
+// Painel de diagnóstico visível apenas em /video-obs.html?debug=1.
+// Não altera o vídeo nem aparece na fonte normal do OBS.
+if(new URLSearchParams(location.search).get('debug')==='1'){
+ const diagnostic=document.createElement('div');
+ diagnostic.setAttribute('aria-live','polite');
+ Object.assign(diagnostic.style,{
+  position:'fixed',left:'8px',right:'8px',bottom:'8px',zIndex:'9999',
+  padding:'12px',background:'rgba(5,15,30,.94)',color:'#fff',
+  border:'1px solid #66b7ff',borderRadius:'8px',whiteSpace:'pre-wrap',
+  font:'13px/1.4 monospace',pointerEvents:'none',overflowWrap:'anywhere'
+ });
+ document.body.appendChild(diagnostic);
+ const filename=url=>{
+  try{return decodeURIComponent(new URL(url).pathname.split('/').pop()).slice(0,44);}
+  catch{return '-';}
+ };
+ setInterval(()=>{
+  const s=playbackState||{};
+  const v=active;
+  const list=playlistItems(s);
+  const next=playlistNext(s);
+  const time=Number.isFinite(v.currentTime)?v.currentTime.toFixed(1):'?';
+  const duration=Number.isFinite(v.duration)?v.duration.toFixed(1):'?';
+  diagnostic.textContent=
+   'OBS / vídeo: '+filename(v.getAttribute('src'))+'\n'+
+   'Modo: '+(s.mode||'-')+' | Lista: '+(s.playlistChannel||'-')+
+   ' | Itens: '+list.length+' | Repetir: '+String(s.playlistLoop)+
+   '\nTempo: '+time+'/'+duration+' s | Pausado: '+v.paused+
+   ' | Finalizado: '+v.ended+' | Loop nativo: '+v.loop+
+   '\nPróximo: '+filename(next?.url)+' | Troca: '+(processing?'em andamento':'livre')+
+   ' | Sincronia: '+(autoAdvancing?'aguardando':'ok')+
+   ' | Estado: '+String(s.command||'-');
+ },700);
 }
 poll();
 setInterval(poll,1050);
