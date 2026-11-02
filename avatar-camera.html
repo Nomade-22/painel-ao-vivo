@@ -10,7 +10,7 @@ h1{font-size:25px;margin:0 0 5px}h2{font-size:19px;margin:0 0 8px}p{color:#b4c1d
 button{background:#5376ff;color:white;border:0;border-radius:9px;padding:13px 17px;font-weight:700;cursor:pointer}
 button:disabled{opacity:.5;cursor:default}.secondary{background:#334765}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.row>*{flex:0 0 auto}
-input[type=text]{width:100%;padding:12px;color:#fff;background:#0c1428;border:1px solid #536684;border-radius:8px}
+input[type=text],select{width:100%;padding:12px;color:#fff;background:#0c1428;border:1px solid #536684;border-radius:8px}
 label{display:block;margin:12px 0}.label{font-weight:700;color:#dce7ff}
 .note{font-size:13px;color:#a6bfde}a{color:#acd4ff;overflow-wrap:anywhere}
 #status{background:#0a1830;border-radius:10px;padding:11px 13px;color:#bde8fe;min-height:45px}
@@ -27,7 +27,12 @@ small{color:#b2c0dc}.warning{color:#ffcd8c}
 <p>Teste isolado. A câmera detecta movimentos de cabeça e braços; a transmissão recebe <strong>somente coordenadas do corpo</strong>, nunca a imagem real.</p>
 <div class="card">
 <h2>1. Ativar câmera do celular</h2>
-<p class="note">Fique de frente para a câmera, com ombros, braços e mãos visíveis. Este teste usa o modelo leve de rastreamento corporal.</p>
+<p class="note">Fique de frente para a câmera, deixando cabeça, ombros, cotovelos e mãos visíveis. Use boa iluminação e apoie o celular para evitar tremores.</p>
+<label class="label" for="trackingQuality">Precisão do rastreamento</label>
+<select id="trackingQuality"><option value="full" selected>🎯 Preciso — mais detalhes dos braços (recomendado)</option><option value="lite">⚡ Leve — para celulares mais lentos</option></select>
+<label class="label" for="trackingSensitivity">Sensibilidade dos movimentos</label>
+<select id="trackingSensitivity"><option value="natural" selected>Natural — movimentos suaves e responsivos</option><option value="fast">Rápida — responde mais depressa</option><option value="stable">Estável — filtra tremores</option></select>
+<p class="note">Ajuste o tipo de rastreamento <strong>antes de iniciar</strong>. A sensibilidade pode ser alterada durante a captura.</p>
 <div class="row"><button id="start">▶ Iniciar captura</button><button id="stop" class="secondary" disabled>■ Desligar câmera</button></div>
 <label><input id="show" type="checkbox"> Mostrar minha câmera somente nesta página para ajustar a posição (não é enviada)</label>
 <video id="localPreview" class="camera-hidden" autoplay muted playsinline></video>
@@ -71,8 +76,26 @@ $('copy').onclick=async()=>{
  catch{const input=$('obsLink');input.select();document.execCommand('copy');$('copy').textContent='Copiado ✓';}
 };
 $('show').onchange=()=>$('localPreview').classList.toggle('camera-hidden',!$('show').checked);
-let stream=null,model=null,running=false,lastRun=0,lastSend=0,lastShown=0,inFlight=false,missing=0,wakeLock=null;
-const joints={nose:0,leftShoulder:11,rightShoulder:12,leftElbow:13,rightElbow:14,leftWrist:15,rightWrist:16,leftHip:23,rightHip:24};
+let stream=null,model=null,modelChoice=null,running=false,lastRun=0,lastSend=0,lastShown=0,
+ inFlight=false,missing=0,wakeLock=null,lastVideoTime=-1,filtered={},lastFiltered=0,detectorMs=0,posesSeen=0;
+const configKey='painel-avatar-tracking-v2';
+try{
+ const saved=JSON.parse(localStorage.getItem(configKey)||'{}');
+ if(['full','lite'].includes(saved.quality))$('trackingQuality').value=saved.quality;
+ if(['natural','fast','stable'].includes(saved.sensitivity))$('trackingSensitivity').value=saved.sensitivity;
+}catch{}
+function saveControls(){
+ try{localStorage.setItem(configKey,JSON.stringify({
+  quality:$('trackingQuality').value,sensitivity:$('trackingSensitivity').value
+ }));}catch{}
+}
+$('trackingQuality').onchange=saveControls;
+$('trackingSensitivity').onchange=saveControls;
+const joints={nose:0,leftShoulder:11,rightShoulder:12,leftElbow:13,rightElbow:14,
+ leftWrist:15,rightWrist:16,leftHip:23,rightHip:24,
+ leftEar:7,rightEar:8,leftIndex:19,rightIndex:20};
+const required=['nose','leftShoulder','rightShoulder','leftElbow','rightElbow',
+ 'leftWrist','rightWrist','leftHip','rightHip'];
 const status=s=>$('status').textContent=s;
 const clamp=x=>Math.min(1,Math.max(0,Number(x)||0));
 async function transmit(points,active=true){
@@ -87,35 +110,82 @@ async function transmit(points,active=true){
  }finally{inFlight=false;}
 }
 async function setupModel(){
- if(model)return;
- status('Carregando rastreamento corporal leve…');
+ const selected=$('trackingQuality').value;
+ if(model && modelChoice===selected)return;
+ if(model){try{model.close();}catch{}model=null;}
+ status('Carregando rastreamento '+(selected==='full'?'preciso':'leve')+'…');
  const vision=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.0/wasm');
- const args={baseOptions:{
-  modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task',
-  delegate:'GPU'},runningMode:'VIDEO',numPoses:1,minPoseDetectionConfidence:.45,
-  minPosePresenceConfidence:.45,minTrackingConfidence:.45};
+ const url='https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_'+selected+
+  '/float16/1/pose_landmarker_'+selected+'.task';
+ const args={baseOptions:{modelAssetPath:url,delegate:'GPU'},runningMode:'VIDEO',
+  numPoses:1,minPoseDetectionConfidence:.48,minPosePresenceConfidence:.48,minTrackingConfidence:.5};
  try{model=await PoseLandmarker.createFromOptions(vision,args);}
  catch(e){args.baseOptions.delegate='CPU';model=await PoseLandmarker.createFromOptions(vision,args);}
+ modelChoice=selected;
+}
+function smoothPose(raw,ms){
+ // Filtro adaptativo: elimina microtremores sem "colar" braços e mãos.
+ const elapsed=Math.max(35,Math.min(250,ms-lastFiltered||80));
+ lastFiltered=ms;
+ const mode=$('trackingSensitivity').value;
+ const base=mode==='fast'?.64:mode==='stable'?.28:.43;
+ const out={};
+ for(const [name,p] of Object.entries(raw)){
+  const prev=filtered[name],confidence=p[2];
+  if(!prev){out[name]=p;filtered[name]=p;continue;}
+  if(confidence<.32){
+   // Segurar a última posição válida quando uma mão sai momentaneamente do quadro.
+   out[name]=[prev[0],prev[1],Math.max(.1,prev[2]*.89)];
+   filtered[name]=out[name];continue;
+  }
+  const movement=Math.hypot(p[0]-prev[0],p[1]-prev[1]);
+  const accel=Math.min(.31,movement*1.8);
+  const alpha=Math.min(.9,(base+accel)*Math.min(1.4,elapsed/80));
+  const rejection=movement>.36 && confidence<.6;
+  const amount=rejection?.13:alpha;
+  out[name]=[
+   Math.min(1,Math.max(0,prev[0]+(p[0]-prev[0])*amount)),
+   Math.min(1,Math.max(0,prev[1]+(p[1]-prev[1])*amount)),
+   confidence
+  ];
+  filtered[name]=out[name];
+ }
+ return out;
 }
 async function tick(ms){
  if(!running)return;
  requestAnimationFrame(tick);
- if(ms-lastRun<100 || !$('localPreview').videoWidth)return;
- lastRun=ms;
- let data=null;
- try{data=model.detectForVideo($('localPreview'),ms);}catch(e){status('Falha ao rastrear: '+e.message);return;}
- const result=data?.landmarks?.[0];
- if(!result){missing++;if(ms-lastShown>2500){status('Procure enquadrar cabeça, ombros e braços na câmera.');lastShown=ms;}return;}
- const points={};
+ const video=$('localPreview');
+ if(!video.videoWidth || video.readyState<2)return;
+ // Não repetir inferência do mesmo quadro. Em celulares lentos diminuímos FPS.
+ const interval=detectorMs>85?125:65;
+ if(ms-lastRun<interval || video.currentTime===lastVideoTime)return;
+ lastRun=ms;lastVideoTime=video.currentTime;
+ let result;
+ const clock=performance.now();
+ try{result=model.detectForVideo(video,ms)?.landmarks?.[0];}
+ catch(e){status('Falha ao rastrear: '+e.message);return;}
+ detectorMs=.76*detectorMs+.24*(performance.now()-clock);
+ if(!result){
+  missing++;
+  if(ms-lastShown>1500){status('Não detectei os braços. Afaste um pouco o celular e ilumine o ambiente.');lastShown=ms;}
+  return;
+ }
+ const raw={};
  for(const [name,index] of Object.entries(joints)){
   const p=result[index];
-  points[name]=[clamp(p.x),clamp(p.y),clamp(p.visibility??p.presence??0)];
+  raw[name]=[clamp(p.x),clamp(p.y),clamp(p.visibility??p.presence??0)];
  }
- if(ms-lastSend>=420){
+ const points=smoothPose(raw,ms);
+ posesSeen++;
+ // 5 a 7 atualizações por segundo para reduzir atraso sem sobrecarregar a Vercel.
+ if(ms-lastSend>=170 && required.every(name=>points[name])){
   lastSend=ms;
-  if(!inFlight)transmit(points,true);
-  if(ms-lastShown>1000){
-   status('✓ Movimentos detectados. O astronauta está acompanhando cabeça e braços.');lastShown=ms;
+  if(!inFlight)void transmit(points,true);
+  if(ms-lastShown>1400){
+   status('✓ Rastreando '+$('trackingQuality').value.toUpperCase()+
+    ' · gestos sincronizados · '+Math.round(detectorMs)+' ms/quadro');
+   lastShown=ms;
   }
  }
 }
@@ -125,12 +195,13 @@ async function start(){
  try{
   // Solicitar permissão antes de carregar o modelo, mantendo o gesto do usuário.
   stream=await navigator.mediaDevices.getUserMedia({video:{
-   facingMode:'user',width:{ideal:480},height:{ideal:360},frameRate:{ideal:15,max:20}
+   facingMode:'user',width:{ideal:640},height:{ideal:480},frameRate:{ideal:20,max:24}
   },audio:false});
   $('localPreview').srcObject=stream;
   await $('localPreview').play();
   await setupModel();
-  running=true;lastRun=0;lastSend=0;
+  running=true;lastRun=0;lastSend=0;lastVideoTime=-1;filtered={};lastFiltered=0;detectorMs=0;posesSeen=0;
+  $('trackingQuality').disabled=true;
   try{wakeLock=await navigator.wakeLock?.request('screen')}catch{}
   $('stop').disabled=false;
   status('Câmera ativa; buscando posição corporal…');
@@ -139,7 +210,7 @@ async function start(){
   status('Não foi possível iniciar: '+e.message);
   if(stream)for(const track of stream.getTracks())track.stop();
   stream=null;
-  $('start').disabled=false;
+  $('start').disabled=false;$('trackingQuality').disabled=false;
  }
 }
 async function stop(){
@@ -147,7 +218,7 @@ async function stop(){
  if(stream)for(const track of stream.getTracks())track.stop();
  stream=null;
  $('localPreview').srcObject=null;
- $('stop').disabled=true;$('start').disabled=false;
+ $('stop').disabled=true;$('start').disabled=false;$('trackingQuality').disabled=false;
  try{await wakeLock?.release()}catch{}
  wakeLock=null;
  try{await fetch('/api/avatar-pose',{method:'POST',headers:{'Content-Type':'application/json'},
