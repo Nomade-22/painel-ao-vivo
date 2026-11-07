@@ -15,9 +15,11 @@ function show(data){
  list.scrollTop=list.scrollHeight;
  $('chatCount').textContent=messages.length+' MENSAGENS · MANUAL';
  const selected=(data.catalogo||[]).find(item=>item.numero===data.itemAtivo);
- const p=selected?{nome:'#'+selected.numero+' · '+selected.nome,preco:selected.preco,descricao:selected.descricao,imagens:selected.imagem?[selected.imagem]:[]}:data.produto||{};
+ const p=selected?{nome:'#'+selected.numero+' · '+selected.nome,preco:selected.preco,descricao:selected.descricao,link:selected.link,imagens:selected.imagem?[selected.imagem]:[]}:data.produto||{};
  $('name').textContent=p.nome||'Nenhum produto selecionado';
  $('price').textContent=p.preco||'';
+ const link=$('productLink');const valid=typeof p.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link);
+ link.hidden=!valid;if(valid)link.href=p.link;else link.removeAttribute('href');
  $('desc').textContent=p.descricao||'Cadastre as informações no console V2J.';
  $('notice').textContent=data.recado||'Nenhum recado no momento.';
  const urls=Array.isArray(p.imagens)?p.imagens.filter(url=>/^https:\/\//i.test(url)):[];
