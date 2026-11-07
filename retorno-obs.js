@@ -1,22 +1,21 @@
 // Independente do editor de texto e do player de vídeos.
 const tela=document.getElementById('retornoTela');
+const central=document.getElementById('retornoCentral');
 let modoAtual='texto';
 async function atualizarModo(){
  try{
   const r=await fetch('/api/retorno',{cache:'no-store'});
   if(!r.ok)throw Error('HTTP '+r.status);
   const {modo}=await r.json();
-  const proximo=modo==='tela'?'tela':'texto';
+  const proximo=['texto','tela','central'].includes(modo)?modo:'texto';
   if(proximo===modoAtual)return;
   modoAtual=proximo;
-  if(proximo==='tela'){
-   // O fluxo existente da câmera virtual é reutilizado sem copiar vídeo.
-   tela.src='/camera.html';
-   document.body.classList.add('modo-tela');
-  }else{
-   document.body.classList.remove('modo-tela');
-   tela.removeAttribute('src');
-  }
+  document.body.classList.toggle('modo-tela',proximo==='tela');
+  document.body.classList.toggle('modo-central',proximo==='central');
+  if(proximo==='tela')tela.src='/camera.html';
+  else tela.removeAttribute('src');
+  if(proximo==='central')central.src='/central-retorno.html';
+  else central.removeAttribute('src');
  }catch(e){console.warn('Modo do retorno indisponível',e);}
 }
 atualizarModo();setInterval(atualizarModo,1500);
