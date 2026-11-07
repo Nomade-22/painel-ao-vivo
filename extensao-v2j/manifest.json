@@ -1,32 +1,21 @@
 {
   "manifest_version": 3,
   "name": "V2J · Sacolinha TikTok",
-  "version": "0.2.0",
-  "description": "Sincroniza itens visíveis da sacolinha TikTok Shop com o retorno V2J, quando ativado.",
-  "permissions": [
-    "storage",
-    "activeTab"
-  ],
+  "version": "0.3.0",
+  "description": "Lê os itens visíveis da sacolinha, mostra diagnóstico e sincroniza com a Central V2J.",
+  "permissions": ["storage", "activeTab"],
   "host_permissions": [
     "https://shop.tiktok.com/*",
     "https://painel-ao-vivo-jhonatan23.vercel.app/*"
   ],
   "action": {
-    "default_title": "Ativar ou pausar sincronização V2J"
+    "default_title": "V2J · Sincronizar sacolinha",
+    "default_popup": "popup.html"
   },
-  "background": {
-    "service_worker": "background.js"
-  },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://shop.tiktok.com/streamer/live/*",
-        "https://shop.tiktok.com/view/product/*"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "run_at": "document_idle"
-    }
-  ]
+  "background": {"service_worker": "background.js"},
+  "content_scripts": [{
+    "matches": ["https://shop.tiktok.com/streamer/live/*", "https://shop.tiktok.com/view/product/*"],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }]
 }
