@@ -14,6 +14,7 @@ function cleanCentral(input){
  nome:trim(p?.nome,180),preco:trim(p?.preco,80),descricao:trim(p?.descricao,3000),
  link:typeof p?.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
  imagem:typeof p?.imagem==='string'&&/^https:\/\//i.test(p.imagem)&&p.imagem.length<=2000?p.imagem:'',
+ cores:(Array.isArray(p?.cores)?p.cores:[]).slice(0,20).map(v=>trim(v,45)).filter(Boolean),
  imagens:(Array.isArray(p?.imagens)?p.imagens:[]).slice(0,12).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000),
  estoque:Number.isFinite(Number(p?.estoque))&&p?.estoque!==''&&p?.estoque!=null?Math.max(0,Math.floor(Number(p.estoque))):null,
  loja:trim(p?.loja,160),categoria:trim(p?.categoria,120),comissao:trim(p?.comissao,80),
@@ -50,6 +51,7 @@ export default async function handler(req,res){
    const fichaCapturada={id:match[1],link:productUrl.slice(0,500),nome:trim(payload.nome,160),
     descricao:trim(payload.descricao,5000),imagem:typeof payload.imagem==='string'&&/^https:\/\//i.test(payload.imagem)?payload.imagem.slice(0,2000):'',
     capturadoEm:Date.now()};
+   const colors=(Array.isArray(payload?.cores)?payload.cores:[]).slice(0,20).map(v=>trim(v,45)).filter(Boolean);
    const images=(Array.isArray(payload?.imagens)?payload.imagens:[]).slice(0,12).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000);
    const catalogo=current.catalogo.map(item=>{
     if(!item.link.includes('/view/product/'+match[1]))return item;
@@ -58,6 +60,7 @@ export default async function handler(req,res){
     const description=item.origem==='manual'&&item.descricao?item.descricao:
       (fichaCapturada.descricao.length>(item.descricao||'').length?fichaCapturada.descricao:item.descricao);
     return {...item,descricao:description,imagens:mergedImages,
+      cores:item.origem==='manual'&&item.cores?.length?item.cores:[...new Set([...(item.cores||[]),...colors])].slice(0,20),
       imagem:item.imagem||fichaCapturada.imagem};
    });
    const next={...current,catalogo,fichaCapturada,versao:Date.now()};
@@ -74,7 +77,15 @@ export default async function handler(req,res){
    const manual=new Map(current.catalogo.filter(p=>p.origem==='manual').map(p=>[p.numero,p]));
    const imported=cleanCentral({catalogo:incoming.map(p=>({...p,origem:'tiktok'}))}).catalogo;
    const mergedMap=new Map(current.catalogo.map(p=>[p.numero,p]));
-   for(const p of imported)if(!manual.has(p.numero))mergedMap.set(p.numero,p);
+   for(const p of imported)if(!manual.has(p.numero)){
+    const previous=mergedMap.get(p.numero);
+    mergedMap.set(p.numero,previous?{...p,
+      descricao:p.descricao||previous.descricao,
+      imagens:p.imagens?.length?p.imagens:previous.imagens,
+      cores:p.cores?.length?p.cores:previous.cores,
+      imagem:p.imagem||previous.imagem
+    }:p);
+   }
    // Correções manuais prevalecem nos campos editáveis; métricas atualizam com o TikTok.
    for(const p of imported){
     const override=manual.get(p.numero);
