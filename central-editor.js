@@ -59,6 +59,18 @@ $('clearProduct').addEventListener('click',()=>{if(confirm('Remover o produto do
 load();
 
 function bagItem(num){return (data.catalogo||[]).find(p=>p.numero===Number(num));}
+function closeBagEdit(){$('bagEditPanel').hidden=true;}
+function openBagEdit(){
+ const num=Number($('bagNumber').value);
+ const item=bagItem(num);
+ if(!item){status('Selecione primeiro um item da sacolinha para editar.');return;}
+ fillBag();
+ $('bagEditTitle').textContent='✏️ Editando item #'+num+' — '+(item.nome||'Produto');
+ $('bagEditPanel').hidden=false;
+ $('bagEditPanel').scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('bagEdit').onclick=openBagEdit;
+$('bagCancelEdit').onclick=closeBagEdit;
 function fillBag(){
  const num=Number($('bagNumber').value),p=bagItem(num)||{};
  $('bagName').value=p.nome||'';$('bagPrice').value=p.preco||'';
@@ -81,12 +93,12 @@ function renderBag(){
   const hint=document.createElement('span');hint.className='hint';hint.textContent='Selecionar e mostrar no retorno';
   card.title='#'+p.numero+' · '+p.nome;
   card.append(img,num,name,hint);
-  card.onclick=()=>{$('bagNumber').value=p.numero;fillBag();save({itemAtivo:p.numero},'Item '+p.numero+' selecionado no retorno.');};
+  card.onclick=()=>{$('bagNumber').value=p.numero;closeBagEdit();fillBag();save({itemAtivo:p.numero},'Item '+p.numero+' selecionado no retorno.');};
   box.append(card);
  }
  if(!$('bagNumber').value&&data.itemAtivo){$('bagNumber').value=data.itemAtivo;fillBag();}
 }
-$('bagNumber').addEventListener('change',fillBag);
+$('bagNumber').addEventListener('change',()=>{closeBagEdit();fillBag();});
 $('bagSelect').onclick=()=>{
  const num=Number($('bagNumber').value);
  if(!Number.isInteger(num)||num<1||num>999){status('Informe um número de item entre 1 e 999.');return;}
@@ -112,7 +124,7 @@ function moveItem(delta){
  if(!cat.length)return;
  const idx=cat.findIndex(p=>p.numero===Number(data.itemAtivo));
  const next=cat[Math.max(0,Math.min(cat.length-1,(idx<0?0:idx)+delta))];
- $('bagNumber').value=next.numero;fillBag();save({itemAtivo:next.numero},'Item '+next.numero+' no retorno.');
+ $('bagNumber').value=next.numero;closeBagEdit();fillBag();save({itemAtivo:next.numero},'Item '+next.numero+' no retorno.');
 }
 $('bagPrev').onclick=()=>moveItem(-1);
 $('bagNext').onclick=()=>moveItem(1);
