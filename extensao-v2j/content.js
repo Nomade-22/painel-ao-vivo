@@ -97,6 +97,12 @@ if(/^\/view\/product\/\d+/.test(location.pathname)){
    const id=location.pathname.match(/\/(\d+)/)?.[1]||'';
    const nome=clean(meta('og:title')||document.querySelector('h1')?.textContent||document.title);
    if(!id||nome.length<5)return;
-   chrome.runtime.sendMessage({type:'V2J_CAPTURE',product:{id,link:location.href,nome,descricao:clean(meta('og:description')),imagem:meta('og:image')}},()=>{void chrome.runtime.lastError;});
+   const descriptionNode=document.querySelector('[data-e2e*="description"],[class*="product-description"],[class*="ProductDescription"],[class*="productDetail"],[class*="ProductDetail"]');
+   const descricao=clean(descriptionNode?.innerText||meta('og:description')).slice(0,5000);
+   const mainImage=meta('og:image');
+   const images=[mainImage,...[...document.querySelectorAll('main img, [class*="product"] img, [class*="Product"] img')]
+     .map(img=>img.currentSrc||img.src).filter(src=>typeof src==='string'&&/^https:\/\//.test(src))]
+     .filter((src,i,all)=>src&&all.indexOf(src)===i).slice(0,6);
+   chrome.runtime.sendMessage({type:'V2J_CAPTURE',product:{id,link:location.href,nome,descricao,imagem:images[0]||'',imagens:images}},()=>{void chrome.runtime.lastError;});
  },2500);
 }
