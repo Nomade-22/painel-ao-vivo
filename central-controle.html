@@ -14,4 +14,19 @@
 <label>Links das fotos (até 6, um endereço HTTPS por linha)<textarea id="productImages" rows="5" placeholder="https://exemplo.com/foto1.jpg&#10;https://exemplo.com/foto2.jpg"></textarea></label>
 <p class="muted">Neste primeiro teste, as fotos precisam estar em links públicos diretos para imagens. Não cole links de páginas de produtos.</p>
 <div class="actions"><button id="saveProduct">Publicar produto</button><button id="clearProduct" class="secondary">Limpar produto</button></div></section>
-</div></main><script src="/central-editor.js" defer></script></body></html>
+<section class="card wide"><h2>🛍️ Sacolinha TikTok — catálogo numerado</h2>
+<p>Digite o número do item para colocá-lo em destaque no retorno. O conector poderá importar os itens do TikTok; qualquer item também pode ser corrigido aqui.</p>
+<div class="actions" style="align-items:end">
+<label style="flex:1 1 160px">Número do item<input id="bagNumber" type="number" min="1" max="999" placeholder="Ex.: 15"></label>
+<button id="bagSelect" type="button">🔎 Mostrar item no retorno</button>
+<button id="bagPrev" type="button" class="secondary">◀ Anterior</button>
+<button id="bagNext" type="button" class="secondary">Próximo ▶</button>
+</div>
+<p id="bagSelected" class="muted">Nenhum item selecionado.</p>
+<label>Nome do item<input id="bagName" maxlength="180" placeholder="Nome que aparece na sacolinha"></label>
+<label>Preço informado<input id="bagPrice" maxlength="80" placeholder="Ex.: R$ 71,24"></label>
+<label>Foto do item (URL pública HTTPS)<input id="bagImage" type="url" placeholder="https://...jpg"></label>
+<label>Descrição para a apresentadora<textarea id="bagDesc" rows="4" maxlength="3000" placeholder="Tamanhos, cores, material, argumentos de venda…"></textarea></label>
+<div class="actions"><button id="bagSave" type="button">Salvar / corrigir item</button><button id="bagRemove" class="danger" type="button">Remover item</button></div>
+<div id="bagList"></div><p class="muted">A sincronização automática será disponibilizada por uma extensão local do Chrome. Os campos editados manualmente ficam salvos no V2J.</p>
+</section></div></main><script src="/central-editor.js" defer></script></body></html>
