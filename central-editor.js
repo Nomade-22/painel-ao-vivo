@@ -109,7 +109,8 @@ $('importProduct').addEventListener('click',()=>{
  const match=link.match(/^https:\/\/shop\.tiktok\.com\/view\/product\/(\d+)/i);
  if(!match){status('Cole primeiro um link válido de produto do TikTok Shop.');return;}
  const started=Date.now();
- const tab=window.open(link,'_blank','noopener,noreferrer');
+ const tab=window.open(link,'_blank');
+ if(tab)tab.opener=null;
  if(!tab){status('O Chrome bloqueou a nova aba. Permita pop-ups e tente novamente.');return;}
  status('Aguardando a extensão V2J ler a ficha do TikTok Shop…');
  let attempts=0;
