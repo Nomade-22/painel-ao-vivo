@@ -22,19 +22,6 @@
 
 <section class="card"><h2>💬 Chat manual</h2><p>Copie aqui as perguntas e comentários da live. O histórico aparece imediatamente no retorno após salvar.</p><label>Nome do espectador<input id="chatAuthor" placeholder="Ex.: Maria"></label><label>Mensagem<textarea id="chatText" rows="3" maxlength="400" placeholder="Ex.: Tem na cor preta?"></textarea></label><div class="actions"><button id="addChat">+ Enviar comentário</button><button id="clearChat" class="danger">Limpar chat</button></div><div id="chatList"></div><p class="muted">Integração automática ao TikTok: ainda não conectada.</p></section>
 <section class="card"><h2>📣 Recado para a apresentadora</h2><p>Use para orientar a fala, chamar atenção para uma pergunta ou lembrar um detalhe.</p><label>Recado em destaque<textarea id="notice" rows="6" maxlength="1200" placeholder="Ex.: Mostrar o tecido de perto e explicar os tamanhos."></textarea></label><div class="actions"><button id="saveNotice">Publicar recado</button><button id="clearNotice" class="secondary">Remover recado</button></div></section>
-<section class="card wide"><h2>🛍️ Produto em apresentação</h2>
-<label>Link do produto no TikTok Shop<input id="productLink" type="url" placeholder="https://shop.tiktok.com/view/product/1731310257245160944?..."></label>
-<div class="actions" style="margin:10px 0 16px">
-<button id="importProduct" type="button">↻ Puxar informações do link</button>
-<button id="publishProductTop" type="button" class="secondary">✓ Publicar agora</button>
-</div>
-<p class="muted">Para puxar informações, instale a extensão V2J no Chrome. O botão abre o produto no TikTok e aguarda a captura. Você também pode preencher e publicar manualmente.</p>
-<label>Nome do produto<input id="productName" maxlength="160" placeholder="Ex.: Vestido midi canelado"></label>
-<label>Preço ou chamada opcional<input id="productPrice" maxlength="80" placeholder="Ex.: Confira o valor no carrinho"></label>
-<label>Descrição, tamanhos, cores e argumentos de venda<textarea id="productDesc" rows="8" maxlength="5000" placeholder="Composição, tamanhos, cores, dúvidas frequentes…"></textarea></label>
-<label>Links das fotos (até 6, um endereço HTTPS por linha)<textarea id="productImages" rows="5" placeholder="https://exemplo.com/foto1.jpg&#10;https://exemplo.com/foto2.jpg"></textarea></label>
-<p class="muted">Neste primeiro teste, as fotos precisam estar em links públicos diretos para imagens. Não cole links de páginas de produtos.</p>
-<div class="actions"><button id="saveProduct">Publicar produto</button><button id="clearProduct" class="secondary">Limpar produto</button></div></section>
 <section class="card wide"><h2>🛍️ Sacolinha TikTok — catálogo numerado</h2>
 <p>Digite o número do item para colocá-lo em destaque no retorno. O conector importa os itens do TikTok; você pode corrigir os campos manualmente. Estoque e ofertas são da última sincronização.</p>
 <div class="actions" style="align-items:end">
@@ -44,14 +31,14 @@
 <button id="bagNext" type="button" class="secondary">Próximo ▶</button>
 </div>
 <p id="bagSelected" class="muted">Nenhum item selecionado.</p>
-<div class="actions" style="margin:10px 0 14px"><button id="bagEdit" type="button" class="secondary">✏️ Editar item selecionado</button></div>
+<div class="actions" style="margin:10px 0 14px"><button id="bagEdit" type="button" class="secondary">✏️ Editar item selecionado</button><button id="bagFetchDetails" class="secondary" type="button">↻ Buscar descrição e fotos</button></div>
 <div id="bagEditPanel" hidden style="border:1px solid #456489;border-radius:12px;padding:14px;background:#102039;margin-bottom:18px"><div class="actions" style="align-items:center;justify-content:space-between;margin-bottom:12px"><strong id="bagEditTitle">Editando item</strong><button id="bagCancelEdit" type="button" class="secondary">Fechar edição</button></div>
 <label>Link do item no TikTok Shop<input id="bagLink" type="url" placeholder="https://shop.tiktok.com/view/product/..."></label>
 <label>Nome do item<input id="bagName" maxlength="180" placeholder="Nome que aparece na sacolinha"></label>
 <label>Preço informado<input id="bagPrice" maxlength="80" placeholder="Ex.: R$ 71,24"></label>
 <label>Foto do item (URL pública HTTPS)<input id="bagImage" type="url" placeholder="https://...jpg"></label>
 <div id="bagInsights" class="item" style="display:block;line-height:1.8" aria-live="polite">Selecione um produto para ver estoque, oferta e comissão.</div>
-<div class="actions" style="margin:10px 0"><button id="bagFetchDetails" class="secondary" type="button">↻ Buscar descrição e fotos do produto</button></div>
+
 <label>Cores disponíveis (separe por vírgulas)<input id="bagColors" placeholder="Off White, Caramelo, Marsala, Preto, Nude"></label><label>Descrição para a apresentadora<textarea id="bagDesc" rows="4" maxlength="3000" placeholder="Tamanhos, cores, material, argumentos de venda…"></textarea></label>
 <div class="actions"><button id="bagSave" type="button">Salvar / corrigir item</button><button id="bagRemove" class="danger" type="button">Remover item</button></div>
 </div>
