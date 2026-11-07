@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "V2J · Sacolinha TikTok",
-  "version": "0.4.0",
-  "description": "Sincroniza a lista de produtos já carregada no Gerenciador de LIVE, sem copiar credenciais.",
+  "version": "0.5.0",
+  "description": "Sincroniza produtos, estoque, ofertas e comissões; captura detalhes de produtos sob demanda.",
   "permissions": [
     "storage",
     "activeTab"
