@@ -1,7 +1,7 @@
 import {getCache} from '@vercel/functions';
 const validMode = mode => ['texto','tela','central'].includes(mode) ? mode : 'texto';
 
-const defaultCentral={produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,versao:0};
+const defaultCentral={produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,versao:0};
 const trim=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
 function cleanCentral(input){
  const p=input?.produto||{};
@@ -17,6 +17,13 @@ function cleanCentral(input){
  origem:p?.origem==='tiktok'?'tiktok':'manual'
  })).filter(p=>p.numero&&p.nome),
  itemAtivo:Math.max(0,Math.min(999,Math.floor(Number(input?.itemAtivo)||0))),
+ fichaCapturada:input?.fichaCapturada?{
+ id:trim(input.fichaCapturada.id,40),nome:trim(input.fichaCapturada.nome,160),
+ descricao:trim(input.fichaCapturada.descricao,5000),
+ imagem:typeof input.fichaCapturada.imagem==='string'&&/^https:\/\//i.test(input.fichaCapturada.imagem)?input.fichaCapturada.imagem.slice(0,2000):'',
+ link:typeof input.fichaCapturada.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(input.fichaCapturada.link)?input.fichaCapturada.link.slice(0,500):'',
+ capturadoEm:Number(input.fichaCapturada.capturadoEm)||0
+ }:null,
  versao:Number(input?.versao)||0};
 }
 export default async function handler(req,res){
@@ -25,6 +32,21 @@ export default async function handler(req,res){
   res.setHeader('Allow','GET, PUT'); return res.status(405).json({erro:'Método inválido'});
  }
  try{
+  if(req.query?.capture==='1'){
+   if(req.method!=='PUT')return res.status(405).json({erro:'Método inválido'});
+   const payload=typeof req.body==='string'?JSON.parse(req.body):req.body;
+   const productUrl=String(payload?.link||'');
+   const match=productUrl.match(/^https:\/\/shop\.tiktok\.com\/view\/product\/(\d+)/i);
+   if(!match)return res.status(400).json({erro:'Link inválido'});
+   const cacheCapture=getCache({namespace:'central-retorno-v1'});
+   const current=cleanCentral(await cacheCapture.get('estado')||defaultCentral);
+   const fichaCapturada={id:match[1],link:productUrl.slice(0,500),nome:trim(payload.nome,160),
+    descricao:trim(payload.descricao,5000),imagem:typeof payload.imagem==='string'&&/^https:\/\//i.test(payload.imagem)?payload.imagem.slice(0,2000):'',
+    capturadoEm:Date.now()};
+   const next={...current,fichaCapturada,versao:Date.now()};
+   await cacheCapture.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
+   return res.status(200).json({ok:true,id:match[1]});
+  }
   if(req.query?.sync==='1'){
    if(req.method!=='PUT')return res.status(405).json({erro:'Método inválido'});
    const payload=typeof req.body==='string'?JSON.parse(req.body):req.body;
