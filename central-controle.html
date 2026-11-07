@@ -44,6 +44,8 @@
 <button id="bagNext" type="button" class="secondary">Próximo ▶</button>
 </div>
 <p id="bagSelected" class="muted">Nenhum item selecionado.</p>
+<div class="actions" style="margin:10px 0 14px"><button id="bagEdit" type="button" class="secondary">✏️ Editar item selecionado</button></div>
+<div id="bagEditPanel" hidden style="border:1px solid #456489;border-radius:12px;padding:14px;background:#102039;margin-bottom:18px"><div class="actions" style="align-items:center;justify-content:space-between;margin-bottom:12px"><strong id="bagEditTitle">Editando item</strong><button id="bagCancelEdit" type="button" class="secondary">Fechar edição</button></div>
 <label>Link do item no TikTok Shop<input id="bagLink" type="url" placeholder="https://shop.tiktok.com/view/product/..."></label>
 <label>Nome do item<input id="bagName" maxlength="180" placeholder="Nome que aparece na sacolinha"></label>
 <label>Preço informado<input id="bagPrice" maxlength="80" placeholder="Ex.: R$ 71,24"></label>
@@ -52,5 +54,6 @@
 <div class="actions" style="margin:10px 0"><button id="bagFetchDetails" class="secondary" type="button">↻ Buscar descrição e fotos do produto</button></div>
 <label>Cores disponíveis (separe por vírgulas)<input id="bagColors" placeholder="Off White, Caramelo, Marsala, Preto, Nude"></label><label>Descrição para a apresentadora<textarea id="bagDesc" rows="4" maxlength="3000" placeholder="Tamanhos, cores, material, argumentos de venda…"></textarea></label>
 <div class="actions"><button id="bagSave" type="button">Salvar / corrigir item</button><button id="bagRemove" class="danger" type="button">Remover item</button></div>
+</div>
 <h3>Produtos da sacolinha — toque no card para mostrar no retorno</h3><div id="bagList"></div><p class="muted">A sincronização automática será disponibilizada por uma extensão local do Chrome. Os campos editados manualmente ficam salvos no V2J.</p>
 </section></div></main><script src="/central-editor.js" defer></script></body></html>
