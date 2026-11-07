@@ -45,3 +45,16 @@ chrome.runtime.onMessage.addListener(msg=>{
  if(timer)clearInterval(timer);
  if(active){tick();timer=setInterval(tick,8000);}
 });
+
+if(/^\/view\/product\/\d+/.test(location.pathname)){
+ const readMeta=name=>document.querySelector('meta[property="'+name+'"]')?.content||'';
+ function captureProduct(){
+  const id=location.pathname.match(/\/(\d+)/)?.[1]||'';
+  const title=(readMeta('og:title')||document.querySelector('h1')?.textContent||document.title||'').trim();
+  const desc=(readMeta('og:description')||document.querySelector('[class*="description"]')?.innerText||'').trim();
+  const image=readMeta('og:image')||document.querySelector('main img[src^="https://"]')?.src||'';
+  if(!id||title.length<5||/TikTok Shop$/.test(title)&&title.length<20)return;
+  chrome.runtime.sendMessage({type:'V2J_CAPTURE',product:{id,link:location.href,nome:title,descricao:desc,imagem:image}},()=>{void chrome.runtime.lastError;});
+ }
+ setTimeout(captureProduct,2500);
+}
