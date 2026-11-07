@@ -1,5 +1,5 @@
 const $=id=>document.getElementById(id);
-let version=-1,localChoice=0,lastServerChoice=null;
+let version=-1;
 function messageNode(m){
  const node=document.createElement('div');node.className='message';
  const heading=document.createElement('div'),name=document.createElement('strong'),time=document.createElement('small'),body=document.createElement('p');
@@ -8,25 +8,13 @@ function messageNode(m){
 }
 function show(data){
  if(data.versao===version)return;version=data.versao;
- if(data.itemAtivo!==lastServerChoice){localChoice=data.itemAtivo||0;lastServerChoice=data.itemAtivo;}
- const cards=$('catalogCards'),scroll=cards.scrollLeft;cards.replaceChildren();
- for(const item of (data.catalogo||[]).slice().sort((a,b)=>a.numero-b.numero)){
-  const button=document.createElement('button');button.type='button';button.className='catalog-card'+(item.numero===localChoice?' active':'');
-  const img=document.createElement('img');img.loading='lazy';img.alt='';img.src=item.imagem||item.imagens?.[0]||'';
-  const num=document.createElement('span');num.className='number';num.textContent='#'+item.numero;
-  const title=document.createElement('span');title.className='short';title.textContent=item.nome||'Produto';
-  button.title='#'+item.numero+' · '+item.nome;button.append(img,num,title);
-  button.onclick=()=>{localChoice=item.numero;version=-1;show(data);};
-  cards.append(button);
- }
- cards.scrollLeft=scroll;
  const list=$('messages');list.replaceChildren();
  const messages=Array.isArray(data.chat)?data.chat:[];
  if(!messages.length){const empty=document.createElement('div');empty.className='empty';empty.textContent='Aguardando mensagens enviadas pelo console…';list.append(empty);}
  else for(const m of messages)list.append(messageNode(m));
  list.scrollTop=list.scrollHeight;
  $('chatCount').textContent=messages.length+' MENSAGENS · MANUAL';
- const selected=(data.catalogo||[]).find(item=>item.numero===localChoice);
+ const selected=(data.catalogo||[]).find(item=>item.numero===data.itemAtivo);
  const sameProduct=selected&&data.produto?.link&&selected.link&&data.produto.link.match(/\/view\/product\/(\d+)/)?.[1]===selected.link.match(/\/view\/product\/(\d+)/)?.[1];
  const p=selected?{nome:'#'+selected.numero+' · '+selected.nome,preco:selected.preco,descricao:selected.descricao||(sameProduct?data.produto.descricao:''),loja:selected.loja,categoria:selected.categoria,comissao:selected.comissao,taxaComissao:selected.taxaComissao,link:selected.link,imagens:selected.imagens?.length?selected.imagens:(sameProduct&&data.produto?.imagens?.length?data.produto.imagens:(selected.imagem?[selected.imagem]:[])),estoque:selected.estoque,precoOferta:selected.precoOferta,precoOriginal:selected.precoOriginal,ofertaInicio:selected.ofertaInicio,ofertaFim:selected.ofertaFim,atualizadoEm:selected.atualizadoEm}:data.produto||{};
  $('name').textContent=p.nome||'Nenhum produto selecionado';
