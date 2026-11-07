@@ -1,7 +1,7 @@
 import {getCache} from '@vercel/functions';
 const validMode = mode => ['texto','tela','central'].includes(mode) ? mode : 'texto';
 
-const defaultCentral={produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],versao:0};
+const defaultCentral={produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,versao:0};
 const trim=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
 function cleanCentral(input){
  const p=input?.produto||{};
@@ -9,6 +9,13 @@ function cleanCentral(input){
  imagens:(Array.isArray(p.imagens)?p.imagens:[]).slice(0,6).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000)},
  recado:trim(input?.recado,1200),
  chat:(Array.isArray(input?.chat)?input.chat:[]).slice(-40).map(m=>({id:trim(m?.id,90),autor:trim(m?.autor,80),texto:trim(m?.texto,400),hora:trim(m?.hora,12)})).filter(m=>m.texto),
+ catalogo:(Array.isArray(input?.catalogo)?input.catalogo:[]).slice(0,200).map(p=>({
+ numero:Math.max(1,Math.min(999,Math.floor(Number(p?.numero)||0))),
+ nome:trim(p?.nome,180),preco:trim(p?.preco,80),descricao:trim(p?.descricao,3000),
+ imagem:typeof p?.imagem==='string'&&/^https:\/\//i.test(p.imagem)&&p.imagem.length<=2000?p.imagem:'',
+ origem:p?.origem==='tiktok'?'tiktok':'manual'
+ })).filter(p=>p.numero&&p.nome),
+ itemAtivo:Math.max(0,Math.min(999,Math.floor(Number(input?.itemAtivo)||0))),
  versao:Number(input?.versao)||0};
 }
 export default async function handler(req,res){
