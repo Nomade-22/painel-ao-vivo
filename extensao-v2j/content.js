@@ -11,34 +11,51 @@ function findNumber(el) {
 }
 function extract() {
   const found=new Map();
-  const candidates=new Set(document.querySelectorAll('li,tr,[role="row"],[class*="product"],[class*="Product"],[class*="goods"],[class*="Goods"]'));
-  // Fallback para layouts que usam apenas divs: subir a partir de cada miniatura.
-  for(const img of document.querySelectorAll('img')) {
-    let node=img;
-    for(let i=0;i<6&&node;i++,node=node.parentElement) {
-      const s=clean(node.innerText);
-      if(s.length>=15&&s.length<500&&isPrice(s)&&findNumber(node)) {
-        candidates.add(node);
+  const candidates=new Set(document.querySelectorAll('li,tr,[role="row"],[class*="product"],[class*="Product"]'));
+  const diagnostics={badges:0,rows:0};
+  // A posição da sacolinha fica frequentemente em um irmão da imagem.
+  // Começar pelo número permite encontrar o menor cartão completo.
+  const leaves=[...document.querySelectorAll('span,div,button,p')].filter(el=>el.childElementCount===0 && /^\d{1,3}$/.test(clean(el.textContent)));
+  for(const leaf of leaves) {
+    const number=Number(clean(leaf.textContent));
+    if(number<1||number>200)continue;
+    diagnostics.badges++;
+    let el=leaf.parentElement;
+    for(let depth=0;depth<14&&el;depth++,el=el.parentElement) {
+      const value=clean(el.innerText||el.textContent);
+      if(value.length>900)break;
+      if(isPrice(value)&&el.querySelector('img')) {
+        candidates.add(el); diagnostics.rows++;
         break;
       }
+    }
+  }
+  // Compatibilidade com listas cujo número esteja em input/badge.
+  for(const img of document.querySelectorAll('img')) {
+    let el=img.parentElement;
+    for(let depth=0;depth<12&&el;depth++,el=el.parentElement) {
+      const value=clean(el.innerText||el.textContent);
+      if(value.length>900)break;
+      if(isPrice(value)&&findNumber(el)) {candidates.add(el);break;}
     }
   }
   for(const el of candidates) {
     const img=el.querySelector('img[src],img[data-src]');
     if(!img)continue;
-    const raw=el.innerText||'',value=clean(raw);
-    if(value.length<12||value.length>550||!isPrice(value))continue;
+    const raw=el.innerText||el.textContent||'', value=clean(raw);
+    if(value.length<12||value.length>900||!isPrice(value))continue;
     const numero=findNumber(el);
     if(!numero)continue;
     const lines=raw.split(/\n/).map(clean).filter(Boolean);
-    const nome=lines.find(s=>s.length>7&&!isPrice(s)&&!/^\d{1,3}$/.test(s)&&!/(estoque|desconto|comprar agora|lista de produtos)/i.test(s));
+    const nome=lines.find(s=>s.length>7&&s.length<190&&!isPrice(s)&&!/^\d{1,3}$/.test(s)&&!/(estoque|desconto|comprar agora|lista de produtos|editar|excluir)/i.test(s));
     if(!nome)continue;
     const preco=value.match(/R\$\s*[\d.,]+/)?.[0]||'';
     const link=el.querySelector('a[href*="/view/product/"]')?.href||'';
     const item={numero,nome:nome.slice(0,180),preco,imagem:img.currentSrc||img.src||img.dataset.src||'',link,descricao:'',origem:'tiktok'};
-    if(!found.has(numero)||item.nome.length>found.get(numero).nome.length)found.set(numero,item);
+    if(!found.has(numero)||value.length<(found.get(numero)._length||Infinity))found.set(numero,{...item,_length:value.length});
   }
-  return [...found.values()].sort((a,b)=>a.numero-b.numero).slice(0,200);
+  lastStatus.diagnostics=diagnostics;
+  return [...found.values()].sort((a,b)=>a.numero-b.numero).slice(0,200).map(({_length,...item})=>item);
 }
 function sync(items) {
   return new Promise(resolve=>{
@@ -52,7 +69,7 @@ function sync(items) {
 async function scan(send=false) {
   if(!location.pathname.startsWith('/streamer/live/'))return status({message:'Abra o Gerenciador de LIVE do TikTok Shop'});
   const items=extract();
-  status({found:items.length,message:items.length?'Produtos visíveis detectados':'Nenhum produto detectado; abra a lista da sacolinha'});
+  status({found:items.length,message:items.length?'Produtos visíveis detectados':'Nenhum produto detectado (números encontrados: '+(lastStatus.diagnostics?.badges||0)+', linhas: '+(lastStatus.diagnostics?.rows||0)+'). Abra a lista da sacolinha'});
   if(send&&items.length)return await sync(items);
   return lastStatus;
 }
