@@ -32,7 +32,7 @@ function show(data){
  }else $('mainImage').removeAttribute('src');
 }
 async function poll(){
- try{const response=await fetch('/api/central',{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);show(await response.json());$('status').textContent='● Conectado';}
+ try{const response=await fetch('/api/retorno?central=1',{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);show(await response.json());$('status').textContent='● Conectado';}
  catch(e){$('status').textContent='⚠ Sem conexão';console.warn(e);}
 }
 poll();setInterval(poll,1500);
