@@ -70,11 +70,15 @@ function renderBag(){
  const cat=[...(data.catalogo||[])].sort((a,b)=>a.numero-b.numero);
  $('bagSelected').textContent=data.itemAtivo?'No retorno: item '+data.itemAtivo+(bagItem(data.itemAtivo)?' — '+bagItem(data.itemAtivo).nome:' (sem cadastro)'):'Nenhum item em destaque.';
  for(const p of cat){
-  const row=document.createElement('div');row.className='item';
-  const name=document.createElement('div');name.textContent='#'+p.numero+' · '+p.nome+(p.origem==='tiktok'?' · TikTok':'');
-  const btn=document.createElement('button');btn.className='secondary';btn.textContent='Editar';
-  btn.onclick=()=>{$('bagNumber').value=p.numero;fillBag();$('bagNumber').scrollIntoView({behavior:'smooth',block:'center'});};
-  row.append(name,btn);box.append(row);
+  const card=document.createElement('button');card.type='button';card.className='bag-card'+(p.numero===data.itemAtivo?' active':'');
+  const img=document.createElement('img');img.loading='lazy';img.alt='';img.src=p.imagem||p.imagens?.[0]||'';
+  const num=document.createElement('span');num.className='number';num.textContent='#'+p.numero;
+  const name=document.createElement('span');name.className='short';name.textContent=p.nome||'Produto';
+  const hint=document.createElement('span');hint.className='hint';hint.textContent='Selecionar e mostrar no retorno';
+  card.title='#'+p.numero+' · '+p.nome;
+  card.append(img,num,name,hint);
+  card.onclick=()=>{$('bagNumber').value=p.numero;fillBag();save({itemAtivo:p.numero},'Item '+p.numero+' selecionado no retorno.');};
+  box.append(card);
  }
  if(!$('bagNumber').value&&data.itemAtivo){$('bagNumber').value=data.itemAtivo;fillBag();}
 }
