@@ -58,7 +58,7 @@ export default async function handler(req,res){
     const currentImages=Array.isArray(item.imagens)?item.imagens:[];
     const mergedImages=item.origem==='manual'&&currentImages.length?currentImages:[...new Set([...currentImages,...images])].slice(0,12);
     const description=item.origem==='manual'&&item.descricao?item.descricao:
-      (fichaCapturada.descricao.length>(item.descricao||'').length?fichaCapturada.descricao:item.descricao);
+      (fichaCapturada.descricao.length>=75?fichaCapturada.descricao:item.descricao);
     return {...item,descricao:description,imagens:mergedImages,
       cores:item.origem==='manual'&&item.cores?.length?item.cores:[...new Set([...(item.cores||[]),...colors])].slice(0,20),
       imagem:item.imagem||fichaCapturada.imagem};
