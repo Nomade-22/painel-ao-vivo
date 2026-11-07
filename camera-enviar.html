@@ -28,12 +28,17 @@ select{display:block;width:100%;margin:5px 0 13px;padding:12px;border:1px solid 
 <option value="balanced" selected>Equilibrado — 540p, 24 FPS, ~1 Mbps (recomendado)</option>
 <option value="quality">Mais qualidade — 720p, 24 FPS, ~1,8 Mbps</option>
 </select></label>
+<label for="videoOrientation">Orientação do vídeo
+<select id="videoOrientation">
+<option value="landscape">Horizontal 16:9 — câmera tradicional</option>
+<option value="portrait">Vertical 9:16 — OBS Virtual Camera / TikTok</option>
+</select></label>
 <label for="connectionMode">Conexão entre casa e escritório
 <select id="connectionMode">
 <option value="auto" selected>Automática — tenta ligação rápida, usa servidor se precisar</option>
 <option value="relay">Compatível — força servidor intermediário (pode atrasar)</option>
 </select></label>
-<p class="hint">Para aplicar outra qualidade ou conexão durante uma live, desligue e ligue novamente. Se a opção Automática ficar sem imagem, tente Compatível.</p>
+<p class="hint">Para aplicar outra qualidade, orientação ou conexão durante uma live, desligue e ligue novamente. Se a opção Automática ficar sem imagem, tente Compatível.</p>
 </section>
 <div class="controls">
 <button id="startInternet" type="button">📷 Ligar câmera e conectar</button>
