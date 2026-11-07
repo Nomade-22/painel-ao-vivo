@@ -102,3 +102,32 @@ function moveItem(delta){
 }
 $('bagPrev').onclick=()=>moveItem(-1);
 $('bagNext').onclick=()=>moveItem(1);
+
+$('publishProductTop').addEventListener('click',()=>$('saveProduct').click());
+$('importProduct').addEventListener('click',()=>{
+ const link=$('productLink').value.trim();
+ const match=link.match(/^https:\/\/shop\.tiktok\.com\/view\/product\/(\d+)/i);
+ if(!match){status('Cole primeiro um link válido de produto do TikTok Shop.');return;}
+ const started=Date.now();
+ const tab=window.open(link,'_blank','noopener,noreferrer');
+ if(!tab){status('O Chrome bloqueou a nova aba. Permita pop-ups e tente novamente.');return;}
+ status('Aguardando a extensão V2J ler a ficha do TikTok Shop…');
+ let attempts=0;
+ const timer=setInterval(async()=>{
+  attempts++;
+  try{
+   const r=await fetch('/api/retorno?central=1',{cache:'no-store'});
+   if(!r.ok)throw Error('HTTP '+r.status);
+   const p=(await r.json()).fichaCapturada;
+   if(p?.id===match[1]&&p.capturadoEm>=started){
+    clearInterval(timer);
+    if(p.nome)$('productName').value=p.nome;
+    if(p.descricao)$('productDesc').value=p.descricao;
+    if(p.imagem)$('productImages').value=[p.imagem,...$('productImages').value.split(/\r?\n/).filter(Boolean)].slice(0,6).join('\n');
+    status('✅ Informações puxadas do Chrome. Revise os campos e clique em Publicar agora.');
+    return;
+   }
+  }catch(e){console.warn('Importação V2J',e);}
+  if(attempts>=20){clearInterval(timer);status('Importação não recebida. Confirme que a extensão V2J está instalada e atualizada; você pode publicar manualmente.');}
+ },1500);
+});
