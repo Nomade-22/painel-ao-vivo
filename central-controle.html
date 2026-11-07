@@ -9,7 +9,11 @@
 <section class="card"><h2>📣 Recado para a apresentadora</h2><p>Use para orientar a fala, chamar atenção para uma pergunta ou lembrar um detalhe.</p><label>Recado em destaque<textarea id="notice" rows="6" maxlength="1200" placeholder="Ex.: Mostrar o tecido de perto e explicar os tamanhos."></textarea></label><div class="actions"><button id="saveNotice">Publicar recado</button><button id="clearNotice" class="secondary">Remover recado</button></div></section>
 <section class="card wide"><h2>🛍️ Produto em apresentação</h2>
 <label>Link do produto no TikTok Shop<input id="productLink" type="url" placeholder="https://shop.tiktok.com/view/product/1731310257245160944?..."></label>
-<p class="muted">O ID é reconhecido pelo endereço. Nome e fotos podem ser preenchidos manualmente; a leitura automática depende da extensão do Chrome.</p>
+<div class="actions" style="margin:10px 0 16px">
+<button id="importProduct" type="button">↻ Puxar informações do link</button>
+<button id="publishProductTop" type="button" class="secondary">✓ Publicar agora</button>
+</div>
+<p class="muted">Para puxar informações, instale a extensão V2J no Chrome. O botão abre o produto no TikTok e aguarda a captura. Você também pode preencher e publicar manualmente.</p>
 <label>Nome do produto<input id="productName" maxlength="160" placeholder="Ex.: Vestido midi canelado"></label>
 <label>Preço ou chamada opcional<input id="productPrice" maxlength="80" placeholder="Ex.: Confira o valor no carrinho"></label>
 <label>Descrição, tamanhos, cores e argumentos de venda<textarea id="productDesc" rows="8" maxlength="5000" placeholder="Composição, tamanhos, cores, dúvidas frequentes…"></textarea></label>
