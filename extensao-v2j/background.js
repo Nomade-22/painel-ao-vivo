@@ -20,50 +20,99 @@ chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
  return true;
 });
 
-let batchRunning=false,batchStop=false;
 const BATCH_ENDPOINT='https://painel-ao-vivo-jhonatan23.vercel.app/api/retorno?central=1';
-async function reportBatch(patch){
- const previous=(await chrome.storage.local.get('v2jBatch')).v2jBatch||{};
- await chrome.storage.local.set({v2jBatch:{...previous,...patch}});
+const BATCH_ALARM='v2j-importacao-proxima-etapa';
+const CHUNK_SIZE=3;
+let processing=false;
+const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function getBatch(){return (await chrome.storage.local.get('v2jBatch')).v2jBatch||{};}
+async function setBatch(patch){
+ const previous=await getBatch();
+ const next={...previous,...patch};
+ await chrome.storage.local.set({v2jBatch:next});
+ return next;
 }
-async function importBatch(){
- if(batchRunning)return;
- batchRunning=true;batchStop=false;
+async function fetchCatalog(){
+ const response=await fetch(BATCH_ENDPOINT,{credentials:'omit',cache:'no-store'});
+ if(!response.ok)throw Error('Catálogo indisponível (HTTP '+response.status+')');
+ return response.json();
+}
+async function processNextChunk(){
+ if(processing)return;
+ processing=true;
  try{
-  await reportBatch({running:true,done:0,total:0,success:0,message:'Buscando catálogo da Central V2J…'});
-  const response=await fetch(BATCH_ENDPOINT,{credentials:'omit',cache:'no-store'});
-  if(!response.ok)throw Error('Não foi possível carregar o catálogo (HTTP '+response.status+')');
-  const data=await response.json();
-  const items=(Array.isArray(data.catalogo)?data.catalogo:[])
-   .filter(p=>p.link?.includes('/view/product/')&&!p.descricao)
-   .sort((a,b)=>a.numero-b.numero).slice(0,5);
-  if(!items.length)throw Error('Nenhum item sem descrição encontrado com link de produto.');
-  await reportBatch({total:items.length,message:'Iniciando importação de '+items.length+' produtos…'});
-  let success=0,done=0;
-  for(const item of items){
-   if(batchStop)break;
+  let job=await getBatch();
+  if(!job.running)return;
+  const end=Math.min(job.cursor+CHUNK_SIZE,job.total);
+  for(let i=job.cursor;i<end;i++){
+   job=await getBatch();
+   if(!job.running)break;
+   const item=job.queue[i];
    let tab=null;
    try{
-    await reportBatch({message:'Abrindo item #'+item.numero+'…'});
-    const url=new URL(item.link);url.searchParams.set('v2j_batch','1');
+    await setBatch({message:'Lendo item #'+item.numero+' ('+(i+1)+' de '+job.total+')…'});
+    const url=new URL(item.link);
+    url.searchParams.set('v2j_batch','1');
+    const openedAt=Date.now();
     tab=await chrome.tabs.create({url:url.href,active:false});
-    // A página precisa carregar a seção de descrição; a extensão rola a aba criada.
-    await new Promise(resolve=>setTimeout(resolve,14000));
-    const updated=await fetch(BATCH_ENDPOINT,{cache:'no-store'}).then(r=>r.json());
-    const saved=updated.catalogo?.find(p=>p.numero===item.numero);
-    if(saved?.descricao?.length>60)success++;
-    done++;
-    await reportBatch({done,success,message:'Item #'+item.numero+': '+(saved?.descricao?.length>60?'descrição recebida':'sem descrição capturada')});
-   }catch(e){done++;await reportBatch({done,success,message:'Item #'+item.numero+': '+e.message});}
-   finally{if(tab?.id)try{await chrome.tabs.remove(tab.id)}catch(e){}}
-   if(!batchStop)await new Promise(resolve=>setTimeout(resolve,2000));
+    await pause(12000);
+    const data=await fetchCatalog();
+    const captured=data.fichaCapturada;
+    const saved=data.catalogo?.find(p=>p.numero===item.numero);
+    const confirmed=captured?.id===item.id&&Number(captured.capturadoEm)>=openedAt&&saved?.descricao?.length>=55;
+    await setBatch({cursor:i+1,done:i+1,success:job.success+(confirmed?1:0),
+      failed:job.failed+(confirmed?0:1),
+      message:'Item #'+item.numero+': '+(confirmed?'descrição atualizada':'não foi possível confirmar a captura')});
+   }catch(e){
+    await setBatch({cursor:i+1,done:i+1,failed:job.failed+1,message:'Item #'+item.numero+': '+e.message});
+   }finally{
+    if(tab?.id)try{await chrome.tabs.remove(tab.id)}catch(e){}
+   }
+   await pause(1100);
   }
-  await reportBatch({running:false,done,success,message:batchStop?'Importação interrompida.':'Teste concluído: '+success+' descrições em '+done+' itens.'});
- }catch(e){await reportBatch({running:false,message:'Falha: '+e.message});}
- finally{batchRunning=false;batchStop=false;}
+  job=await getBatch();
+  if(!job.running)return;
+  if(job.cursor>=job.total){
+   await chrome.alarms.clear(BATCH_ALARM);
+   await setBatch({running:false,queue:[],message:'Concluído: '+job.success+' descrições de '+job.total+' itens. '+job.failed+' sem confirmação.'});
+  }else{
+   await setBatch({message:'Pausa breve; continuando automaticamente ('+job.done+'/'+job.total+')…'});
+   await chrome.alarms.create(BATCH_ALARM,{delayInMinutes:0.5});
+  }
+ }catch(e){
+  await setBatch({running:false,message:'Importação interrompida por erro: '+e.message});
+  await chrome.alarms.clear(BATCH_ALARM);
+ }finally{processing=false;}
 }
+async function startBatch(refreshExisting){
+ const existing=await getBatch();
+ if(existing.running)return {ok:false,message:'Importação já está em andamento.'};
+ await chrome.alarms.clear(BATCH_ALARM);
+ const data=await fetchCatalog();
+ const items=(Array.isArray(data.catalogo)?data.catalogo:[])
+  .filter(p=>p.link?.includes('/view/product/')&&(refreshExisting||!p.descricao))
+  .sort((a,b)=>a.numero-b.numero)
+  .map(p=>({numero:p.numero,link:p.link,id:p.link.match(/\/view\/product\/(\d+)/)?.[1]||''}))
+  .filter(p=>p.id);
+ if(!items.length)return {ok:false,message:'Nenhum item pendente encontrado.'};
+ await chrome.storage.local.set({v2jBatch:{running:true,queue:items,cursor:0,total:items.length,done:0,success:0,failed:0,
+  refreshExisting:!!refreshExisting,message:'Iniciando '+items.length+' itens em sequência…'}});
+ processNextChunk();
+ return {ok:true,total:items.length};
+}
+chrome.alarms.onAlarm.addListener(alarm=>{if(alarm.name===BATCH_ALARM)processNextChunk();});
 chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
- if(msg?.type==='V2J_BATCH_START'){if(batchRunning){respond({ok:false,message:'Importação já em andamento'});return;}importBatch();respond({ok:true});}
- if(msg?.type==='V2J_BATCH_STOP'){batchStop=true;respond({ok:true});}
- if(msg?.type==='V2J_BATCH_STATUS'){chrome.storage.local.get('v2jBatch').then(x=>respond(x.v2jBatch||{running:false,message:'Nenhuma importação iniciada.'}));return true;}
+ if(msg?.type==='V2J_BATCH_START'){
+  startBatch(!!msg.refreshExisting).then(respond).catch(e=>respond({ok:false,message:e.message}));return true;
+ }
+ if(msg?.type==='V2J_BATCH_STOP'){
+  chrome.alarms.clear(BATCH_ALARM).then(()=>setBatch({running:false,queue:[],message:'Importação pausada pelo usuário.'})).then(()=>respond({ok:true}));
+  return true;
+ }
+ if(msg?.type==='V2J_BATCH_STATUS'){getBatch().then(respond);return true;}
+});
+// Recupera importações em curso após uma suspensão do service worker.
+chrome.runtime.onStartup.addListener(async()=>{
+ const job=await getBatch();
+ if(job.running)await chrome.alarms.create(BATCH_ALARM,{delayInMinutes:0.5});
 });
