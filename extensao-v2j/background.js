@@ -10,3 +10,12 @@ chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
  .catch(e=>respond({ok:false,error:e.message}));
  return true;
 });
+
+chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
+ if(msg?.type!=='V2J_CAPTURE'||!sender.tab?.url?.startsWith('https://shop.tiktok.com/view/product/'))return;
+ fetch('https://painel-ao-vivo-jhonatan23.vercel.app/api/retorno?capture=1',{
+  method:'PUT',credentials:'omit',headers:{'Content-Type':'application/json'},body:JSON.stringify(msg.product)
+ }).then(async r=>{const data=await r.json();if(!r.ok)throw Error(data.erro||'HTTP '+r.status);respond({ok:true});})
+ .catch(e=>respond({ok:false,error:e.message}));
+ return true;
+});
