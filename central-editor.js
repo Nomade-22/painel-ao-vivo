@@ -15,11 +15,7 @@ function renderChat(){
  }
 }
 function show(state){
- data=state;$('productName').value=data.produto?.nome||'';
- $('productLink').value=data.produto?.link||'';
- $('productPrice').value=data.produto?.preco||'';
- $('productDesc').value=data.produto?.descricao||'';
- $('productImages').value=(data.produto?.imagens||[]).join('\n');
+ data=state;
  $('notice').value=data.recado||'';
  $('metricClicks').value=data.liveMetricas?.cliques??'';
  $('metricSales').value=data.liveMetricas?.vendas??'';
@@ -50,12 +46,6 @@ $('addChat').addEventListener('click',()=>{
 $('clearChat').addEventListener('click',()=>{if(confirm('Apagar todo o chat manual do retorno?'))save({chat:[]},'Chat limpo.');});
 $('saveNotice').addEventListener('click',()=>save({recado:$('notice').value},'Recado atualizado.'));
 $('clearNotice').addEventListener('click',()=>save({recado:''},'Recado removido.'));
-$('saveProduct').addEventListener('click',()=>{
- const images=$('productImages').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
- if(images.length>6||images.some(url=>!/^https:\/\//i.test(url))){status('Use até 6 links HTTPS válidos, um por linha.');return;}
- save({produto:{nome:$('productName').value,preco:$('productPrice').value,descricao:$('productDesc').value,imagens:images,link:$('productLink').value.trim()}},'Produto publicado.');
-});
-$('clearProduct').addEventListener('click',()=>{if(confirm('Remover o produto do retorno?'))save({produto:{nome:'',preco:'',descricao:'',imagens:[],link:''}},'Produto removido.');});
 load();
 
 function bagItem(num){return (data.catalogo||[]).find(p=>p.numero===Number(num));}
@@ -128,36 +118,6 @@ function moveItem(delta){
 }
 $('bagPrev').onclick=()=>moveItem(-1);
 $('bagNext').onclick=()=>moveItem(1);
-
-$('publishProductTop').addEventListener('click',()=>$('saveProduct').click());
-$('importProduct').addEventListener('click',()=>{
- const link=$('productLink').value.trim();
- const match=link.match(/^https:\/\/shop\.tiktok\.com\/view\/product\/(\d+)/i);
- if(!match){status('Cole primeiro um link válido de produto do TikTok Shop.');return;}
- const started=Date.now();
- const tab=window.open(link,'_blank');
- if(tab)tab.opener=null;
- if(!tab){status('O Chrome bloqueou a nova aba. Permita pop-ups e tente novamente.');return;}
- status('Aguardando a extensão V2J ler a ficha do TikTok Shop…');
- let attempts=0;
- const timer=setInterval(async()=>{
-  attempts++;
-  try{
-   const r=await fetch('/api/retorno?central=1',{cache:'no-store'});
-   if(!r.ok)throw Error('HTTP '+r.status);
-   const p=(await r.json()).fichaCapturada;
-   if(p?.id===match[1]&&p.capturadoEm>=started){
-    clearInterval(timer);
-    if(p.nome)$('productName').value=p.nome;
-    if(p.descricao)$('productDesc').value=p.descricao;
-    if(p.imagem)$('productImages').value=[p.imagem,...$('productImages').value.split(/\r?\n/).filter(Boolean)].slice(0,6).join('\n');
-    status('✅ Informações puxadas do Chrome. Revise os campos e clique em Publicar agora.');
-    return;
-   }
-  }catch(e){console.warn('Importação V2J',e);}
-  if(attempts>=20){clearInterval(timer);status('Importação não recebida. Confirme que a extensão V2J está instalada e atualizada; você pode publicar manualmente.');}
- },1500);
-});
 
 $('bagFetchDetails').addEventListener('click',()=>{
  const num=Number($('bagNumber').value),item=bagItem(num);
