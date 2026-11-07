@@ -11,7 +11,15 @@
 </style></head><body><main>
 <header><div><h1>✦ V2J · Central de Retorno</h1><p>Controle o que a apresentadora vê durante a live.</p></div><div class="actions"><a class="link" href="/central-retorno.html" target="_blank" rel="noopener">↗ Abrir retorno</a><a class="link" href="/console.html">← Console principal</a></div></header>
 <p id="status" role="status">Carregando informações…</p>
-<div class="grid">
+<div class="grid"><section class="card wide"><h2>📊 Indicadores da LIVE</h2>
+<p>Até conectarmos a leitura automática dessas métricas, você pode informar os valores do Gerenciador de LIVE. Campos vazios aparecem como “—” no retorno.</p>
+<div class="actions" style="align-items:end">
+<label style="flex:1 1 180px">Cliques nos produtos<input id="metricClicks" type="number" min="0" placeholder="Ex.: 120"></label>
+<label style="flex:1 1 180px">Vendas / pedidos<input id="metricSales" type="number" min="0" placeholder="Ex.: 15"></label>
+<label style="flex:1 1 180px">GMV da LIVE<input id="metricGMV" placeholder="Ex.: R$ 1.250,00"></label>
+<button id="saveLiveMetrics" type="button">Atualizar KPIs da LIVE</button>
+</div></section>
+
 <section class="card"><h2>💬 Chat manual</h2><p>Copie aqui as perguntas e comentários da live. O histórico aparece imediatamente no retorno após salvar.</p><label>Nome do espectador<input id="chatAuthor" placeholder="Ex.: Maria"></label><label>Mensagem<textarea id="chatText" rows="3" maxlength="400" placeholder="Ex.: Tem na cor preta?"></textarea></label><div class="actions"><button id="addChat">+ Enviar comentário</button><button id="clearChat" class="danger">Limpar chat</button></div><div id="chatList"></div><p class="muted">Integração automática ao TikTok: ainda não conectada.</p></section>
 <section class="card"><h2>📣 Recado para a apresentadora</h2><p>Use para orientar a fala, chamar atenção para uma pergunta ou lembrar um detalhe.</p><label>Recado em destaque<textarea id="notice" rows="6" maxlength="1200" placeholder="Ex.: Mostrar o tecido de perto e explicar os tamanhos."></textarea></label><div class="actions"><button id="saveNotice">Publicar recado</button><button id="clearNotice" class="secondary">Remover recado</button></div></section>
 <section class="card wide"><h2>🛍️ Produto em apresentação</h2>
