@@ -97,45 +97,47 @@ if(/^\/view\/product\/\d+/.test(location.pathname)){
  const imageSet=new Set();
  let lastSent='',busy=false;
  function readDescription(){
-   const stop=/^(Avaliações(?: do produto| dos clientes)?|Comentários|Produtos relacionados|Produtos recomendados|Você também pode gostar|Recomendações|Mais produtos|Sobre a loja|Política de devolução|Entrega e frete|Perguntas e respostas|Comprar agora)$/i;
+   const maxLength=2800;
+   const headingPattern=/^Descri(?:ç|c)ão do produto\s*:?$/i;
+   const stop=/^(Avalia(?:ç|c)ões|Coment(?:á|a)rios|Produtos? (?:relacionados?|recomendados?|similares?)|Voc(?:ê|e) tamb(?:é|e)m pode gostar|Recomenda(?:ç|c)ões|Mais produtos|Sobre a loja|Pol(?:í|i)tica de devolu(?:ç|c)ão|Entrega(?: e frete)?|Frete(?: gr(?:á|a)tis)?|Perguntas e respostas|Comprar agora|Adicionar (?:ao carrinho|à sacola)|Compartilhar|Denunciar|Vendido por|Selecionar op(?:ç|c)ões|Avalie este produto|Ver todos os coment(?:á|a)rios|Produtos da loja|Para voc(?:ê|e)|Voc(?:ê|e) pode gostar|Descri(?:ç|c)ão da loja)\b/i;
    const cleanSection=raw=>{
-     const lines=(raw||'').split(/\n/).map(s=>s.trim()).filter(Boolean);
-     const start=lines.findIndex(s=>/^Descrição do produto$/i.test(s));
-     const body=(start>=0?lines.slice(start+1):lines);
+     const lines=String(raw||'').split(/\n/).map(s=>s.trim()).filter(Boolean);
+     const start=lines.findIndex(s=>headingPattern.test(s));
+     if(start<0)return '';
      const selected=[];
-     for(const line of body){
+     for(const line of lines.slice(start+1)){
        if(stop.test(line))break;
+       if(/^(?:\d[.,]?\d?\s*★|\d+[.,]?\d*\s*(?:vendidos?|avalia(?:ç|c)ões)|R\$\s*\d|[-−]?\d+%\s*R\$)/i.test(line))break;
+       if(selected.join('\n').length+line.length>maxLength)break;
        selected.push(line);
-       if(selected.join('\n').length>=4500)break;
      }
-     return selected.join('\n').trim().slice(0,4500);
+     const text=selected.join('\n').trim();
+     return text.length>=55?text:'';
    };
-   // Procurar o menor contêiner da seção, evitando capturar a página inteira.
+   // Apenas contêineres pequenos ligados ao título exato da descrição.
    const headings=[...document.querySelectorAll('h1,h2,h3,h4,div,span,p,strong')]
-     .filter(el=>el.childElementCount===0&&/^Descrição do produto$/i.test((el.textContent||'').trim()));
+     .filter(el=>el.childElementCount===0&&headingPattern.test((el.textContent||'').trim()));
    for(const heading of headings){
      let parent=heading.parentElement;
-     for(let depth=0;depth<4&&parent;depth++,parent=parent.parentElement){
+     for(let depth=0;depth<3&&parent;depth++,parent=parent.parentElement){
        const raw=parent.innerText||'';
-       if(raw.length>90&&raw.length<6000){
+       if(raw.length>70&&raw.length<=3400){
          const text=cleanSection(raw);
-         if(text.length>75&&text.length<4600)return text;
+         if(text)return text;
        }
      }
    }
-   const specific=document.querySelector('[data-e2e*="description"],[class*="product-description"],[class*="ProductDescription"]');
-   if(specific){
-     const text=cleanSection(specific.innerText);
-     if(text.length>75&&text.length<4600)return text;
+   // Alguns layouts renderizam a descrição em um contêiner próprio.
+   const specific=[...document.querySelectorAll('[data-e2e*="description"],[class*="product-description"],[class*="ProductDescription"]')];
+   for(const section of specific){
+     const raw=section.innerText||'';
+     if(raw.length>70&&raw.length<=3400){
+       const text=cleanSection(raw);
+       if(text)return text;
+     }
    }
-   // Fallback limitado e com marcadores de encerramento.
-   const body=document.body?.innerText||'';
-   const marker=body.search(/Descrição do produto/i);
-   if(marker>=0){
-     const text=cleanSection(body.slice(marker,marker+5000));
-     if(text.length>75)return text;
-   }
-   return (meta('og:description')||'').trim().slice(0,500);
+   // Não usar document.body: inclui produtos recomendados e elementos de navegação.
+   return '';
  }
  function readColors(){
    const found=new Set();
