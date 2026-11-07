@@ -59,6 +59,11 @@ function fillBag(){
  const num=Number($('bagNumber').value),p=bagItem(num)||{};
  $('bagName').value=p.nome||'';$('bagPrice').value=p.preco||'';
  $('bagImage').value=p.imagem||'';$('bagLink').value=p.link||'';$('bagDesc').value=p.descricao||'';
+ const number=n=>Number(n).toLocaleString('pt-BR');
+ const stock=p.estoque==null?'Não informado':number(p.estoque)+' unidades'+(p.estoque<=10?' ⚠ ESTOQUE BAIXO':'');
+ const offer=p.precoOferta?(p.precoOferta+(p.precoOriginal?' (anterior: '+p.precoOriginal+')':'')):'Sem oferta informada';
+ const time=p.atualizadoEm?new Date(p.atualizadoEm).toLocaleString('pt-BR'):'Não sincronizado';
+ $('bagInsights').textContent='📦 Estoque: '+stock+' | 🏷️ Oferta: '+offer+' | 🏪 Loja: '+(p.loja||'—')+' | Categoria: '+(p.categoria||'—')+' | 💰 Comissão estimada: '+(p.comissao||'—')+' | Taxa: '+(p.taxaComissao||0)+'% | Atualizado: '+time;
 }
 function renderBag(){
  const box=$('bagList');box.replaceChildren();
@@ -84,7 +89,8 @@ $('bagSave').onclick=()=>{
  const num=Number($('bagNumber').value),nome=$('bagName').value.trim(),imagem=$('bagImage').value.trim();
  if(!Number.isInteger(num)||num<1||num>999||!nome){status('Informe um número válido e o nome do item.');return;}
  if(imagem&&!/^https:\/\//i.test(imagem)){status('A foto precisa ser um endereço HTTPS.');return;}
- const product={numero:num,nome,preco:$('bagPrice').value,descricao:$('bagDesc').value,imagem,link:$('bagLink').value.trim(),origem:'manual'};
+ const current=bagItem(num)||{};
+ const product={...current,numero:num,nome,preco:$('bagPrice').value,descricao:$('bagDesc').value,imagem,link:$('bagLink').value.trim(),origem:'manual'};
  const catalogo=[...(data.catalogo||[]).filter(p=>p.numero!==num),product].sort((a,b)=>a.numero-b.numero);
  if(catalogo.length>200){status('Limite de 200 itens.');return;}
  save({catalogo,itemAtivo:num},'Item '+num+' salvo e destacado.');
@@ -130,5 +136,29 @@ $('importProduct').addEventListener('click',()=>{
    }
   }catch(e){console.warn('Importação V2J',e);}
   if(attempts>=20){clearInterval(timer);status('Importação não recebida. Confirme que a extensão V2J está instalada e atualizada; você pode publicar manualmente.');}
+ },1500);
+});
+
+$('bagFetchDetails').addEventListener('click',()=>{
+ const num=Number($('bagNumber').value),item=bagItem(num);
+ if(!item?.link){status('Selecione um produto sincronizado com link do TikTok.');return;}
+ const tab=window.open(item.link,'_blank');
+ if(!tab){status('Permita a abertura de abas para buscar os detalhes.');return;}
+ status('Aguardando a extensão capturar a descrição e as fotos…');
+ let count=0;
+ const start=Date.now();
+ const timer=setInterval(async()=>{
+  count++;
+  try{
+   const response=await fetch('/api/retorno?central=1',{cache:'no-store'});
+   if(!response.ok)throw Error('HTTP '+response.status);
+   const fresh=await response.json();
+   const capture=fresh.fichaCapturada;
+   if(capture?.capturadoEm>=start&&item.link.includes('/view/product/'+capture.id)){
+    clearInterval(timer);show(fresh);$('bagNumber').value=num;fillBag();
+    status('✅ Página analisada. Confira a descrição e as fotos; quando não estiverem disponíveis, os campos permanecem como estavam.');
+   }
+  }catch(e){}
+  if(count>=20){clearInterval(timer);status('Não recebemos os detalhes. A página pode não disponibilizar a descrição para a extensão.');}
  },1500);
 });
