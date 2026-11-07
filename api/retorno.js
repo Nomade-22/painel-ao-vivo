@@ -14,6 +14,13 @@ function cleanCentral(input){
  nome:trim(p?.nome,180),preco:trim(p?.preco,80),descricao:trim(p?.descricao,3000),
  link:typeof p?.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
  imagem:typeof p?.imagem==='string'&&/^https:\/\//i.test(p.imagem)&&p.imagem.length<=2000?p.imagem:'',
+ imagens:(Array.isArray(p?.imagens)?p.imagens:[]).slice(0,6).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000),
+ estoque:Number.isFinite(Number(p?.estoque))&&p?.estoque!==''&&p?.estoque!=null?Math.max(0,Math.floor(Number(p.estoque))):null,
+ loja:trim(p?.loja,160),categoria:trim(p?.categoria,120),comissao:trim(p?.comissao,80),
+ taxaComissao:Number.isFinite(Number(p?.taxaComissao))?Number(p.taxaComissao):0,
+ precoOriginal:trim(p?.precoOriginal,80),precoOferta:trim(p?.precoOferta,80),
+ ofertaInicio:trim(p?.ofertaInicio,40),ofertaFim:trim(p?.ofertaFim,40),
+ atualizadoEm:Number(p?.atualizadoEm)||0,
  origem:p?.origem==='tiktok'?'tiktok':'manual'
  })).filter(p=>p.numero&&p.nome),
  itemAtivo:Math.max(0,Math.min(999,Math.floor(Number(input?.itemAtivo)||0))),
@@ -43,7 +50,15 @@ export default async function handler(req,res){
    const fichaCapturada={id:match[1],link:productUrl.slice(0,500),nome:trim(payload.nome,160),
     descricao:trim(payload.descricao,5000),imagem:typeof payload.imagem==='string'&&/^https:\/\//i.test(payload.imagem)?payload.imagem.slice(0,2000):'',
     capturadoEm:Date.now()};
-   const next={...current,fichaCapturada,versao:Date.now()};
+   const images=(Array.isArray(payload?.imagens)?payload.imagens:[]).slice(0,6).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000);
+   const catalogo=current.catalogo.map(item=>{
+    if(!item.link.includes('/view/product/'+match[1]))return item;
+    return {...item,
+      descricao:item.descricao||fichaCapturada.descricao,
+      imagens:item.imagens?.length?item.imagens:images,
+      imagem:item.imagem||fichaCapturada.imagem};
+   });
+   const next={...current,catalogo,fichaCapturada,versao:Date.now()};
    await cacheCapture.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
    return res.status(200).json({ok:true,id:match[1]});
   }
@@ -58,6 +73,15 @@ export default async function handler(req,res){
    const imported=cleanCentral({catalogo:incoming.map(p=>({...p,origem:'tiktok'}))}).catalogo;
    const mergedMap=new Map(current.catalogo.map(p=>[p.numero,p]));
    for(const p of imported)if(!manual.has(p.numero))mergedMap.set(p.numero,p);
+   // Correções manuais prevalecem nos campos editáveis; métricas atualizam com o TikTok.
+   for(const p of imported){
+    const override=manual.get(p.numero);
+    if(override)mergedMap.set(p.numero,{...p,...override,
+      estoque:p.estoque,loja:p.loja,categoria:p.categoria,comissao:p.comissao,
+      taxaComissao:p.taxaComissao,precoOriginal:p.precoOriginal,precoOferta:p.precoOferta,
+      ofertaInicio:p.ofertaInicio,ofertaFim:p.ofertaFim,atualizadoEm:p.atualizadoEm,
+      imagens:override.imagens?.length?override.imagens:p.imagens});
+   }
    const merged=[...mergedMap.values()].sort((a,b)=>a.numero-b.numero);
    const next={...current,catalogo:merged.slice(0,200),versao:Date.now()};
    await cacheSync.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
