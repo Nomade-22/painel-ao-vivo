@@ -13,7 +13,7 @@ body{display:grid;justify-items:center;align-items:center}
 #retornoTela{position:fixed;top:50%;left:50%;width:min(100vw,56.25vh);height:min(100vh,177.7778vw);aspect-ratio:9/16;transform:translate(-50%,-50%);border:0;background:#080e19;display:none}
 /* Tablets em paisagem usam a área inteira; no celular permanece retrato 9:16. */
 @media (min-aspect-ratio: 1/1){
- #retornoTela{width:100vw;height:100vh;aspect-ratio:auto;transform:translate(-50%,-50%) scale(var(--zoom-retorno,1.7))}
+ #retornoTela{width:min(100vw,56.25vh);height:min(100vh,177.7778vw);aspect-ratio:9/16}
 }
 body.modo-tela #retornoTela{display:block}
 body.modo-tela #conteudo{display:none}
