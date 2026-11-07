@@ -138,4 +138,10 @@ if(/^\/view\/product\/\d+/.test(location.pathname)){
  const observer=new MutationObserver(()=>{clearTimeout(window.__v2jDetailTimer);window.__v2jDetailTimer=setTimeout(capture,700);});
  observer.observe(document.documentElement,{childList:true,subtree:true});
  setInterval(capture,5000);
+ if(new URLSearchParams(location.search).get('v2j_batch')==='1'){
+   // Somente em abas abertas pelo usuário por meio do lote.
+   setTimeout(()=>{window.scrollTo({top:Math.min(document.body.scrollHeight/2,1600),behavior:'instant'});capture();},3500);
+   setTimeout(()=>{window.scrollTo({top:Math.min(document.body.scrollHeight-400,3000),behavior:'instant'});capture();},7000);
+   setTimeout(capture,10500);
+ }
 }
