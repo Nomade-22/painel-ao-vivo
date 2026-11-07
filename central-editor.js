@@ -20,7 +20,11 @@ function show(state){
  $('productPrice').value=data.produto?.preco||'';
  $('productDesc').value=data.produto?.descricao||'';
  $('productImages').value=(data.produto?.imagens||[]).join('\n');
- $('notice').value=data.recado||'';renderChat();renderBag();
+ $('notice').value=data.recado||'';
+ $('metricClicks').value=data.liveMetricas?.cliques??'';
+ $('metricSales').value=data.liveMetricas?.vendas??'';
+ $('metricGMV').value=data.liveMetricas?.gmv||'';
+ renderChat();renderBag();
 }
 async function load(){
  try{const r=await fetch('/api/retorno?central=1',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);show(await r.json());status('✅ Central conectada.');}
@@ -166,3 +170,13 @@ $('bagFetchDetails').addEventListener('click',()=>{
   if(count>=20){clearInterval(timer);status('Não recebemos os detalhes. A página pode não disponibilizar a descrição para a extensão.');}
  },1500);
 });
+
+$('saveLiveMetrics').onclick=()=>{
+ const cliques=$('metricClicks').value,vendas=$('metricSales').value;
+ save({liveMetricas:{
+  cliques:cliques===''?null:Math.max(0,Math.floor(Number(cliques)||0)),
+  vendas:vendas===''?null:Math.max(0,Math.floor(Number(vendas)||0)),
+  gmv:$('metricGMV').value.trim(),
+  atualizadoEm:Date.now()
+ }},'Indicadores da LIVE atualizados.');
+};
