@@ -1,11 +1,15 @@
 import {getCache} from '@vercel/functions';
 const validMode = mode => ['texto','tela','central'].includes(mode) ? mode : 'texto';
 
-const defaultCentral={produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,versao:0};
+const defaultCentral={liveMetricas:{cliques:null,vendas:null,gmv:'',atualizadoEm:0},produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,versao:0};
 const trim=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
 function cleanCentral(input){
  const p=input?.produto||{};
- return {produto:{nome:trim(p.nome,160),descricao:trim(p.descricao,5000),preco:trim(p.preco,80),link:typeof p.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
+ return {liveMetricas:{
+  cliques:input?.liveMetricas?.cliques==null||input.liveMetricas.cliques===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.cliques)||0)),
+  vendas:input?.liveMetricas?.vendas==null||input.liveMetricas.vendas===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.vendas)||0)),
+  gmv:trim(input?.liveMetricas?.gmv,80),atualizadoEm:Number(input?.liveMetricas?.atualizadoEm)||0
+ },produto:{nome:trim(p.nome,160),descricao:trim(p.descricao,5000),preco:trim(p.preco,80),link:typeof p.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
  imagens:(Array.isArray(p.imagens)?p.imagens:[]).slice(0,6).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000)},
  recado:trim(input?.recado,1200),
  chat:(Array.isArray(input?.chat)?input.chat:[]).slice(-40).map(m=>({id:trim(m?.id,90),autor:trim(m?.autor,80),texto:trim(m?.texto,400),hora:trim(m?.hora,12)})).filter(m=>m.texto),
