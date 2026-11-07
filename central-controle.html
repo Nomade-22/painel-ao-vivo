@@ -8,6 +8,8 @@
 <section class="card"><h2>💬 Chat manual</h2><p>Copie aqui as perguntas e comentários da live. O histórico aparece imediatamente no retorno após salvar.</p><label>Nome do espectador<input id="chatAuthor" placeholder="Ex.: Maria"></label><label>Mensagem<textarea id="chatText" rows="3" maxlength="400" placeholder="Ex.: Tem na cor preta?"></textarea></label><div class="actions"><button id="addChat">+ Enviar comentário</button><button id="clearChat" class="danger">Limpar chat</button></div><div id="chatList"></div><p class="muted">Integração automática ao TikTok: ainda não conectada.</p></section>
 <section class="card"><h2>📣 Recado para a apresentadora</h2><p>Use para orientar a fala, chamar atenção para uma pergunta ou lembrar um detalhe.</p><label>Recado em destaque<textarea id="notice" rows="6" maxlength="1200" placeholder="Ex.: Mostrar o tecido de perto e explicar os tamanhos."></textarea></label><div class="actions"><button id="saveNotice">Publicar recado</button><button id="clearNotice" class="secondary">Remover recado</button></div></section>
 <section class="card wide"><h2>🛍️ Produto em apresentação</h2>
+<label>Link do produto no TikTok Shop<input id="productLink" type="url" placeholder="https://shop.tiktok.com/view/product/1731310257245160944?..."></label>
+<p class="muted">O ID é reconhecido pelo endereço. Nome e fotos podem ser preenchidos manualmente; a leitura automática depende da extensão do Chrome.</p>
 <label>Nome do produto<input id="productName" maxlength="160" placeholder="Ex.: Vestido midi canelado"></label>
 <label>Preço ou chamada opcional<input id="productPrice" maxlength="80" placeholder="Ex.: Confira o valor no carrinho"></label>
 <label>Descrição, tamanhos, cores e argumentos de venda<textarea id="productDesc" rows="8" maxlength="5000" placeholder="Composição, tamanhos, cores, dúvidas frequentes…"></textarea></label>
@@ -23,6 +25,7 @@
 <button id="bagNext" type="button" class="secondary">Próximo ▶</button>
 </div>
 <p id="bagSelected" class="muted">Nenhum item selecionado.</p>
+<label>Link do item no TikTok Shop<input id="bagLink" type="url" placeholder="https://shop.tiktok.com/view/product/..."></label>
 <label>Nome do item<input id="bagName" maxlength="180" placeholder="Nome que aparece na sacolinha"></label>
 <label>Preço informado<input id="bagPrice" maxlength="80" placeholder="Ex.: R$ 71,24"></label>
 <label>Foto do item (URL pública HTTPS)<input id="bagImage" type="url" placeholder="https://...jpg"></label>
