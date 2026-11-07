@@ -33,7 +33,9 @@ export default async function handler(req,res){
    const current=cleanCentral(await cacheSync.get('estado')||defaultCentral);
    const manual=new Map(current.catalogo.filter(p=>p.origem==='manual').map(p=>[p.numero,p]));
    const imported=cleanCentral({catalogo:incoming.map(p=>({...p,origem:'tiktok'}))}).catalogo;
-   const merged=[...imported.map(p=>manual.get(p.numero)||p),...current.catalogo.filter(p=>p.origem==='manual'&&!imported.some(q=>q.numero===p.numero))];
+   const mergedMap=new Map(current.catalogo.map(p=>[p.numero,p]));
+   for(const p of imported)if(!manual.has(p.numero))mergedMap.set(p.numero,p);
+   const merged=[...mergedMap.values()].sort((a,b)=>a.numero-b.numero);
    const next={...current,catalogo:merged.slice(0,200),versao:Date.now()};
    await cacheSync.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
    return res.status(200).json({ok:true,recebidos:imported.length,armazenados:next.catalogo.length});
