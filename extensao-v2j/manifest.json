@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "V2J · Sacolinha TikTok",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sincroniza itens visíveis da sacolinha TikTok Shop com o retorno V2J, quando ativado.",
   "permissions": [
     "storage",
@@ -20,7 +20,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://shop.tiktok.com/streamer/live/*"
+        "https://shop.tiktok.com/streamer/live/*",
+        "https://shop.tiktok.com/view/product/*"
       ],
       "js": [
         "content.js"
