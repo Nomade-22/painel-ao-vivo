@@ -6,7 +6,7 @@
  if(!frame||!startBtn||!stopBtn||!info)return;
  const id=new URLSearchParams(location.search).get('channel')||'';
  const valid=/^[A-Za-z0-9_-]{16,64}$/.test(id);
- const presetSelect=$('videoPreset'),transportSelect=$('connectionMode');
+ const presetSelect=$('videoPreset'),transportSelect=$('connectionMode'),orientationSelect=$('videoOrientation');
  const profiles={
   economy:{width:640,height:360,fps:18,bitrate:550},
   balanced:{width:960,height:540,fps:24,bitrate:1000},
@@ -18,10 +18,12 @@
   const saved=JSON.parse(localStorage.getItem(prefsKey)||'{}');
   if(profiles[saved.preset])presetSelect.value=saved.preset;
   if(['auto','relay'].includes(saved.transport))transportSelect.value=saved.transport;
+  if(['landscape','portrait'].includes(saved.orientation))orientationSelect.value=saved.orientation;
  }catch{}
  const snapshot=()=>({
   preset:profiles[presetSelect.value]?presetSelect.value:'balanced',
-  transport:transportSelect.value==='relay'?'relay':'auto'
+  transport:transportSelect.value==='relay'?'relay':'auto',
+  orientation:orientationSelect.value==='portrait'?'portrait':'landscape'
  });
  const remember=()=>{
   selected=snapshot();
@@ -29,13 +31,15 @@
  };
  presetSelect.addEventListener('change',remember);
  transportSelect.addEventListener('change',remember);
+ orientationSelect.addEventListener('change',remember);
  remember();
  let running=false,starting=false,closing=false;
  const say=message=>{info.textContent=message;};
  const pushUrl=()=>{
   const q=profiles[selected.preset];
   const params=new URLSearchParams({
-   push:id,width:String(q.width),height:String(q.height),
+   push:id,width:String(selected.orientation==='portrait'?q.height:q.width),height:String(selected.orientation==='portrait'?q.width:q.height),
+   aspectratio:selected.orientation==='portrait'?'portrait':'landscape',
    fps:String(q.fps),outboundvideobitrate:String(q.bitrate),
    maxvideobitrate:String(q.bitrate)
   });
@@ -46,6 +50,7 @@
   stopBtn.disabled=!running&&!starting;
   presetSelect.disabled=starting||running;
   transportSelect.disabled=starting||running;
+  orientationSelect.disabled=starting||running;
   refreshBtn.disabled=!running;
   if(directBtn)directBtn.disabled=!valid;
  }
@@ -60,7 +65,7 @@
   if(!valid){say('Link de câmera inválido. Gere um novo link na aba Câmera do console.');return;}
   remember();
   starting=true;closing=false;controls();
-  say('Preparando vídeo '+selected.preset+' pela conexão '+(selected.transport==='auto'?'automática…':'com retransmissão…'));
+  say('Preparando vídeo '+selected.preset+' ('+(selected.orientation==='portrait'?'9:16 vertical':'16:9 horizontal')+') pela conexão '+(selected.transport==='auto'?'automática…':'com retransmissão…'));
 
   try{
    const result=await fetch('/api/camera',{cache:'no-store'});
