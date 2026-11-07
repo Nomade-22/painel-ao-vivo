@@ -24,12 +24,14 @@ async function batchStatus(){
   const data=await chrome.runtime.sendMessage({type:'V2J_BATCH_STATUS'});
   $('batchStatus').textContent=(data.done||0)+' / '+(data.total||0)+' itens · '+(data.message||'Aguardando');
   $('batchStart').disabled=!!data.running;
+ $('refreshDescriptions').disabled=!!data.running;
   $('batchStop').style.display=data.running?'block':'none';
  }catch(e){$('batchStatus').textContent='Não foi possível consultar o andamento.';}
 }
 $('batchStart').onclick=async()=>{
  $('batchStatus').textContent='Preparando importação…';
- await chrome.runtime.sendMessage({type:'V2J_BATCH_START'});
+ const result=await chrome.runtime.sendMessage({type:'V2J_BATCH_START',refreshExisting:$('refreshDescriptions').checked});
+ if(!result?.ok)$('batchStatus').textContent=result?.message||'Não foi possível iniciar.';
  await batchStatus();
 };
 $('batchStop').onclick=async()=>{await chrome.runtime.sendMessage({type:'V2J_BATCH_STOP'});await batchStatus();};
