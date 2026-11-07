@@ -5,13 +5,14 @@ const defaultCentral={produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:
 const trim=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
 function cleanCentral(input){
  const p=input?.produto||{};
- return {produto:{nome:trim(p.nome,160),descricao:trim(p.descricao,5000),preco:trim(p.preco,80),
+ return {produto:{nome:trim(p.nome,160),descricao:trim(p.descricao,5000),preco:trim(p.preco,80),link:typeof p.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
  imagens:(Array.isArray(p.imagens)?p.imagens:[]).slice(0,6).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000)},
  recado:trim(input?.recado,1200),
  chat:(Array.isArray(input?.chat)?input.chat:[]).slice(-40).map(m=>({id:trim(m?.id,90),autor:trim(m?.autor,80),texto:trim(m?.texto,400),hora:trim(m?.hora,12)})).filter(m=>m.texto),
  catalogo:(Array.isArray(input?.catalogo)?input.catalogo:[]).slice(0,200).map(p=>({
  numero:Math.max(1,Math.min(999,Math.floor(Number(p?.numero)||0))),
  nome:trim(p?.nome,180),preco:trim(p?.preco,80),descricao:trim(p?.descricao,3000),
+ link:typeof p?.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
  imagem:typeof p?.imagem==='string'&&/^https:\/\//i.test(p.imagem)&&p.imagem.length<=2000?p.imagem:'',
  origem:p?.origem==='tiktok'?'tiktok':'manual'
  })).filter(p=>p.numero&&p.nome),
