@@ -18,3 +18,19 @@ chrome.tabs.query({active:true,currentWindow:true},tabs=>{
 $('scan').onclick=()=>command('V2J_SCAN',{send:false});
 $('send').onclick=()=>command('V2J_SCAN',{send:true});
 $('auto').onclick=async()=>{if(!tabId)return;try{const r=await chrome.tabs.sendMessage(tabId,{type:'V2J_AUTO',enabled:!auto});auto=r.auto;$('auto').textContent=auto?'Pausar leitura automática':'Ativar leitura automática';$('message').textContent=auto?'Leitura automática ativada enquanto esta aba estiver aberta.':'Leitura automática pausada.';}catch(e){$('message').textContent='Atualize a página do TikTok e tente novamente.';}};
+
+async function batchStatus(){
+ try{
+  const data=await chrome.runtime.sendMessage({type:'V2J_BATCH_STATUS'});
+  $('batchStatus').textContent=(data.done||0)+' / '+(data.total||0)+' itens · '+(data.message||'Aguardando');
+  $('batchStart').disabled=!!data.running;
+  $('batchStop').style.display=data.running?'block':'none';
+ }catch(e){$('batchStatus').textContent='Não foi possível consultar o andamento.';}
+}
+$('batchStart').onclick=async()=>{
+ $('batchStatus').textContent='Preparando importação…';
+ await chrome.runtime.sendMessage({type:'V2J_BATCH_START'});
+ await batchStatus();
+};
+$('batchStop').onclick=async()=>{await chrome.runtime.sendMessage({type:'V2J_BATCH_STOP'});await batchStatus();};
+batchStatus();setInterval(batchStatus,2000);
