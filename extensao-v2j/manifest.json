@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "V2J · Sacolinha TikTok",
-  "version": "0.5.1",
-  "description": "Sincroniza sacolinha e captura descrição e galeria visíveis nas páginas de produtos.",
+  "version": "0.6.0",
+  "description": "Sincroniza sacolinha e importa detalhes de até 5 produtos por lote, com controle de andamento.",
   "permissions": [
     "storage",
     "activeTab"
