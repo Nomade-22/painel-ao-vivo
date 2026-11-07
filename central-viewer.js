@@ -15,9 +15,15 @@ function show(data){
  list.scrollTop=list.scrollHeight;
  $('chatCount').textContent=messages.length+' MENSAGENS · MANUAL';
  const selected=(data.catalogo||[]).find(item=>item.numero===data.itemAtivo);
- const p=selected?{nome:'#'+selected.numero+' · '+selected.nome,preco:selected.preco,descricao:selected.descricao,link:selected.link,imagens:selected.imagem?[selected.imagem]:[]}:data.produto||{};
+ const p=selected?{nome:'#'+selected.numero+' · '+selected.nome,preco:selected.preco,descricao:selected.descricao,link:selected.link,imagens:selected.imagens?.length?selected.imagens:(selected.imagem?[selected.imagem]:[]),estoque:selected.estoque,precoOferta:selected.precoOferta,precoOriginal:selected.precoOriginal,ofertaInicio:selected.ofertaInicio,ofertaFim:selected.ofertaFim,atualizadoEm:selected.atualizadoEm}:data.produto||{};
  $('name').textContent=p.nome||'Nenhum produto selecionado';
- $('price').textContent=p.preco||'';
+ const now=Date.now()/1000, begin=Number(p.ofertaInicio)||0,end=Number(p.ofertaFim)||0;
+ const activeOffer=!!p.precoOferta&&(!begin||now>=begin)&&(!end||now<=end);
+ $('price').textContent=activeOffer?p.precoOferta+' · Oferta'+(p.precoOriginal?' (antes '+p.precoOriginal+')':''):p.preco||'';
+ const meta=$('productMeta');meta.replaceChildren();
+ const add=(label,low=false)=>{const el=document.createElement('span');el.textContent=label;if(low)el.className='low';meta.append(el);};
+ if(p.estoque!=null)add('📦 Estoque: '+Number(p.estoque).toLocaleString('pt-BR')+' un.',p.estoque<=10);
+ if(p.atualizadoEm)add('Atualizado: '+new Date(p.atualizadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
  const link=$('productLink');const valid=typeof p.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link);
  link.hidden=!valid;if(valid)link.href=p.link;else link.removeAttribute('href');
  $('desc').textContent=p.descricao||'Cadastre as informações no console V2J.';
