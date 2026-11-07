@@ -1,6 +1,6 @@
 // V2J: lê apenas os itens exibidos na página do TikTok Shop.
 // Não lê cookies, credenciais nem respostas privadas da rede.
-let auto=false, timer=null, lastPayload='', lastStatus={found:0,sent:0,message:'Aguardando leitura'};
+let apiItems=[], auto=false, timer=null, lastPayload='', lastStatus={found:0,sent:0,message:'Aguardando leitura'};
 const clean=s=>(s||'').replace(/\s+/g,' ').trim();
 const isPrice=s=>/R\$\s*\d[\d.,]*/.test(s);
 const status=(patch)=>{lastStatus={...lastStatus,...patch};return lastStatus;};
@@ -57,6 +57,14 @@ function extract() {
   lastStatus.diagnostics=diagnostics;
   return [...found.values()].sort((a,b)=>a.numero-b.numero).slice(0,200).map(({_length,...item})=>item);
 }
+window.addEventListener('message',event=>{
+  if(event.source!==window||event.origin!==location.origin||event.data?.source!=='V2J_BAG_OBSERVER'||event.data.type!=='PRODUCTS')return;
+  const items=event.data.items;
+  if(!Array.isArray(items)||items.length>200)return;
+  apiItems=items.filter(p=>Number.isInteger(p.numero)&&p.numero>0&&typeof p.nome==='string');
+  status({found:apiItems.length,message:'Lista do TikTok recebida: '+apiItems.length+' produtos'});
+  if(auto&&apiItems.length&&JSON.stringify(apiItems)!==lastPayload)sync(apiItems);
+});
 function sync(items) {
   return new Promise(resolve=>{
     chrome.runtime.sendMessage({type:'V2J_SYNC',items},res=>{
@@ -68,8 +76,8 @@ function sync(items) {
 }
 async function scan(send=false) {
   if(!location.pathname.startsWith('/streamer/live/'))return status({message:'Abra o Gerenciador de LIVE do TikTok Shop'});
-  const items=extract();
-  status({found:items.length,message:items.length?'Produtos visíveis detectados':'Nenhum produto detectado (números encontrados: '+(lastStatus.diagnostics?.badges||0)+', linhas: '+(lastStatus.diagnostics?.rows||0)+'). Abra a lista da sacolinha'});
+  const items=apiItems.length?apiItems:extract();
+  status({found:items.length,message:items.length?(apiItems.length?'Produtos carregados do TikTok':'Produtos visíveis detectados'):'Nenhum produto detectado (números encontrados: '+(lastStatus.diagnostics?.badges||0)+', linhas: '+(lastStatus.diagnostics?.rows||0)+'). Abra a lista da sacolinha'});
   if(send&&items.length)return await sync(items);
   return lastStatus;
 }
@@ -78,7 +86,7 @@ chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
   if(msg?.type==='V2J_AUTO'){
     auto=!!msg.enabled;
     if(timer)clearInterval(timer);
-    if(auto){scan(true);timer=setInterval(async()=>{const items=extract();if(items.length&&JSON.stringify(items)!==lastPayload)await sync(items);},8000);}
+    if(auto){scan(true);timer=setInterval(async()=>{const items=apiItems.length?apiItems:extract();if(items.length&&JSON.stringify(items)!==lastPayload)await sync(items);},8000);}
     respond({ok:true,auto});return;
   }
   if(msg?.type==='V2J_STATUS'){respond({...lastStatus,auto});return;}
