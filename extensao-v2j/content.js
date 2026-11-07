@@ -97,20 +97,45 @@ if(/^\/view\/product\/\d+/.test(location.pathname)){
  const imageSet=new Set();
  let lastSent='',busy=false;
  function readDescription(){
-   const body=document.body?.innerText||'';
-   const marker='Descrição do produto';
-   let start=body.indexOf(marker);
-   if(start<0)start=body.indexOf('Descrição do Produto');
-   if(start>=0){
-     const following=body.slice(start+marker.length);
-     const ends=['Avaliações dos clientes','Avaliações do cliente','Avaliações do produto','Recomendações','Produtos semelhantes','Você também pode gostar'];
-     let end=following.length;
-     for(const token of ends){const n=following.indexOf(token);if(n>=0&&n<end)end=n;}
-     const value=following.slice(0,end).trim().slice(0,5000);
-     if(value.length>60)return value;
+   const stop=/^(Avaliações(?: do produto| dos clientes)?|Comentários|Produtos relacionados|Produtos recomendados|Você também pode gostar|Recomendações|Mais produtos|Sobre a loja|Política de devolução|Entrega e frete|Perguntas e respostas|Comprar agora)$/i;
+   const cleanSection=raw=>{
+     const lines=(raw||'').split(/\n/).map(s=>s.trim()).filter(Boolean);
+     const start=lines.findIndex(s=>/^Descrição do produto$/i.test(s));
+     const body=(start>=0?lines.slice(start+1):lines);
+     const selected=[];
+     for(const line of body){
+       if(stop.test(line))break;
+       selected.push(line);
+       if(selected.join('\n').length>=4500)break;
+     }
+     return selected.join('\n').trim().slice(0,4500);
+   };
+   // Procurar o menor contêiner da seção, evitando capturar a página inteira.
+   const headings=[...document.querySelectorAll('h1,h2,h3,h4,div,span,p,strong')]
+     .filter(el=>el.childElementCount===0&&/^Descrição do produto$/i.test((el.textContent||'').trim()));
+   for(const heading of headings){
+     let parent=heading.parentElement;
+     for(let depth=0;depth<4&&parent;depth++,parent=parent.parentElement){
+       const raw=parent.innerText||'';
+       if(raw.length>90&&raw.length<6000){
+         const text=cleanSection(raw);
+         if(text.length>75&&text.length<4600)return text;
+       }
+     }
    }
    const specific=document.querySelector('[data-e2e*="description"],[class*="product-description"],[class*="ProductDescription"]');
-   return (specific?.innerText||meta('og:description')||'').trim().slice(0,5000);
+   if(specific){
+     const text=cleanSection(specific.innerText);
+     if(text.length>75&&text.length<4600)return text;
+   }
+   // Fallback limitado e com marcadores de encerramento.
+   const body=document.body?.innerText||'';
+   const marker=body.search(/Descrição do produto/i);
+   if(marker>=0){
+     const text=cleanSection(body.slice(marker,marker+5000));
+     if(text.length>75)return text;
+   }
+   return (meta('og:description')||'').trim().slice(0,500);
  }
  function readColors(){
    const found=new Set();
