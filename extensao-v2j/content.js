@@ -23,7 +23,8 @@ function extract(){
   const name=lines.find(s=>s.length>6&&!/^R\$/.test(s)&&!/^\d{1,3}$/.test(s)&&!/(estoque|fixar|desconto)/i.test(s));
   if(!name)continue;
   const price=value.match(/R\$\s?[\d.,]+/)?.[0]||'';
-  const item={numero:number,nome:name.slice(0,180),preco:price,imagem:img?.src||'',descricao:'',origem:'tiktok'};
+  const link=el.querySelector('a[href*="/view/product/"]')?.href||'';
+  const item={numero:number,nome:name.slice(0,180),preco:price,imagem:img?.src||'',link,descricao:'',origem:'tiktok'};
   if(!result.has(number)||name.length>result.get(number).nome.length)result.set(number,item);
  }
  return [...result.values()].sort((a,b)=>a.numero-b.numero).slice(0,200);
