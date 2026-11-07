@@ -24,6 +24,20 @@ export default async function handler(req,res){
   res.setHeader('Allow','GET, PUT'); return res.status(405).json({erro:'Método inválido'});
  }
  try{
+  if(req.query?.sync==='1'){
+   if(req.method!=='PUT')return res.status(405).json({erro:'Método inválido'});
+   const payload=typeof req.body==='string'?JSON.parse(req.body):req.body;
+   const incoming=Array.isArray(payload?.items)?payload.items:[];
+   if(incoming.length>200)return res.status(400).json({erro:'Muitos itens'});
+   const cacheSync=getCache({namespace:'central-retorno-v1'});
+   const current=cleanCentral(await cacheSync.get('estado')||defaultCentral);
+   const manual=new Map(current.catalogo.filter(p=>p.origem==='manual').map(p=>[p.numero,p]));
+   const imported=cleanCentral({catalogo:incoming.map(p=>({...p,origem:'tiktok'}))}).catalogo;
+   const merged=[...imported.map(p=>manual.get(p.numero)||p),...current.catalogo.filter(p=>p.origem==='manual'&&!imported.some(q=>q.numero===p.numero))];
+   const next={...current,catalogo:merged.slice(0,200),versao:Date.now()};
+   await cacheSync.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
+   return res.status(200).json({ok:true,recebidos:imported.length,armazenados:next.catalogo.length});
+  }
   if(req.query?.central==='1'){
    const centralCache=getCache({namespace:'central-retorno-v1'});
    if(req.method==='GET')return res.status(200).json(cleanCentral(await centralCache.get('estado')||defaultCentral));
