@@ -112,6 +112,32 @@ if(/^\/view\/product\/\d+/.test(location.pathname)){
    const specific=document.querySelector('[data-e2e*="description"],[class*="product-description"],[class*="ProductDescription"]');
    return (specific?.innerText||meta('og:description')||'').trim().slice(0,5000);
  }
+ function readColors(){
+   const found=new Set();
+   const nodes=[...document.querySelectorAll('div,span,p,label,strong')].filter(el=>el.childElementCount===0&&/^Cor\s*:/i.test(clean(el.textContent)));
+   for(const node of nodes){
+     let parent=node.parentElement;
+     for(let depth=0;depth<3&&parent;depth++,parent=parent.parentElement){
+       const raw=parent.innerText||'';
+       if(raw.length<15||raw.length>800)continue;
+       const lines=raw.split(/\n/).map(clean).filter(Boolean);
+       const idx=lines.findIndex(s=>/^Cor\s*:/i.test(s));
+       if(idx<0)continue;
+       const selected=lines[idx].replace(/^Cor\s*:\s*/i,'').trim();
+       if(selected&&selected.length<40)found.add(selected);
+       for(const line of lines.slice(idx+1,idx+18)){
+         if(/^(Tamanho|Quantidade|Comprar|Adicionar|Selecionar|R\$)/i.test(line))break;
+         if(line.length>1&&line.length<35&&!/^\d+$/.test(line))found.add(line);
+       }
+       break;
+     }
+   }
+   const body=document.body?.innerText||'';
+   const option=body.match(/Selecionar opções\s+([^\n]{2,40})/i)?.[1]||'';
+   const color=option.split(/[,/]/)[0].trim();
+   if(color&&color.length<30)found.add(color);
+   return [...found].slice(0,20);
+ }
  function capture(){
   if(busy||!id)return;
   const nome=clean(meta('og:title')||document.querySelector('h1')?.textContent||document.title);
@@ -123,8 +149,9 @@ if(/^\/view\/product\/\d+/.test(location.pathname)){
     if(/^https:\/\//.test(url)&&img.naturalWidth>=260&&img.naturalHeight>=260&&top>=0&&top<1200)imageSet.add(url);
   }
   const descricao=readDescription();
+  const cores=readColors();
   const imagens=[...imageSet].slice(0,12);
-  const payload={id,link:location.href,nome,descricao,imagem:imagens[0]||'',imagens};
+  const payload={id,link:location.href,nome,descricao,imagem:imagens[0]||'',imagens,cores};
   const serialized=JSON.stringify(payload);
   if(serialized===lastSent)return;
   busy=true;
