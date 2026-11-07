@@ -14,6 +14,16 @@
       imagem:String(p.cover?.url_list?.[0]||p.cover?.thumb_url_list?.[0]||'').slice(0,1500),
       link:p.product_id ? 'https://shop.tiktok.com/view/product/'+String(p.product_id).replace(/\D/g,'') : '',
       descricao:'',
+      estoque:Number.isFinite(Number(p.stock_num))?Number(p.stock_num):null,
+      loja:String(p.seller_info?.shop_name||'').slice(0,160),
+      categoria:String(p.category_info?.name||'').slice(0,120),
+      comissao:String(p.affiliate_info?.commission_with_currency||'').slice(0,80),
+      taxaComissao:Number(p.affiliate_info?.commission_rate||0)/100,
+      precoOriginal:String(p.format_origin_price||p.format_product_origin_price||'').slice(0,80),
+      precoOferta:String(p.flash_sale?.format_activity_price||'').slice(0,80),
+      ofertaInicio:String(p.flash_sale?.begin_time||'').slice(0,40),
+      ofertaFim:String(p.flash_sale?.end_time||'').slice(0,40),
+      atualizadoEm:Date.now(),
       origem:'tiktok'
     })).filter(p=>p.nome);
     window.postMessage({source:'V2J_BAG_OBSERVER',type:'PRODUCTS',items,total:list.length},location.origin);
