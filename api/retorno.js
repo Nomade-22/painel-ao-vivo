@@ -14,7 +14,7 @@ function cleanCentral(input){
  nome:trim(p?.nome,180),preco:trim(p?.preco,80),descricao:trim(p?.descricao,3000),
  link:typeof p?.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
  imagem:typeof p?.imagem==='string'&&/^https:\/\//i.test(p.imagem)&&p.imagem.length<=2000?p.imagem:'',
- imagens:(Array.isArray(p?.imagens)?p.imagens:[]).slice(0,6).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000),
+ imagens:(Array.isArray(p?.imagens)?p.imagens:[]).slice(0,12).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000),
  estoque:Number.isFinite(Number(p?.estoque))&&p?.estoque!==''&&p?.estoque!=null?Math.max(0,Math.floor(Number(p.estoque))):null,
  loja:trim(p?.loja,160),categoria:trim(p?.categoria,120),comissao:trim(p?.comissao,80),
  taxaComissao:Number.isFinite(Number(p?.taxaComissao))?Number(p.taxaComissao):0,
@@ -50,12 +50,14 @@ export default async function handler(req,res){
    const fichaCapturada={id:match[1],link:productUrl.slice(0,500),nome:trim(payload.nome,160),
     descricao:trim(payload.descricao,5000),imagem:typeof payload.imagem==='string'&&/^https:\/\//i.test(payload.imagem)?payload.imagem.slice(0,2000):'',
     capturadoEm:Date.now()};
-   const images=(Array.isArray(payload?.imagens)?payload.imagens:[]).slice(0,6).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000);
+   const images=(Array.isArray(payload?.imagens)?payload.imagens:[]).slice(0,12).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000);
    const catalogo=current.catalogo.map(item=>{
     if(!item.link.includes('/view/product/'+match[1]))return item;
-    return {...item,
-      descricao:item.descricao||fichaCapturada.descricao,
-      imagens:item.imagens?.length?item.imagens:images,
+    const currentImages=Array.isArray(item.imagens)?item.imagens:[];
+    const mergedImages=item.origem==='manual'&&currentImages.length?currentImages:[...new Set([...currentImages,...images])].slice(0,12);
+    const description=item.origem==='manual'&&item.descricao?item.descricao:
+      (fichaCapturada.descricao.length>(item.descricao||'').length?fichaCapturada.descricao:item.descricao);
+    return {...item,descricao:description,imagens:mergedImages,
       imagem:item.imagem||fichaCapturada.imagem};
    });
    const next={...current,catalogo,fichaCapturada,versao:Date.now()};
