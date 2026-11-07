@@ -17,7 +17,8 @@ function show(data){
  const selected=(data.catalogo||[]).find(item=>item.numero===data.itemAtivo);
  const p=selected?{nome:'#'+selected.numero+' · '+selected.nome,preco:selected.preco,descricao:selected.descricao,link:selected.link,imagens:selected.imagens?.length?selected.imagens:(selected.imagem?[selected.imagem]:[]),estoque:selected.estoque,precoOferta:selected.precoOferta,precoOriginal:selected.precoOriginal,ofertaInicio:selected.ofertaInicio,ofertaFim:selected.ofertaFim,atualizadoEm:selected.atualizadoEm}:data.produto||{};
  $('name').textContent=p.nome||'Nenhum produto selecionado';
- const now=Date.now()/1000, begin=Number(p.ofertaInicio)||0,end=Number(p.ofertaFim)||0;
+ const now=Date.now(), rawBegin=Number(p.ofertaInicio)||0,rawEnd=Number(p.ofertaFim)||0;
+ const begin=rawBegin&&rawBegin<1e12?rawBegin*1000:rawBegin,end=rawEnd&&rawEnd<1e12?rawEnd*1000:rawEnd;
  const activeOffer=!!p.precoOferta&&(!begin||now>=begin)&&(!end||now<=end);
  $('price').textContent=activeOffer?p.precoOferta+' · Oferta'+(p.precoOriginal?' (antes '+p.precoOriginal+')':''):p.preco||'';
  const meta=$('productMeta');meta.replaceChildren();
