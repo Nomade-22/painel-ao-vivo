@@ -25,7 +25,7 @@ const ajustes=new URLSearchParams(location.search);
 const ajusteHabilitado=ajustes.get('ajuste')==='1';
 if(ajusteHabilitado)document.body.classList.add('mostrar-ajuste');
 const zoomLabel=document.getElementById('zoomValor');
-let zoomRetorno=Number(localStorage.getItem('retornoZoom')||1.7);
+let zoomRetorno=Number(localStorage.getItem('retornoZoom')||1);
 const zoomNaUrl=Number(ajustes.get('zoom'));
 if(ajustes.has('zoom')&&Number.isFinite(zoomNaUrl))zoomRetorno=zoomNaUrl;
 function aplicarZoom(valor){
