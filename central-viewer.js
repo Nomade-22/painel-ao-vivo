@@ -15,7 +15,8 @@ function show(data){
  list.scrollTop=list.scrollHeight;
  $('chatCount').textContent=messages.length+' MENSAGENS · MANUAL';
  const selected=(data.catalogo||[]).find(item=>item.numero===data.itemAtivo);
- const p=selected?{nome:'#'+selected.numero+' · '+selected.nome,preco:selected.preco,descricao:selected.descricao,link:selected.link,imagens:selected.imagens?.length?selected.imagens:(selected.imagem?[selected.imagem]:[]),estoque:selected.estoque,precoOferta:selected.precoOferta,precoOriginal:selected.precoOriginal,ofertaInicio:selected.ofertaInicio,ofertaFim:selected.ofertaFim,atualizadoEm:selected.atualizadoEm}:data.produto||{};
+ const sameProduct=selected&&data.produto?.link&&selected.link&&data.produto.link.match(/\/view\/product\/(\d+)/)?.[1]===selected.link.match(/\/view\/product\/(\d+)/)?.[1];
+ const p=selected?{nome:'#'+selected.numero+' · '+selected.nome,preco:selected.preco,descricao:selected.descricao||(sameProduct?data.produto.descricao:''),loja:selected.loja,categoria:selected.categoria,comissao:selected.comissao,taxaComissao:selected.taxaComissao,link:selected.link,imagens:selected.imagens?.length?selected.imagens:(sameProduct&&data.produto?.imagens?.length?data.produto.imagens:(selected.imagem?[selected.imagem]:[])),estoque:selected.estoque,precoOferta:selected.precoOferta,precoOriginal:selected.precoOriginal,ofertaInicio:selected.ofertaInicio,ofertaFim:selected.ofertaFim,atualizadoEm:selected.atualizadoEm}:data.produto||{};
  $('name').textContent=p.nome||'Nenhum produto selecionado';
  const now=Date.now(), rawBegin=Number(p.ofertaInicio)||0,rawEnd=Number(p.ofertaFim)||0;
  const begin=rawBegin&&rawBegin<1e12?rawBegin*1000:rawBegin,end=rawEnd&&rawEnd<1e12?rawEnd*1000:rawEnd;
@@ -24,6 +25,9 @@ function show(data){
  const meta=$('productMeta');meta.replaceChildren();
  const add=(label,low=false)=>{const el=document.createElement('span');el.textContent=label;if(low)el.className='low';meta.append(el);};
  if(p.estoque!=null)add('📦 Estoque: '+Number(p.estoque).toLocaleString('pt-BR')+' un.',p.estoque<=10);
+ if(p.categoria)add('🏷️ '+p.categoria);
+ if(p.loja)add('🏪 '+p.loja);
+ if(p.comissao)add('💰 Comissão est.: '+p.comissao+(p.taxaComissao?' ('+p.taxaComissao+'%)':''));
  if(p.atualizadoEm)add('Atualizado: '+new Date(p.atualizadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
  const link=$('productLink');const valid=typeof p.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link);
  link.hidden=!valid;if(valid)link.href=p.link;else link.removeAttribute('href');
