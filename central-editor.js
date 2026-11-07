@@ -16,6 +16,7 @@ function renderChat(){
 }
 function show(state){
  data=state;$('productName').value=data.produto?.nome||'';
+ $('productLink').value=data.produto?.link||'';
  $('productPrice').value=data.produto?.preco||'';
  $('productDesc').value=data.produto?.descricao||'';
  $('productImages').value=(data.produto?.imagens||[]).join('\n');
@@ -48,16 +49,16 @@ $('clearNotice').addEventListener('click',()=>save({recado:''},'Recado removido.
 $('saveProduct').addEventListener('click',()=>{
  const images=$('productImages').value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
  if(images.length>6||images.some(url=>!/^https:\/\//i.test(url))){status('Use até 6 links HTTPS válidos, um por linha.');return;}
- save({produto:{nome:$('productName').value,preco:$('productPrice').value,descricao:$('productDesc').value,imagens:images}},'Produto publicado.');
+ save({produto:{nome:$('productName').value,preco:$('productPrice').value,descricao:$('productDesc').value,imagens:images,link:$('productLink').value.trim()}},'Produto publicado.');
 });
-$('clearProduct').addEventListener('click',()=>{if(confirm('Remover o produto do retorno?'))save({produto:{nome:'',preco:'',descricao:'',imagens:[]}},'Produto removido.');});
+$('clearProduct').addEventListener('click',()=>{if(confirm('Remover o produto do retorno?'))save({produto:{nome:'',preco:'',descricao:'',imagens:[],link:''}},'Produto removido.');});
 load();
 
 function bagItem(num){return (data.catalogo||[]).find(p=>p.numero===Number(num));}
 function fillBag(){
  const num=Number($('bagNumber').value),p=bagItem(num)||{};
  $('bagName').value=p.nome||'';$('bagPrice').value=p.preco||'';
- $('bagImage').value=p.imagem||'';$('bagDesc').value=p.descricao||'';
+ $('bagImage').value=p.imagem||'';$('bagLink').value=p.link||'';$('bagDesc').value=p.descricao||'';
 }
 function renderBag(){
  const box=$('bagList');box.replaceChildren();
@@ -83,7 +84,7 @@ $('bagSave').onclick=()=>{
  const num=Number($('bagNumber').value),nome=$('bagName').value.trim(),imagem=$('bagImage').value.trim();
  if(!Number.isInteger(num)||num<1||num>999||!nome){status('Informe um número válido e o nome do item.');return;}
  if(imagem&&!/^https:\/\//i.test(imagem)){status('A foto precisa ser um endereço HTTPS.');return;}
- const product={numero:num,nome,preco:$('bagPrice').value,descricao:$('bagDesc').value,imagem,origem:'manual'};
+ const product={numero:num,nome,preco:$('bagPrice').value,descricao:$('bagDesc').value,imagem,link:$('bagLink').value.trim(),origem:'manual'};
  const catalogo=[...(data.catalogo||[]).filter(p=>p.numero!==num),product].sort((a,b)=>a.numero-b.numero);
  if(catalogo.length>200){status('Limite de 200 itens.');return;}
  save({catalogo,itemAtivo:num},'Item '+num+' salvo e destacado.');
