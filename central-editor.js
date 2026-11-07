@@ -22,14 +22,14 @@ function show(state){
  $('notice').value=data.recado||'';renderChat();
 }
 async function load(){
- try{const r=await fetch('/api/central',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);show(await r.json());status('✅ Central conectada.');}
+ try{const r=await fetch('/api/retorno?central=1',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);show(await r.json());status('✅ Central conectada.');}
  catch(e){status('Falha ao carregar: '+e.message);}
 }
 async function save(patch,success){
  if(busy)return;busy=true;status('Publicando no retorno…');
  try{
   const payload={...data,...patch};
-  const r=await fetch('/api/central',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const r=await fetch('/api/retorno?central=1',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const response=await r.json().catch(()=>({}));
   if(!r.ok)throw Error(response.erro||'HTTP '+r.status);
   show({...payload,versao:response.versao});status('✅ '+success);
