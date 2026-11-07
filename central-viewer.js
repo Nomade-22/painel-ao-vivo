@@ -14,7 +14,8 @@ function show(data){
  else for(const m of messages)list.append(messageNode(m));
  list.scrollTop=list.scrollHeight;
  $('chatCount').textContent=messages.length+' MENSAGENS · MANUAL';
- const p=data.produto||{};
+ const selected=(data.catalogo||[]).find(item=>item.numero===data.itemAtivo);
+ const p=selected?{nome:'#'+selected.numero+' · '+selected.nome,preco:selected.preco,descricao:selected.descricao,imagens:selected.imagem?[selected.imagem]:[]}:data.produto||{};
  $('name').textContent=p.nome||'Nenhum produto selecionado';
  $('price').textContent=p.preco||'';
  $('desc').textContent=p.descricao||'Cadastre as informações no console V2J.';
