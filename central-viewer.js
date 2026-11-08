@@ -1,7 +1,7 @@
 const $=id=>document.getElementById(id);
 let version=-1;
 function messageNode(m){
- const node=document.createElement('div');node.className='message';
+ const node=document.createElement('div');node.className='message'+(m.tipo==='pedido'?' order':m.tipo==='seguidor'?' follow':'');
  const heading=document.createElement('div'),name=document.createElement('strong'),time=document.createElement('small'),body=document.createElement('p');
  name.textContent=m.autor||'Espectador';time.textContent=m.hora||'';body.textContent=m.texto;
  heading.append(name,time);node.append(heading,body);return node;
@@ -9,11 +9,13 @@ function messageNode(m){
 function show(data){
  if(data.versao===version)return;version=data.versao;
  const list=$('messages');list.replaceChildren();
- const messages=Array.isArray(data.chat)?data.chat:[];
- if(!messages.length){const empty=document.createElement('div');empty.className='empty';empty.textContent='Aguardando mensagens enviadas pelo console…';list.append(empty);}
- else for(const m of messages)list.append(messageNode(m));
+ const manual=Array.isArray(data.chat)?data.chat:[];
+ const live=Array.isArray(data.liveEventos)?data.liveEventos:[];
+ const messages=[...manual.map(m=>({...m,tipo:'manual'})),...live].sort((a,b)=>(Number(a.recebidoEm)||0)-(Number(b.recebidoEm)||0)).slice(-70);
+ if(!messages.length){const empty=document.createElement('div');empty.className='empty';empty.textContent='Aguardando comentários e avisos da LIVE…';list.append(empty);}
+ else for(const m of messages)list.append(messageNode({...m,autor:m.tipo==='pedido'?'🛒 NOVO PEDIDO':m.tipo==='seguidor'?'👤 NOVO SEGUIDOR':m.autor}));
  list.scrollTop=list.scrollHeight;
- $('chatCount').textContent=messages.length+' MENSAGENS · MANUAL';
+ $('chatCount').textContent=live.length?'AUTOMÁTICO · '+live.length+' EVENTOS':'MANUAL · '+manual.length;
  const selected=(data.catalogo||[]).find(item=>item.numero===data.itemAtivo);
  const sameProduct=selected&&data.produto?.link&&selected.link&&data.produto.link.match(/\/view\/product\/(\d+)/)?.[1]===selected.link.match(/\/view\/product\/(\d+)/)?.[1];
  const p=selected?{nome:'#'+selected.numero+' · '+selected.nome,preco:selected.preco,descricao:selected.descricao||(sameProduct?data.produto.descricao:''),cores:selected.cores||[],loja:selected.loja,categoria:selected.categoria,comissao:selected.comissao,taxaComissao:selected.taxaComissao,link:selected.link,imagens:selected.imagens?.length?selected.imagens:(sameProduct&&data.produto?.imagens?.length?data.produto.imagens:(selected.imagem?[selected.imagem]:[])),estoque:selected.estoque,precoOferta:selected.precoOferta,precoOriginal:selected.precoOriginal,ofertaInicio:selected.ofertaInicio,ofertaFim:selected.ofertaFim,atualizadoEm:selected.atualizadoEm}:data.produto||{};
