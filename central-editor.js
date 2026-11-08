@@ -152,3 +152,13 @@ $('saveLiveMetrics').onclick=()=>{
   atualizadoEm:Date.now()
  }},'Indicadores da LIVE atualizados.');
 };
+
+$('bagClearAll').addEventListener('click',async()=>{
+ const total=(data.catalogo||[]).length;
+ if(!total){status('A sacolinha já está vazia.');return;}
+ if(!confirm('Remover TODOS os '+total+' itens da sacolinha? Esta ação também apaga as correções manuais dos itens e não pode ser desfeita. O chat, os recados e o produto avulso serão preservados.'))return;
+ await save({catalogo:[],itemAtivo:0},'Catálogo da sacolinha limpo. Reinicie a sincronização da extensão para importar novamente.');
+ $('bagNumber').value='';
+ if(typeof closeBagEdit==='function')closeBagEdit();
+ if(typeof fillBag==='function')fillBag();
+});
