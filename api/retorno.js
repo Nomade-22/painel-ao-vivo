@@ -1,7 +1,7 @@
 import {getCache} from '@vercel/functions';
 const validMode = mode => ['texto','tela','central'].includes(mode) ? mode : 'texto';
 
-const defaultCentral={liveMetricas:{cliques:null,vendas:null,gmv:'',atualizadoEm:0},produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,versao:0};
+const defaultCentral={liveMetricas:{cliques:null,vendas:null,gmv:'',atualizadoEm:0},produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,liveEventos:[],versao:0};
 const trim=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
 function cleanCentral(input){
  const p=input?.produto||{};
@@ -12,6 +12,10 @@ function cleanCentral(input){
  },produto:{nome:trim(p.nome,160),descricao:trim(p.descricao,5000),preco:trim(p.preco,80),link:typeof p.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
  imagens:(Array.isArray(p.imagens)?p.imagens:[]).slice(0,6).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000)},
  recado:trim(input?.recado,1200),
+ liveEventos:(Array.isArray(input?.liveEventos)?input.liveEventos:[]).slice(-60).map(e=>({
+ id:trim(e?.id,120),tipo:['comentario','seguidor','pedido','atividade'].includes(e?.tipo)?e.tipo:'atividade',
+ autor:trim(e?.autor,100),texto:trim(e?.texto,500),hora:trim(e?.hora,12),recebidoEm:Number(e?.recebidoEm)||0
+ })).filter(e=>e.id&&e.texto),
  chat:(Array.isArray(input?.chat)?input.chat:[]).slice(-40).map(m=>({id:trim(m?.id,90),autor:trim(m?.autor,80),texto:trim(m?.texto,400),hora:trim(m?.hora,12)})).filter(m=>m.texto),
  catalogo:(Array.isArray(input?.catalogo)?input.catalogo:[]).slice(0,200).map(p=>({
  numero:Math.max(1,Math.min(999,Math.floor(Number(p?.numero)||0))),
@@ -44,6 +48,26 @@ export default async function handler(req,res){
   res.setHeader('Allow','GET, PUT'); return res.status(405).json({erro:'Método inválido'});
  }
  try{
+  if(req.query?.live==='1'){
+   if(req.method!=='PUT')return res.status(405).json({erro:'Método inválido'});
+   const payload=typeof req.body==='string'?JSON.parse(req.body):req.body;
+   if(!payload||typeof payload!=='object')return res.status(400).json({erro:'Dados inválidos'});
+   const cacheLive=getCache({namespace:'central-retorno-v1'});
+   const current=cleanCentral(await cacheLive.get('estado')||defaultCentral);
+   const incoming=Array.isArray(payload.eventos)?payload.eventos.slice(-40):[];
+   const ids=new Set(current.liveEventos.map(e=>e.id));
+   const fresh=incoming.filter(e=>typeof e?.id==='string'&&!ids.has(e.id));
+   const metrics=payload.metricas||{};
+   const updatedMetrics={...current.liveMetricas};
+   if(Number.isFinite(metrics.cliques)&&metrics.cliques>=0)updatedMetrics.cliques=Math.floor(metrics.cliques);
+   if(Number.isFinite(metrics.vendas)&&metrics.vendas>=0)updatedMetrics.vendas=Math.floor(metrics.vendas);
+   if(typeof metrics.gmv==='string'&&/^R\\$\\s*[\\d.,]+$/.test(metrics.gmv.trim()))updatedMetrics.gmv=metrics.gmv.trim().slice(0,80);
+   if(updatedMetrics.cliques!==current.liveMetricas.cliques||updatedMetrics.vendas!==current.liveMetricas.vendas||updatedMetrics.gmv!==current.liveMetricas.gmv)updatedMetrics.atualizadoEm=Date.now();
+   if(!fresh.length&&updatedMetrics.atualizadoEm===current.liveMetricas.atualizadoEm)return res.status(200).json({ok:true,novos:0});
+   const next=cleanCentral({...current,liveMetricas:updatedMetrics,liveEventos:[...current.liveEventos,...fresh].slice(-60),versao:Date.now()});
+   await cacheLive.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
+   return res.status(200).json({ok:true,novos:fresh.length});
+  }
   if(req.query?.capture==='1'){
    if(req.method!=='PUT')return res.status(405).json({erro:'Método inválido'});
    const payload=typeof req.body==='string'?JSON.parse(req.body):req.body;
