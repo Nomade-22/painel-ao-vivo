@@ -86,7 +86,7 @@ chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
   if(msg?.type==='V2J_AUTO'){
     auto=!!msg.enabled;
     if(timer)clearInterval(timer);
-    if(auto){scan(true);timer=setInterval(async()=>{const items=apiItems.length?apiItems:extract();if(items.length&&JSON.stringify(items)!==lastPayload)await sync(items);},8000);}
+    if(auto){lastPayload='';scan(true);timer=setInterval(async()=>{const items=apiItems.length?apiItems:extract();if(items.length&&JSON.stringify(items)!==lastPayload)await sync(items);},8000);}
     respond({ok:true,auto});return;
   }
   if(msg?.type==='V2J_STATUS'){respond({...lastStatus,auto});return;}
