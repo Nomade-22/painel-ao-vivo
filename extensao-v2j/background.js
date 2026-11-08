@@ -116,3 +116,16 @@ chrome.runtime.onStartup.addListener(async()=>{
  const job=await getBatch();
  if(job.running)await chrome.alarms.create(BATCH_ALARM,{delayInMinutes:0.5});
 });
+
+chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
+ if(msg?.type!=='V2J_LIVE'||!sender.tab?.url?.startsWith('https://shop.tiktok.com/streamer/live/'))return;
+ fetch('https://painel-ao-vivo-jhonatan23.vercel.app/api/retorno?live=1',{
+  method:'PUT',credentials:'omit',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({metricas:msg.metricas,eventos:msg.eventos})
+ }).then(async response=>{
+  const data=await response.json();
+  if(!response.ok)throw Error(data.erro||'HTTP '+response.status);
+  respond({ok:true,...data});
+ }).catch(e=>respond({ok:false,error:e.message}));
+ return true;
+});
