@@ -1,14 +1,21 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>body{width:310px;background:#0e1727;color:#f7f9ff;font:14px system-ui;margin:0;padding:18px;box-sizing:border-box}h1{font-size:18px;margin:0 0 6px}.muted{color:#aabbd0;font-size:12px;line-height:1.45}.stat{background:#1b2b42;padding:12px;border-radius:10px;margin:14px 0}.big{font-size:30px;font-weight:750}button{display:block;width:100%;margin:8px 0;padding:11px;border:0;border-radius:9px;background:#1ed6b0;color:#08221b;font-weight:750;cursor:pointer}button.secondary{background:#31445d;color:white}button:disabled{opacity:.5;cursor:wait}#message{margin:10px 0;overflow-wrap:anywhere;font-size:12px}a{color:#80cbff}</style></head>
-<body><h1>🛍️ V2J · Sacolinha</h1><div class="muted">Abra o Gerenciador de LIVE e deixe a lista dos itens visível.</div>
+<style>body{width:340px;background:#0e1727;color:#f7f9ff;font:14px system-ui;margin:0;padding:16px;box-sizing:border-box}h1{font-size:18px;margin:0 0 5px}.muted{color:#aabbd0;font-size:12px;line-height:1.45}.stat{background:#1b2b42;padding:12px;border-radius:10px;margin:12px 0}.big{font-size:30px;font-weight:750}button{display:block;width:100%;margin:8px 0;padding:11px;border:0;border-radius:9px;background:#1ed6b0;color:#08221b;font-weight:750;cursor:pointer}button.secondary{background:#31445d;color:white}button:disabled{opacity:.5;cursor:wait}#message{margin:10px 0;overflow-wrap:anywhere;font-size:12px}a{color:#80cbff}.top{display:flex;align-items:center;justify-content:space-between}.connection{font-size:10px;color:#fbbf24}.connection.ok{color:#34d399}.tabs{display:flex;gap:4px;margin:14px 0}.tabs button{flex:1;width:auto;padding:9px 3px;margin:0;font-size:12px;background:#22344d;color:#b9cee5}.tabs button[aria-selected=true]{background:#1ed6b0;color:#08221b}.tabPanel[hidden]{display:none}label.field{display:block;margin:12px 0 6px;font-size:12px;color:#bdd1e9}select,input[type=number]{box-sizing:border-box;width:100%;padding:10px;background:#1b2b42;border:1px solid #405775;border-radius:8px;color:white}.hint{font-size:11px;color:#b2c5de;line-height:1.5}</style></head>
+<body><div class="top"><h1>🛍️ V2J · LIVE</h1><span class="connection" id="connection">● Verificando</span></div><div class="muted">Controle da sacolinha e ações opcionais do TikTok Shop.</div>
+<nav class="tabs" aria-label="Seções"><button class="tabButton" data-tab="bag" aria-selected="true">🛍️ Sacolinha</button><button class="tabButton" data-tab="live" aria-selected="false">🔴 LIVE</button><button class="tabButton" data-tab="batch" aria-selected="false">⚙️ Importação</button></nav>
+<section class="tabPanel" data-panel="bag">
 <div class="stat"><div class="big" id="count">—</div><div class="muted">Itens encontrados na página</div></div>
 <button id="scan">Ler sacolinha agora</button><button id="send" class="secondary">Enviar ao V2J</button><button id="auto" class="secondary">Ativar leitura automática</button>
-<div id="message" role="status">Aguardando leitura.</div>
-<div class="stat" style="margin-top:15px"><strong>Importação automática de descrições</strong>
+</section><section class="tabPanel" data-panel="live" hidden>
+<div class="stat"><strong>Controles da transmissão</strong><p class="hint">Ações somente quando você clicar. O TikTok pode exigir confirmação.</p><button id="startLive">▶ Iniciar LIVE no TikTok</button></div>
+<div class="stat"><strong>Comentários no retorno V2J</strong><label class="field" for="commentFilter">Mostrar comentários</label><select id="commentFilter"><option value="todos">Todos</option><option value="perguntas">Somente perguntas (?)</option><option value="ocultar">Ocultar comentários</option></select><p class="hint">Filtra apenas o retorno V2J, não remove mensagens no TikTok. Avisos de compras e seguidores permanecem.</p></div>
+<div class="stat"><strong>Refixar produto</strong><label class="field" for="pinNumber">Número na sacolinha</label><input type="number" id="pinNumber" min="1" max="200" placeholder="Ex.: 68"><button id="repin" class="secondary">📌 Refixar produto no TikTok</button><p class="hint">Só acionará se encontrar exatamente o item e o botão de fixação correspondente; caso contrário, informará o erro.</p></div>
+</section><section class="tabPanel" data-panel="batch" hidden><div class="stat" style="margin-top:6px"><strong>Importação automática de descrições</strong>
 <div class="muted" id="batchStatus" style="margin:8px 0">Ainda não iniciada.</div>
 <label class="muted" style="display:flex;gap:7px;align-items:center;margin:9px 0"><input type="checkbox" id="refreshDescriptions">Revisar também descrições já cadastradas</label><button id="batchStart" class="secondary">Importar todos os pendentes</button>
 <button id="batchStop" class="secondary" style="display:none">Parar importação</button>
 </div>
+</section>
+<div id="message" role="status">Aguardando leitura.</div>
 <a href="https://painel-ao-vivo-jhonatan23.vercel.app/central-controle.html" target="_blank" rel="noopener">Abrir Central V2J</a>
 <script src="popup.js"></script></body></html>
