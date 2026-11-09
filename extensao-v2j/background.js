@@ -1,3 +1,4 @@
+importScripts('diag-background.js');
 const TARGET='https://painel-ao-vivo-jhonatan23.vercel.app/api/retorno?sync=1';
 chrome.action.onClicked.addListener(async tab=>{
  if(!tab?.id||!tab.url?.startsWith('https://shop.tiktok.com/streamer/live/'))return;
