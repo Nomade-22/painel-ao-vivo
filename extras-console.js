@@ -61,9 +61,9 @@ animations.innerHTML=`
   <div class="extra-warning">⚠️ Ações manuais: ainda não há leitura automática de curtidas, comentários, presentes ou compras da Shopee ou do TikTok.</div>
   <div class="extra-panel animation-gallery-panel">
    <div class="animation-gallery-top">
-    <div><h2>🎆 Coleção de animações de tela inteira <span class="video-count" id="animacoesCatalogCount">25</span></h2>
+    <div><h2>🎆 Coleção de animações de tela inteira <span class="video-count" id="animacoesCatalogCount">27</span></h2>
      <p class="hint">Escolha um efeito, faça uma prévia e envie ao mesmo reprodutor de animações do OBS. Corações e confetes continuam disponíveis.</p></div>
-    <div class="animation-tag">25 EFEITOS</div>
+    <div class="animation-tag">27 EFEITOS</div>
    </div>
    <div id="animacoesCategories" class="animation-categories" role="group" aria-label="Filtrar por categoria"></div>
    <div id="animacoesGallery" class="animation-gallery" aria-live="polite"></div>
