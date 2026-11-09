@@ -137,3 +137,35 @@ $('upload').onclick=async()=>{
 const preview=document.createElement('iframe');preview.title='Prévia V2J Studio';preview.src=url;preview.style.cssText='width:100%;height:100%;border:0';$('preview').append(preview);
 load();
 loadExistingSources();
+
+
+// Configuração local da Shopee: nunca persiste a chave nem a envia ao V2J.
+function studioTab(tab){
+ const shopee=tab==='shopee';
+ $('studioLayers').hidden=shopee;$('studioShopee').hidden=!shopee;
+ $('tabLayers').setAttribute('aria-selected',String(!shopee));
+ $('tabShopee').setAttribute('aria-selected',String(shopee));
+}
+$('tabLayers').onclick=()=>studioTab('layers');
+$('tabShopee').onclick=()=>studioTab('shopee');
+const shopeeMessage=value=>$('shopeeStatus').textContent=value;
+const shopeeServer=()=>$('shopeeServer').value.trim();
+const shopeeKey=()=>$('shopeeKey').value.trim();
+async function copyShopee(value,label){
+ if(!value){shopeeMessage('Preencha '+label+' antes de copiar.');return;}
+ try{await navigator.clipboard.writeText(value);shopeeMessage(label+' copiado. Cole diretamente na configuração de transmissão do OBS.');}
+ catch{shopeeMessage('O navegador bloqueou a cópia. Selecione e copie o campo manualmente.');}
+}
+$('copyShopeeServer').onclick=()=>copyShopee(shopeeServer(),'o servidor RTMP');
+$('copyShopeeKey').onclick=()=>copyShopee(shopeeKey(),'a chave de transmissão');
+$('toggleShopeeKey').onclick=()=>{
+ const input=$('shopeeKey');const visible=input.type==='password';
+ input.type=visible?'text':'password';$('toggleShopeeKey').textContent=visible?'Ocultar':'Mostrar';
+};
+$('copyShopeeConfig').onclick=()=>{
+ const server=shopeeServer(),key=shopeeKey();
+ if(!/^rtmps?:\\/\\/[^\\s/]+\\//i.test(server)){shopeeMessage('Confira o endereço RTMP da Shopee.');return;}
+ if(!key){shopeeMessage('Cole primeiro a chave que a Shopee forneceu para esta LIVE.');return;}
+ copyShopee('Servidor: '+server+'\\nChave: '+key,'a configuração completa');
+};
+$('shopeeKey').addEventListener('input',()=>shopeeMessage(shopeeKey()?'Chave preenchida apenas nesta aba. Ela será descartada ao fechar/recarregar a página.':'Aguardando a chave da sua transmissão.'));
