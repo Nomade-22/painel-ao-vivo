@@ -24,6 +24,7 @@ function show(data){
  $('liveSales').textContent=metrics.vendas==null?'—':Number(metrics.vendas).toLocaleString('pt-BR');
  $('liveGMV').textContent=metrics.gmv||'—';
  $('liveViews').textContent=metrics.visualizacoes==null?'—':Number(metrics.visualizacoes).toLocaleString('pt-BR');
+ for(const [id,field] of [['liveCartAdds','carrinhos'],['liveLikes','curtidas'],['liveShares','compartilhamentos']])$(''+id).textContent=metrics[field]==null?'—':Number(metrics[field]).toLocaleString('pt-BR');
  const comments=live.filter(e=>e.tipo==='comentario').length;
  const followers=live.filter(e=>e.tipo==='seguidor').length;
  const orders=live.filter(e=>e.tipo==='pedido').length;
