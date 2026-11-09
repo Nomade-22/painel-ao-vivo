@@ -46,13 +46,14 @@ function pickedY(i,a){
 }
 function caption(a){
  if(!a.message)return;
- const thanks=/^OBRIGADO (PELAS CURTIDAS|POR SEGUIR)!/.exec(a.message);
+ const thanks=/^OBRIGADO (PELAS CURTIDAS|POR SEGUIR|PELA COMPRA)!/.exec(a.message);
  if(thanks){
   const follow=thanks[1]==='POR SEGUIR';
-  const card=make('div','effect-thanks'+(follow?' follow':''));
+  const purchase=thanks[1]==='PELA COMPRA';
+  const card=make('div','effect-thanks'+(follow?' follow':purchase?' purchase':''));
   card.style.setProperty('--accent',a.color);
-  card.append(make('span','effect-thanks-icon',follow?'🎉':'💖'));
-  card.append(make('strong','effect-thanks-title',follow?'OBRIGADO POR SEGUIR!':'OBRIGADO PELAS CURTIDAS!'));
+  card.append(make('span','effect-thanks-icon',purchase?'🛍️':follow?'🎉':'💖'));
+  card.append(make('strong','effect-thanks-title',purchase?'OBRIGADO PELA COMPRA!':follow?'OBRIGADO POR SEGUIR!':'OBRIGADO PELAS CURTIDAS!'));
   const subtitle=a.message.slice(thanks[0].length).trim();
   if(subtitle)card.append(make('span','effect-thanks-subtitle',subtitle));
   stage.append(card);return;
