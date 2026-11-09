@@ -129,3 +129,18 @@ chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
  }).catch(e=>respond({ok:false,error:e.message}));
  return true;
 });
+
+// Solicitação originada exclusivamente do botão no console V2J autenticado no navegador.
+chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
+ if(msg?.type!=='V2J_START_LIVE_REQUEST')return;
+ if(!sender.tab?.url?.startsWith('https://painel-ao-vivo-jhonatan23.vercel.app/console.html')){
+  respond({ok:false,message:'Solicitação fora do console V2J.'});return;
+ }
+ chrome.tabs.query({url:'https://shop.tiktok.com/streamer/live/*'}).then(async tabs=>{
+  if(!tabs.length){respond({ok:false,message:'Abra o Gerenciador de LIVE do TikTok Shop no Chrome.'});return;}
+  const tab=tabs.find(t=>t.active)||tabs[0];
+  try{respond(await chrome.tabs.sendMessage(tab.id,{type:'V2J_CLICK_START_LIVE'}));}
+  catch{respond({ok:false,message:'Recarregue a aba do TikTok para ativar a extensão e tente novamente.'});}
+ }).catch(()=>respond({ok:false,message:'Não foi possível localizar a aba do TikTok.'}));
+ return true;
+});
