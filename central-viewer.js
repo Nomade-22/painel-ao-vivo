@@ -1,5 +1,6 @@
 const $=id=>document.getElementById(id);
 let version=-1;
+let snapshot=null;
 function messageNode(m){
  const node=document.createElement('div');node.className='message'+(m.tipo==='pedido'?' order':m.tipo==='seguidor'?' follow':'');
  const heading=document.createElement('div'),name=document.createElement('strong'),time=document.createElement('small'),body=document.createElement('p');
@@ -7,6 +8,7 @@ function messageNode(m){
  heading.append(name,time);node.append(heading,body);return node;
 }
 function show(data){
+ snapshot=data;
  if(data.versao===version)return;version=data.versao;
  const list=$('messages');list.replaceChildren();
  const manual=Array.isArray(data.chat)?data.chat:[];
@@ -71,3 +73,55 @@ async function poll(){
  catch(e){$('status').textContent='⚠ Sem conexão';console.warn(e);}
 }
 poll();setInterval(poll,1500);
+
+
+// Exportação local: sem enviar registros para serviços terceiros.
+const reportDate=()=>new Date().toISOString().replace(/[:.]/g,'-').slice(0,19);
+function exportDownload(name,content,type){
+ const url=URL.createObjectURL(new Blob([content],{type}));
+ const a=document.createElement('a');a.href=url;a.download=name;a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),15000);
+}
+function safeCell(v){
+ const text=v==null?'':String(v);
+ const safe=/^[=+@\-\t\r]/.test(text)?"'"+text:text;
+ return '"'+safe.replace(/"/g,'""')+'"';
+}
+const makeCsv=rows=>'\uFEFF'+rows.map(row=>row.map(safeCell).join(';')).join('\r\n');
+function ready(){if(snapshot)return true;alert('Aguarde a conexão com a Central antes de exportar.');return false;}
+$('exportSummary').onclick=()=>{
+ if(!ready())return;
+ const m=snapshot.liveMetricas||{},events=snapshot.liveEventos||[];
+ const fields=[
+  ['Data da exportação',new Date().toLocaleString('pt-BR')],
+  ['Atualização das métricas',m.atualizadoEm?new Date(m.atualizadoEm).toLocaleString('pt-BR'):''],
+  ['Valor vendido (GMV)',m.gmv||''],['Vendas / pedidos',m.vendas],
+  ['Adições ao carrinho',m.carrinhos],['Curtidas',m.curtidas],
+  ['Compartilhamentos',m.compartilhamentos],['Cliques nos produtos',m.cliques],
+  ['Visualizações',m.visualizacoes],
+  ['Comentários capturados (recentes)',events.filter(e=>e.tipo==='comentario').length],
+  ['Seguidores capturados (recentes)',events.filter(e=>e.tipo==='seguidor').length],
+  ['Pedidos capturados (recentes)',events.filter(e=>e.tipo==='pedido').length],
+  ['Itens na sacolinha',(snapshot.catalogo||[]).length],['Item ativo',snapshot.itemAtivo]
+ ];
+ exportDownload('v2j-resumo-live-'+reportDate()+'.csv',makeCsv([['Indicador','Valor'],...fields]),'text/csv;charset=utf-8');
+};
+$('exportProducts').onclick=()=>{
+ if(!ready())return;
+ const header=['Número','Produto','Preço atual','Preço original','Preço de oferta','Estoque','Comissão estimada','Taxa de comissão (%)','Loja','Categoria','Cores','Descrição','Link','Atualizado em'];
+ const rows=(snapshot.catalogo||[]).map(p=>[
+  p.numero,p.nome,p.preco,p.precoOriginal,p.precoOferta,p.estoque,p.comissao,
+  Number(p.taxaComissao)>0?(Number(p.taxaComissao)*100).toFixed(2):'',
+  p.loja,p.categoria,(p.cores||[]).join(', '),p.descricao,p.link,
+  p.atualizadoEm?new Date(p.atualizadoEm).toLocaleString('pt-BR'):''
+ ]);
+ exportDownload('v2j-produtos-live-'+reportDate()+'.csv',makeCsv([header,...rows]),'text/csv;charset=utf-8');
+};
+$('exportFull').onclick=()=>{
+ if(!ready())return;
+ const data={exportadoEm:new Date().toISOString(),tipo:'Retrato atual da Central V2J — não é histórico de toda a LIVE',
+  observacao:'Campos vazios não foram capturados. Eventos são apenas os recentes retidos pelo V2J.',
+  metricas:snapshot.liveMetricas||{},itemAtivo:snapshot.itemAtivo,
+  produtos:snapshot.catalogo||[],eventosRecentes:snapshot.liveEventos||[],chatManual:snapshot.chat||[]};
+ exportDownload('v2j-relatorio-live-'+reportDate()+'.json',JSON.stringify(data,null,2),'application/json;charset=utf-8');
+};
