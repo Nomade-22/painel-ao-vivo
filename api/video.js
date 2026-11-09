@@ -5,7 +5,7 @@ import {getCache} from '@vercel/functions';
 const cache=getCache({namespace:'painel-video-v1'});
 // V2J Studio usa chave/namespace próprios: não altera o reprodutor legado.
 const studioCache=getCache({namespace:'painel-studio-v1'});
-const studioDefault={activeScene:'cena-1',playing:true,updatedAt:0,scenes:[{id:'cena-1',name:'Cena principal',sources:[]}]};
+const studioDefault={activeScene:'cena-1',playing:true,seek:null,updatedAt:0,scenes:[{id:'cena-1',name:'Cena principal',sources:[]}]};
 function studioNormalize(input){
  const scenes=Array.isArray(input?.scenes)?input.scenes.slice(0,8).map((scene,index)=>({
   id:String(scene.id||'cena-'+(index+1)).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,50),
@@ -23,7 +23,11 @@ function studioNormalize(input){
  })).filter(s=>s.id):[];
  if(!scenes.length)return {...studioDefault};
  const activeScene=scenes.some(s=>s.id===input?.activeScene)?input.activeScene:scenes[0].id;
- return {activeScene,playing:input?.playing!==false,updatedAt:Number(input?.updatedAt)||0,scenes};
+ const requestedSeek=input?.seek;
+ const seek=requestedSeek&&typeof requestedSeek.sourceId==='string'&&Number.isFinite(Number(requestedSeek.seconds))&&Number.isFinite(Number(requestedSeek.command))?{
+  sourceId:requestedSeek.sourceId.slice(0,50),seconds:Math.max(0,Math.min(86400,Number(requestedSeek.seconds))),command:Number(requestedSeek.command)
+ }:null;
+ return {activeScene,playing:input?.playing!==false,seek,updatedAt:Number(input?.updatedAt)||0,scenes};
 }
 const initial={
  url:'',playing:false,loop:true,muted:true,command:0,library:[],
