@@ -144,9 +144,11 @@ function renderGallery(){
   const cat=document.createElement('small');cat.textContent=entry.category+' · Mensagem central';
   const actions=document.createElement('div');actions.className='animation-tile-actions';
   actions.append(
-   button('👁 Prévia',()=>localPreview(action),'secondary'),
-   button('▶ Acionar',()=>triggerThankYou(action),'animation-play-action')
+   button('👁 Prévia',()=>localPreview(buildThankYou(action)),'secondary'),
+   button('▶ Acionar',()=>triggerThankYou(action),'animation-play-action'),
+   button('✏️ Texto',()=>openThanksEditor(tile,action),'secondary')
   );
+  tile.classList.add('animation-thanks-tile');
   tile.append(icon,title,cat,actions);area.append(tile);
  }
  const items=catalogue.filter(x=>category==='Todas'||x.category===category);
@@ -274,10 +276,48 @@ const thankYouActions={
   emoji:'🛍️',message:'OBRIGADO PELA COMPRA! Sua confiança faz nossa live brilhar ✨',
   color:'#f5b942',duration:6000,intensity:85,speed:1,position:'center',loop:false}
 };
+function thankYouKey(action){return action.id.replace('v2j-thanks-','');}
+function currentThanks(action){
+ const key=thankYouKey(action);
+ const fallback={likes:{headline:'OBRIGADO PELAS CURTIDAS!',subtitle:'Vocês fazem nossa live brilhar ✨'},
+  follow:{headline:'OBRIGADO POR SEGUIR!',subtitle:'Que alegria ter você com a gente 💚'},
+  purchase:{headline:'OBRIGADO PELA COMPRA!',subtitle:'Sua confiança faz nossa live brilhar ✨'}};
+ return state.thanksTexts?.[key]||fallback[key];
+}
+function buildThankYou(action){
+ const text=currentThanks(action);
+ return {...action,thankYouType:thankYouKey(action),headline:text.headline,message:text.subtitle};
+}
+function openThanksEditor(tile,action){
+ const old=tile.querySelector('.thanks-inline-editor');
+ if(old){old.remove();return}
+ const text=currentThanks(action);
+ const form=document.createElement('form');form.className='thanks-inline-editor';
+ const heading=document.createElement('label');heading.textContent='Título principal';
+ const headingInput=document.createElement('input');headingInput.maxLength=72;headingInput.required=true;headingInput.value=text.headline;
+ const subtitle=document.createElement('label');subtitle.textContent='Mensagem complementar';
+ const subtitleInput=document.createElement('textarea');subtitleInput.maxLength=160;subtitleInput.rows=3;subtitleInput.value=text.subtitle;
+ heading.append(headingInput);subtitle.append(subtitleInput);
+ const buttons=document.createElement('div');buttons.className='animation-tile-actions';
+ const save=button('💾 Salvar texto',async()=>{
+  const headline=headingInput.value.trim().slice(0,72);
+  if(!headline){notify('Digite um título para o agradecimento.');headingInput.focus();return}
+  save.disabled=true;
+  const success=await send({thanksTexts:{[thankYouKey(action)]:{
+   headline,subtitle:subtitleInput.value.trim().slice(0,160)
+  }}},'Texto do agradecimento salvo para todos os dispositivos.');
+  if(!success){save.disabled=false;}
+ },'animation-play-action');
+ buttons.append(save,button('Cancelar',()=>form.remove(),'secondary'));
+ form.append(heading,subtitle,buttons);tile.append(form);
+ headingInput.focus();
+}
 function triggerThankYou(action){
+ const prepared=buildThankYou(action);
  return send({presetId:action.effect,options:{
   color:action.color,duration:action.duration,intensity:action.intensity,
-  speed:action.speed,position:action.position,loop:false,message:action.message
+  speed:action.speed,position:action.position,loop:false,message:prepared.message,
+  thankYouType:prepared.thankYouType,headline:prepared.headline
  }},'Agradecimento enviado ao OBS: '+action.name);
 }
 showLabels();load();
