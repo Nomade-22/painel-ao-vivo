@@ -71,13 +71,15 @@
   if(sending)return;
   if(/Você está off-line/i.test(document.body.innerText||''))return;
   const metricas=metrics(),ev=events(),str=JSON.stringify(metricas);
-  if(!ev.length&&str===lastMetrics)return;
+  const selected=(await chrome.storage.local.get('v2jCommentFilter')).v2jCommentFilter||'todos';
+  const filtered=ev.filter(item=>item.tipo!=='comentario'||(selected==='todos'||(selected==='perguntas'&&item.texto.includes('?'))));
+  if(!filtered.length&&str===lastMetrics)return;
   sending=true;
-  chrome.runtime.sendMessage({type:'V2J_LIVE',metricas,eventos:ev},response=>{
+  chrome.runtime.sendMessage({type:'V2J_LIVE',metricas,eventos:filtered},response=>{
    sending=false;
    if(chrome.runtime.lastError||!response?.ok)return;
    lastMetrics=str;
-   for(const e of ev)known.add(e.id);
+   for(const e of filtered)known.add(e.id);
    if(known.size>500){const items=[...known].slice(-300);known.clear();items.forEach(id=>known.add(id));}
   });
  }
