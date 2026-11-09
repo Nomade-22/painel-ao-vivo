@@ -63,7 +63,7 @@ export default async function handler(req,res){
    if(Number.isFinite(metrics.cliques)&&metrics.cliques>=0)updatedMetrics.cliques=Math.floor(metrics.cliques);
    if(Number.isFinite(metrics.vendas)&&metrics.vendas>=0)updatedMetrics.vendas=Math.floor(metrics.vendas);
    if(Number.isFinite(metrics.visualizacoes)&&metrics.visualizacoes>=0)updatedMetrics.visualizacoes=Math.floor(metrics.visualizacoes);
-   if(typeof metrics.gmv==='string'&&/^R\\$\\s*[\\d.,]+$/.test(metrics.gmv.trim()))updatedMetrics.gmv=metrics.gmv.trim().slice(0,80);
+   if(typeof metrics.gmv==='string'&&/^R\$\s*[\d.,]+$/.test(metrics.gmv.trim()))updatedMetrics.gmv=metrics.gmv.trim().slice(0,80);
    if(updatedMetrics.cliques!==current.liveMetricas.cliques||updatedMetrics.vendas!==current.liveMetricas.vendas||updatedMetrics.visualizacoes!==current.liveMetricas.visualizacoes||updatedMetrics.gmv!==current.liveMetricas.gmv)updatedMetrics.atualizadoEm=Date.now();
    if(!fresh.length&&updatedMetrics.atualizadoEm===current.liveMetricas.atualizadoEm)return res.status(200).json({ok:true,novos:0});
    const next=cleanCentral({...current,liveMetricas:updatedMetrics,liveEventos:[...current.liveEventos,...fresh].slice(-60),versao:Date.now()});
