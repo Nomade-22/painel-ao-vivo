@@ -133,9 +133,10 @@ chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
 // Solicitação originada exclusivamente do botão no console V2J autenticado no navegador.
 chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
  if(msg?.type!=='V2J_START_LIVE_REQUEST')return;
- if(!sender.tab?.url?.startsWith('https://painel-ao-vivo-jhonatan23.vercel.app/console.html')){
+ if(!msg.fromPopup&&!sender.tab?.url?.startsWith('https://painel-ao-vivo-jhonatan23.vercel.app/console.html')){
   respond({ok:false,message:'Solicitação fora do console V2J.'});return;
  }
+ if(msg.fromPopup && sender.id!==chrome.runtime.id){respond({ok:false,message:'Origem da solicitação inválida.'});return;}
  chrome.tabs.query({url:'https://shop.tiktok.com/streamer/live/*'}).then(async tabs=>{
   if(!tabs.length){respond({ok:false,message:'Abra o Gerenciador de LIVE do TikTok Shop no Chrome.'});return;}
   const tab=tabs.find(t=>t.active)||tabs[0];
