@@ -3,6 +3,22 @@ const endpoint='/api/video?studio=1';
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
 let state={activeScene:'cena-1',playing:true,scenes:[{id:'cena-1',name:'Cena principal',sources:[]}]};
 let busy=false;
+let progress={sourceId:null,currentTime:0,duration:0};
+let draggingSeek=false;
+const currentVideo=()=>scene()?.sources.find(x=>x.visible&&x.type==='video');
+const clock=seconds=>{if(!Number.isFinite(seconds)||seconds<0)return '--:--';const n=Math.floor(seconds);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');};
+function updateMediaControls(){
+ const video=currentVideo();const available=!!video;
+ $('mediaControls').style.opacity=available?'1':'.55';
+ $('mainVolume').disabled=!available;$('loopToggle').disabled=!available;
+ $('mainVolume').value=video?.volume??100;$('volumeLabel').textContent=(video?.volume??100)+'%';
+ const loop=video?.loop!==false;
+ $('loopToggle').textContent=loop?'🔁 Loop ligado':'➡ Loop desligado';$('loopToggle').setAttribute('aria-pressed',String(loop));
+ const duration=progress.sourceId===video?.id?progress.duration:0;
+ $('seek').disabled=!available||!duration;
+ if(!draggingSeek){$('seek').max=String(duration||100);$('seek').value=String(duration?Math.min(duration,progress.currentTime):0);$('timecode').textContent=clock(duration?progress.currentTime:0)+' / '+clock(duration);}
+}
+
 const status=value=>$('status').textContent=value;
 const scene=()=>state.scenes.find(s=>s.id===state.activeScene)||state.scenes[0];
 const escapeText=s=>String(s||'');
@@ -44,6 +60,7 @@ function render(){
  });
  if(!active.sources.length){const empty=document.createElement('p');empty.textContent='Nenhuma fonte nesta cena.';list.append(empty);}
  $('play').classList.toggle('active',state.playing);$('pause').classList.toggle('active',!state.playing);
+ updateMediaControls();
 }
 function moveSource(index,offset){const sources=scene().sources;const target=index+offset;if(target<0||target>=sources.length)return;[sources[index],sources[target]]=[sources[target],sources[index]];save();}
 function validUrl(raw){try{const url=new URL(raw);return url.protocol==='https:'?url.href:null;}catch{return null;}}
@@ -56,6 +73,23 @@ $('addSource').onclick=()=>addSource($('url').value.trim(),$('name').value.trim(
 $('addScene').onclick=()=>{if(state.scenes.length>=8){status('Limite de 8 cenas.');return;}const name=prompt('Nome da nova cena:','Nova cena');if(!name)return;const id='cena-'+uid();state.scenes.push({id,name:name.trim().slice(0,70),sources:[]});state.activeScene=id;save();};
 $('removeScene').onclick=()=>{if(state.scenes.length<=1){status('Mantenha ao menos uma cena.');return;}if(!confirm('Excluir esta cena e suas fontes?'))return;state.scenes=state.scenes.filter(s=>s.id!==state.activeScene);state.activeScene=state.scenes[0].id;save();};
 $('play').onclick=()=>{state.playing=true;save();};$('pause').onclick=()=>{state.playing=false;save();};$('refresh').onclick=load;
+$('mainVolume').oninput=()=>{$('volumeLabel').textContent=$('mainVolume').value+'%';};
+$('mainVolume').onchange=()=>{const video=currentVideo();if(!video)return;video.volume=Number($('mainVolume').value);save();};
+$('loopToggle').onclick=()=>{const video=currentVideo();if(!video)return;video.loop=video.loop===false;save();};
+$('seek').addEventListener('pointerdown',()=>{draggingSeek=true;});
+$('seek').oninput=()=>{draggingSeek=true;$('timecode').textContent=clock(Number($('seek').value))+' / '+clock(progress.duration);};
+$('seek').onchange=()=>{
+ const video=currentVideo();draggingSeek=false;
+ if(!video||!progress.duration)return;
+ state.seek={sourceId:video.id,seconds:Number($('seek').value),command:Date.now()};
+ save();
+};
+window.addEventListener('message',e=>{
+ if(e.origin!==location.origin||e.source!==preview.contentWindow||e.data?.source!=='V2J_STUDIO_PLAYER'||e.data.type!=='PROGRESS')return;
+ const {sourceId,currentTime,duration}=e.data;
+ if(typeof sourceId!=='string'||!Number.isFinite(currentTime)||!Number.isFinite(duration))return;
+ progress={sourceId,currentTime,duration};updateMediaControls();
+});
 const url=new URL('/studio-output.html',location.href).href;$('obsUrl').textContent=url;
 $('copyUrl').onclick=()=>navigator.clipboard.writeText(url).then(()=>status('URL da saída copiada.')).catch(()=>status('Selecione a URL acima e copie.'));
 // Reaproveita a rota de upload já utilizada pelo console principal, sem conversão de vídeo.
