@@ -45,19 +45,24 @@ function pickedY(i,a){
  return y;
 }
 function caption(a){
- if(!a.message)return;
- const thanks=/^OBRIGADO (PELAS CURTIDAS|POR SEGUIR|PELA COMPRA)!/.exec(a.message);
- if(thanks){
-  const follow=thanks[1]==='POR SEGUIR';
-  const purchase=thanks[1]==='PELA COMPRA';
-  const card=make('div','effect-thanks'+(follow?' follow':purchase?' purchase':''));
+ const legacy=/^OBRIGADO (PELAS CURTIDAS|POR SEGUIR|PELA COMPRA)!/.exec(a.message||'');
+ const type=['likes','follow','purchase'].includes(a.thankYouType)?a.thankYouType:
+  legacy?(legacy[1]==='POR SEGUIR'?'follow':legacy[1]==='PELA COMPRA'?'purchase':'likes'):null;
+ if(type){
+  const defaults={likes:'OBRIGADO PELAS CURTIDAS!',follow:'OBRIGADO POR SEGUIR!',purchase:'OBRIGADO PELA COMPRA!'};
+  const card=make('div','effect-thanks '+type);
   card.style.setProperty('--accent',a.color);
-  card.append(make('span','effect-thanks-icon',purchase?'🛍️':follow?'🎉':'💖'));
-  card.append(make('strong','effect-thanks-title',purchase?'OBRIGADO PELA COMPRA!':follow?'OBRIGADO POR SEGUIR!':'OBRIGADO PELAS CURTIDAS!'));
-  const subtitle=a.message.slice(thanks[0].length).trim();
+  card.append(make('span','effect-thanks-glow'));
+  card.append(make('span','effect-thanks-kicker','✦ V2J LIVE • GRATIDÃO ✦'));
+  card.append(make('span','effect-thanks-icon',type==='purchase'?'🛍️':type==='follow'?'🎉':'💖'));
+  card.append(make('span','effect-thanks-rule'));
+  card.append(make('strong','effect-thanks-title',a.headline||defaults[type]));
+  const subtitle=legacy&&!a.thankYouType?(a.message||'').slice(legacy[0].length).trim():String(a.message||'').trim();
   if(subtitle)card.append(make('span','effect-thanks-subtitle',subtitle));
+  card.append(make('span','effect-thanks-footer','OBRIGADO POR FAZER PARTE DESSE MOMENTO'));
   stage.append(card);return;
  }
+ if(!a.message)return;
  const el=make('div','effect-caption',a.emoji+' '+a.message);
  if(a.loop)el.classList.add('effect-caption-loop');
  stage.append(el);
