@@ -12,6 +12,9 @@
   const next={};
   if(Number.isFinite(incoming.vendas)&&incoming.vendas>=0)next.vendas=incoming.vendas;
   if(Number.isFinite(incoming.visualizacoes)&&incoming.visualizacoes>=0)next.visualizacoes=incoming.visualizacoes;
+  for(const key of ['curtidas','compartilhamentos','carrinhos','cliques']){
+   if(Number.isSafeInteger(incoming[key])&&incoming[key]>=0)next[key]=incoming[key];
+  }
   if(typeof incoming.gmv==='string'&&/^R\$\s*[\d.,]+$/.test(incoming.gmv))next.gmv=incoming.gmv;
   if(Object.keys(next).length){verifiedStats={...verifiedStats,...next};lastStatsAt=Date.now();scan();}
  });
@@ -41,7 +44,7 @@
   const m={};
   const clicks=metric(/Cliques no produto/i,'number');
   if(Number.isFinite(clicks))m.cliques=clicks;
-  // Só captura contadores explicitamente rotulados, quando visíveis no Gerenciador.
+  // Captura opcional: somente valores claramente rotulados na página.
   const likes=metric(/^(?:Curtidas|Likes)$/i,'number');
   const shares=metric(/^(?:Compartilhamentos|Shares)$/i,'number');
   const cartAdds=metric(/^(?:Adições ao carrinho|Itens adicionados ao carrinho|Adds to cart)$/i,'number');
