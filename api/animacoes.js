@@ -12,7 +12,21 @@ const presets=[
  {id:'chuva',name:'Chuva de emojis',effect:'rain',emoji:'😍',message:'',color:'#9d7aff',duration:4500},
  {id:'fogos',name:'Fogos de celebração',effect:'fireworks',emoji:'✨',message:'Muito obrigado!',color:'#2ed4db',duration:5000}
 ];
-const initial={actions:presets,lastEvent:null,command:0};
+const defaultThanksTexts={
+ likes:{headline:'OBRIGADO PELAS CURTIDAS!',subtitle:'Vocês fazem nossa live brilhar ✨'},
+ follow:{headline:'OBRIGADO POR SEGUIR!',subtitle:'Que alegria ter você com a gente 💚'},
+ purchase:{headline:'OBRIGADO PELA COMPRA!',subtitle:'Sua confiança faz nossa live brilhar ✨'}
+};
+const cleanThanksTexts=input=>{
+ const result={};for(const key of Object.keys(defaultThanksTexts)){
+  const source=input?.[key]&&typeof input[key]==='object'?input[key]:{};
+  result[key]={
+   headline:String(source.headline??defaultThanksTexts[key].headline).trim().slice(0,72)||defaultThanksTexts[key].headline,
+   subtitle:String(source.subtitle??defaultThanksTexts[key].subtitle).trim().slice(0,160)
+  };
+ }return result;
+};
+const initial={actions:presets,lastEvent:null,command:0,thanksTexts:defaultThanksTexts};
 const hex=x=>typeof x==='string'&&/^#[\da-f]{6}$/i.test(x);
 function cleanAction(a,index){
  if(!a||typeof a!=='object')return null;
@@ -28,7 +42,9 @@ function cleanAction(a,index){
  const speed=Math.max(.4,Math.min(2.5,Number(a.speed)||1));
  const position=['full','center','edges'].includes(a.position)?a.position:'full';
  const loop=a.loop===true;
- return {id,name,effect,emoji,message,color,duration,intensity,speed,position,loop};
+ const thankYouType=['likes','follow','purchase'].includes(a.thankYouType)?a.thankYouType:null;
+ const headline=String(a.headline||'').trim().slice(0,72);
+ return {id,name,effect,emoji,message,color,duration,intensity,speed,position,loop,thankYouType,headline};
 }
 function cleanActions(items){
  if(!Array.isArray(items))return presets;
@@ -44,7 +60,7 @@ function cleanActions(items){
 function normalize(data){
  const v=data&&typeof data==='object'?data:{};
  return {actions:cleanActions(v.actions),lastEvent:v.lastEvent?{...cleanAction(v.lastEvent,0),startedAt:Math.max(0,Number(v.lastEvent.startedAt)||0)}:null,
-  command:Number(v.command)||0};
+  command:Number(v.command)||0,thanksTexts:cleanThanksTexts(v.thanksTexts)};
 }
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
@@ -60,19 +76,21 @@ export default async function handler(req,res){
  if(!body||typeof body!=='object'||Array.isArray(body))return res.status(400).json({erro:'Dados inválidos'});
  if(body.actions!==undefined&&!Array.isArray(body.actions))return res.status(400).json({erro:'Lista de ações inválida'});
  const actions=body.actions===undefined?current.actions:cleanActions(body.actions);
+ const thanksTexts=body.thanksTexts===undefined?current.thanksTexts:
+  cleanThanksTexts({...current.thanksTexts,...body.thanksTexts});
  let lastEvent=current.lastEvent,command=current.command;
  if(body.triggerId!==undefined||body.presetId!==undefined){
   const template=body.presetId!==undefined?presetById.get(body.presetId):actions.find(a=>a.id===body.triggerId);
   if(!template)return res.status(400).json({erro:'Animação não encontrada'});
   const overrides=body.options&&typeof body.options==='object'&&!Array.isArray(body.options)?body.options:{};
   // Somente configurações visuais permitidas, não altera ações guardadas.
-  const allowed=['duration','intensity','speed','position','color','loop','message'];
+  const allowed=['duration','intensity','speed','position','color','loop','message','thankYouType','headline'];
   const settings={};for(const k of allowed){if(overrides[k]!==undefined)settings[k]=overrides[k]}
   lastEvent={...cleanAction({...template,...settings},0),startedAt:Date.now()};
   command=Math.max(Date.now(),command+1);
  }
  if(body.stop===true){lastEvent=null;command=Math.max(Date.now(),command+1);}
- const next={actions,lastEvent,command};
+ const next={actions,lastEvent,command,thanksTexts};
  try{
   await cache.set('animacoes',next,{ttl:2592000,name:'Ações e animações da live'});
   return res.status(200).json({...next,catalogue});
