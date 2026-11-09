@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "V2J · Sacolinha TikTok",
-  "version": "0.6.0",
-  "description": "Sincroniza sacolinha e observa estatísticas verificadas da LIVE, além de fotos e descrições.",
+  "version": "0.6.1",
+  "description": "Sincroniza sacolinha e observa estatísticas verificadas da LIVE, além de fotos e descrições. Diagnóstico passivo opcional de chamadas durante a LIVE.",
   "permissions": [
     "storage",
     "activeTab",
@@ -32,6 +32,25 @@
     },
     {
       "matches": [
+        "https://shop.tiktok.com/streamer/live/*"
+      ],
+      "js": [
+        "diag-observer.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "https://shop.tiktok.com/streamer/live/*"
+      ],
+      "js": [
+        "diag-bridge.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
         "https://shop.tiktok.com/streamer/live/*",
         "https://shop.tiktok.com/view/product/*"
       ],
@@ -50,13 +69,21 @@
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://shop.tiktok.com/streamer/live/*"],
-      "js": ["live-control.js"],
+      "matches": [
+        "https://shop.tiktok.com/streamer/live/*"
+      ],
+      "js": [
+        "live-control.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://painel-ao-vivo-jhonatan23.vercel.app/console.html*"],
-      "js": ["console-bridge.js"],
+      "matches": [
+        "https://painel-ao-vivo-jhonatan23.vercel.app/console.html*"
+      ],
+      "js": [
+        "console-bridge.js"
+      ],
       "run_at": "document_idle"
     }
   ]
