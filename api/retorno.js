@@ -1,7 +1,7 @@
 import {getCache} from '@vercel/functions';
 const validMode = mode => ['texto','tela','central'].includes(mode) ? mode : 'texto';
 
-const defaultCentral={liveMetricas:{cliques:null,vendas:null,visualizacoes:null,gmv:'',atualizadoEm:0},produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,liveEventos:[],versao:0};
+const defaultCentral={liveMetricas:{cliques:null,vendas:null,visualizacoes:null,carrinhos:null,curtidas:null,compartilhamentos:null,gmv:'',atualizadoEm:0},produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,liveEventos:[],versao:0};
 const trim=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
 function cleanCentral(input){
  const p=input?.produto||{};
@@ -9,6 +9,9 @@ function cleanCentral(input){
   cliques:input?.liveMetricas?.cliques==null||input.liveMetricas.cliques===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.cliques)||0)),
   vendas:input?.liveMetricas?.vendas==null||input.liveMetricas.vendas===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.vendas)||0)),
   visualizacoes:input?.liveMetricas?.visualizacoes==null||input.liveMetricas.visualizacoes===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.visualizacoes)||0)),
+  carrinhos:input?.liveMetricas?.carrinhos==null||input.liveMetricas.carrinhos===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.carrinhos)||0)),
+  curtidas:input?.liveMetricas?.curtidas==null||input.liveMetricas.curtidas===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.curtidas)||0)),
+  compartilhamentos:input?.liveMetricas?.compartilhamentos==null||input.liveMetricas.compartilhamentos===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.compartilhamentos)||0)),
   gmv:trim(input?.liveMetricas?.gmv,80),atualizadoEm:Number(input?.liveMetricas?.atualizadoEm)||0
  },produto:{nome:trim(p.nome,160),descricao:trim(p.descricao,5000),preco:trim(p.preco,80),link:typeof p.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
  imagens:(Array.isArray(p.imagens)?p.imagens:[]).slice(0,6).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000)},
@@ -63,8 +66,9 @@ export default async function handler(req,res){
    if(Number.isFinite(metrics.cliques)&&metrics.cliques>=0)updatedMetrics.cliques=Math.floor(metrics.cliques);
    if(Number.isFinite(metrics.vendas)&&metrics.vendas>=0)updatedMetrics.vendas=Math.floor(metrics.vendas);
    if(Number.isFinite(metrics.visualizacoes)&&metrics.visualizacoes>=0)updatedMetrics.visualizacoes=Math.floor(metrics.visualizacoes);
+   for(const field of ['carrinhos','curtidas','compartilhamentos'])if(Number.isFinite(metrics[field])&&metrics[field]>=0)updatedMetrics[field]=Math.floor(metrics[field]);
    if(typeof metrics.gmv==='string'&&/^R\$\s*[\d.,]+$/.test(metrics.gmv.trim()))updatedMetrics.gmv=metrics.gmv.trim().slice(0,80);
-   if(updatedMetrics.cliques!==current.liveMetricas.cliques||updatedMetrics.vendas!==current.liveMetricas.vendas||updatedMetrics.visualizacoes!==current.liveMetricas.visualizacoes||updatedMetrics.gmv!==current.liveMetricas.gmv)updatedMetrics.atualizadoEm=Date.now();
+   if(updatedMetrics.cliques!==current.liveMetricas.cliques||updatedMetrics.vendas!==current.liveMetricas.vendas||updatedMetrics.visualizacoes!==current.liveMetricas.visualizacoes||updatedMetrics.carrinhos!==current.liveMetricas.carrinhos||updatedMetrics.curtidas!==current.liveMetricas.curtidas||updatedMetrics.compartilhamentos!==current.liveMetricas.compartilhamentos||updatedMetrics.gmv!==current.liveMetricas.gmv)updatedMetrics.atualizadoEm=Date.now();
    if(!fresh.length&&updatedMetrics.atualizadoEm===current.liveMetricas.atualizadoEm)return res.status(200).json({ok:true,novos:0});
    const next=cleanCentral({...current,liveMetricas:updatedMetrics,liveEventos:[...current.liveEventos,...fresh].slice(-60),versao:Date.now()});
    await cacheLive.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
