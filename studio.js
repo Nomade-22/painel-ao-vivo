@@ -5,7 +5,7 @@ let state={activeScene:'cena-1',playing:true,scenes:[{id:'cena-1',name:'Cena pri
 let busy=false;
 let progress={sourceId:null,currentTime:0,duration:0};
 let draggingSeek=false;
-const currentVideo=()=>scene()?.sources.find(x=>x.visible&&x.type==='video');
+const currentVideo=()=>scene()?.sources.filter(x=>x.visible&&x.type==='video').at(-1);
 const clock=seconds=>{if(!Number.isFinite(seconds)||seconds<0)return '--:--';const n=Math.floor(seconds);return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');};
 function updateMediaControls(){
  const video=currentVideo();const available=!!video;
