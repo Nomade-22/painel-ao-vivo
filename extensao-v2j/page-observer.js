@@ -4,6 +4,19 @@
   if (window.__v2jBagObserver) return;
   window.__v2jBagObserver = true;
   const matches = url => typeof url === 'string' && /\/api\/v1\/streamer_desktop\/live_product\/list(?:\?|$)/.test(url);
+  const matchesStats = url => typeof url === 'string' && /\/api\/v1\/insights\/workbench\/live\/detail\/core\/stats(?:\?|$)/.test(url);
+  const publishStats = payload => {
+    if (payload?.code !== 0 || !payload?.data?.stats) return;
+    const stats = payload.data.stats;
+    const sales = Number(stats.sales);
+    const views = Number(stats.watch_pv);
+    const gmv = stats.gmv_local?.amount_formatted;
+    const result = {};
+    if (stats.sales !== undefined && Number.isFinite(sales) && sales >= 0) result.vendas = sales;
+    if (stats.watch_pv !== undefined && Number.isFinite(views) && views >= 0) result.visualizacoes = views;
+    if (typeof gmv === 'string' && /^R\$\s*[\d.,]+$/.test(gmv.trim())) result.gmv = gmv.trim();
+    if (Object.keys(result).length) window.postMessage({source:'V2J_STATS_OBSERVER',type:'STATS',metricas:result},location.origin);
+  };
   const publish = data => {
     const list = data?.data?.products;
     if (data?.code !== 0 || !Array.isArray(list)) return;
@@ -34,6 +47,7 @@
     try {
       const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
       if(matches(url)) promise.then(r=>r.clone().json().then(publish).catch(()=>{})).catch(()=>{});
+      if(matchesStats(url)) promise.then(r=>r.clone().json().then(publishStats).catch(()=>{})).catch(()=>{});
     } catch(e){}
     return promise;
   };
@@ -41,13 +55,15 @@
   const send = XMLHttpRequest.prototype.send;
   XMLHttpRequest.prototype.open = function(method,url,...rest) {
     this.__v2jProductList = matches(String(url));
+    this.__v2jCoreStats = matchesStats(String(url));
     return open.call(this,method,url,...rest);
   };
   XMLHttpRequest.prototype.send = function(...args) {
-    if(this.__v2jProductList) this.addEventListener('load',()=>{
+    if(this.__v2jProductList || this.__v2jCoreStats) this.addEventListener('load',()=>{
       try {
         const raw=this.responseType==='json' ? this.response : (this.responseType===''||this.responseType==='text' ? JSON.parse(this.responseText) : null);
-        publish(raw);
+        if(this.__v2jProductList) publish(raw);
+        if(this.__v2jCoreStats) publishStats(raw);
       }catch(e){}
     },{once:true});
     return send.apply(this,args);
