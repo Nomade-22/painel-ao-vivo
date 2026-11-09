@@ -241,5 +241,23 @@ async function load(){
  }catch(e){notify('Não foi possível sincronizar animações: '+e.message)}
  finally{loading=false}
 }
+// Atalhos de agradecimento: aproveitam a mesma API e a mesma fonte OBS.
+const thankYouActions={
+ likes:{id:'v2j-thanks-likes',name:'Obrigado pelas curtidas',effect:'hearts',
+  emoji:'💖',message:'OBRIGADO PELAS CURTIDAS! Vocês fazem nossa live brilhar ✨',
+  color:'#ff4b87',duration:6000,intensity:75,speed:1,position:'center',loop:false},
+ follow:{id:'v2j-thanks-follow',name:'Obrigado por seguir',effect:'confetti',
+  emoji:'🎉',message:'OBRIGADO POR SEGUIR! Que alegria ter você com a gente 💚',
+  color:'#2dd4bf',duration:6000,intensity:75,speed:1,position:'center',loop:false}
+};
+for(const [kind,action] of Object.entries(thankYouActions)){
+ $('animacoes'+(kind==='likes'?'Likes':'Follow')+'Preview').onclick=()=>localPreview(action);
+ $('animacoes'+(kind==='likes'?'Likes':'Follow')+'Play').onclick=()=>send({
+  presetId:action.effect,options:{
+   color:action.color,duration:action.duration,intensity:action.intensity,
+   speed:action.speed,position:action.position,loop:false,message:action.message
+  }
+ },'Agradecimento enviado ao OBS: '+action.name);
+}
 showLabels();load();
 setInterval(()=>{if(!document.hidden)load()},4500);
