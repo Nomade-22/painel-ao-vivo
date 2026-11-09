@@ -4,6 +4,17 @@
  if(!location.pathname.startsWith('/streamer/live/'))return;
  const session=new URLSearchParams(location.search).get('session_id')||'live';
  const normalize=s=>(s||'').replace(/\s+/g,' ').trim();
+ let verifiedStats={},lastStatsAt=0;
+ window.addEventListener('message',event=>{
+  if(event.source!==window||event.origin!==location.origin||event.data?.source!=='V2J_STATS_OBSERVER'||event.data?.type!=='STATS')return;
+  const incoming=event.data.metricas;
+  if(!incoming||typeof incoming!=='object')return;
+  const next={};
+  if(Number.isFinite(incoming.vendas)&&incoming.vendas>=0)next.vendas=incoming.vendas;
+  if(Number.isFinite(incoming.visualizacoes)&&incoming.visualizacoes>=0)next.visualizacoes=incoming.visualizacoes;
+  if(typeof incoming.gmv==='string'&&/^R\$\s*[\d.,]+$/.test(incoming.gmv))next.gmv=incoming.gmv;
+  if(Object.keys(next).length){verifiedStats={...verifiedStats,...next};lastStatsAt=Date.now();scan();}
+ });
  const text=e=>normalize(e?.innerText||e?.textContent||'');
  const selector='div,span,p,small,strong,label';
  const shortLeaves=()=>[...document.querySelectorAll(selector)].filter(e=>e.children.length===0&&text(e).length<90);
@@ -29,11 +40,9 @@
   // Retorna apenas campos com rótulo localizado; nunca estima métricas.
   const m={};
   const clicks=metric(/Cliques no produto/i,'number');
-  const sales=metric(/Itens atribuídos ven|Itens vendidos|Itens atribuídos vendidos/i,'number');
-  const gmv=metric(/GMV atribuído|GMV da LIVE/i,'money');
   if(Number.isFinite(clicks))m.cliques=clicks;
-  if(Number.isFinite(sales))m.vendas=sales;
-  if(gmv)m.gmv=gmv;
+  // Vendas e GMV só são aceitos da resposta estruturada core/stats.
+  if(lastStatsAt&&Date.now()-lastStatsAt<120000)Object.assign(m,verifiedStats);
   return m;
  }
  const known=new Set();
