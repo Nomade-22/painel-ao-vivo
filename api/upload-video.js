@@ -1,7 +1,7 @@
 import { issueSignedToken } from '@vercel/blob';
 import { handleUploadPresigned } from '@vercel/blob/client';
 
-const MAX_SIZE = 250 * 1024 * 1024;
+const MAX_SIZE = 2 * 1024 * 1024 * 1024;
 const VIDEO_TYPES = ['video/mp4', 'video/webm'];
 const IMAGE_TYPES=['image/webp','image/png','image/jpeg'];
 const MAX_IMAGE_SIZE=8*1024*1024;
