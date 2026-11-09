@@ -41,6 +41,13 @@
   const m={};
   const clicks=metric(/Cliques no produto/i,'number');
   if(Number.isFinite(clicks))m.cliques=clicks;
+  // Só captura contadores explicitamente rotulados, quando visíveis no Gerenciador.
+  const likes=metric(/^(?:Curtidas|Likes)$/i,'number');
+  const shares=metric(/^(?:Compartilhamentos|Shares)$/i,'number');
+  const cartAdds=metric(/^(?:Adições ao carrinho|Itens adicionados ao carrinho|Adds to cart)$/i,'number');
+  if(Number.isFinite(likes))m.curtidas=likes;
+  if(Number.isFinite(shares))m.compartilhamentos=shares;
+  if(Number.isFinite(cartAdds))m.carrinhos=cartAdds;
   // Vendas e GMV só são aceitos da resposta estruturada core/stats.
   if(lastStatsAt&&Date.now()-lastStatsAt<120000)Object.assign(m,verifiedStats);
   return m;
