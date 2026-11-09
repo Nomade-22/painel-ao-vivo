@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "V2J · Sacolinha TikTok",
-  "version": "0.6.1",
-  "description": "Sincroniza sacolinha e observa estatísticas verificadas da LIVE, além de fotos e descrições. Diagnóstico passivo opcional de chamadas durante a LIVE.",
+  "version": "0.6.2",
+  "description": "Sincroniza sacolinha, monitora métricas da LIVE quando disponíveis e oferece diagnóstico passivo opcional.",
   "permissions": [
     "storage",
     "activeTab",
