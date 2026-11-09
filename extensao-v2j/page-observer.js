@@ -15,6 +15,19 @@
     if (stats.sales !== undefined && Number.isFinite(sales) && sales >= 0) result.vendas = sales;
     if (stats.watch_pv !== undefined && Number.isFinite(views) && views >= 0) result.visualizacoes = views;
     if (typeof gmv === 'string' && /^R\$\s*[\d.,]+$/.test(gmv.trim())) result.gmv = gmv.trim();
+    // Campos opcionais: só aceita valores numéricos explícitos da estatística.
+    // Se o TikTok não os enviar, o painel mantém a métrica indisponível.
+    for (const [field, aliases] of Object.entries({
+      curtidas: ['like_count', 'likes'],
+      compartilhamentos: ['share_count', 'shares'],
+      carrinhos: ['add_to_cart_count', 'cart_add_count'],
+      cliques: ['product_click_count', 'product_clicks']
+    })) {
+      const found = aliases.find(key => Object.prototype.hasOwnProperty.call(stats, key));
+      if (!found) continue;
+      const value = stats[found];
+      if ((typeof value === 'number' || (typeof value === 'string' && /^\d+$/.test(value))) && Number.isSafeInteger(Number(value)) && Number(value) >= 0) result[field] = Number(value);
+    }
     if (Object.keys(result).length) window.postMessage({source:'V2J_STATS_OBSERVER',type:'STATS',metricas:result},location.origin);
   };
   const publish = data => {
