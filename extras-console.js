@@ -59,6 +59,17 @@ animations.innerHTML=`
   <h1>✨ Animações e ações da LIVE</h1>
   <p>Crie efeitos semelhantes às ações do TikFinity, com seus nomes, textos e emojis. Use os botões <strong>Acionar</strong> para dispará-los no OBS quando desejar.</p>
   <div class="extra-warning">⚠️ Ações manuais: ainda não há leitura automática de curtidas, comentários, presentes ou compras da Shopee ou do TikTok.</div>
+  <div class="extra-panel" aria-label="Agradecimentos rápidos da LIVE">
+   <h2>💖 Agradecimentos rápidos</h2>
+   <p class="hint">Duas animações prontas para agradecer o público. Clique para testar ou exibir na LIVE pela fonte de animações que você já utiliza.</p>
+   <div class="video-actions">
+    <button id="animacoesLikesPreview" class="secondary" type="button">👁 Prévia curtidas</button>
+    <button id="animacoesLikesPlay" type="button">💖 Agradecer curtidas</button>
+    <button id="animacoesFollowPreview" class="secondary" type="button">👁 Prévia seguidores</button>
+    <button id="animacoesFollowPlay" type="button">🎉 Agradecer novo seguidor</button>
+   </div>
+   <small class="hint">Efeitos com fundo transparente, duração de 6 segundos e desaparecimento automático. Acionamento manual por enquanto.</small>
+  </div>
   <div class="extra-panel animation-gallery-panel">
    <div class="animation-gallery-top">
     <div><h2>🎆 Coleção de animações de tela inteira <span class="video-count" id="animacoesCatalogCount">25</span></h2>
