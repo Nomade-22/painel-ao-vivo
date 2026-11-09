@@ -78,3 +78,12 @@
  .animation-tag{display:none}
  .animation-setting-grid{grid-template-columns:1fr}
 }
+
+/* Editor compacto de agradecimentos dentro dos cards, sem alterar o restante da galeria. */
+.animation-thanks-tile{border-color:color-mix(in srgb,var(--tile-color),#ffffff 30%);background:radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--tile-color),transparent 78%),transparent 70%),#14223b}
+.animation-thanks-tile .animation-effect-icon{filter:drop-shadow(0 0 16px var(--tile-color))}
+.animation-thanks-tile .animation-tile-actions{flex-wrap:wrap}
+.thanks-inline-editor{display:grid;gap:8px;margin-top:12px;padding:12px;background:#0b1931;border:1px solid #607399;border-radius:11px}
+.thanks-inline-editor label{display:grid;gap:5px;font-size:12px;font-weight:700;color:#cbdcf9}
+.thanks-inline-editor input,.thanks-inline-editor textarea{width:100%;box-sizing:border-box;padding:9px;color:#fff;background:#182944;border:1px solid #577095;border-radius:7px;font:inherit;font-size:13px;resize:vertical}
+.thanks-inline-editor .animation-tile-actions button{font-size:12px}
