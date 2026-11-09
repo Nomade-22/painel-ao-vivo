@@ -61,7 +61,7 @@ $('copyUrl').onclick=()=>navigator.clipboard.writeText(url).then(()=>status('URL
 // Reaproveita a rota de upload já utilizada pelo console principal, sem conversão de vídeo.
 $('upload').onclick=async()=>{
  const file=$('file').files?.[0];if(!file){status('Selecione um MP4/WebM.');return;}
- if(!['video/mp4','video/webm'].includes(file.type)||file.size>250*1024*1024){status('Arquivo inválido ou maior que 250 MB.');return;}
+ if(!['video/mp4','video/webm'].includes(file.type)||file.size>2*1024*1024*1024){status('Arquivo inválido ou maior que 2 GB.');return;}
  $('upload').disabled=true;status('Enviando vídeo…');$('uploadProgress').value=0;
  try{
   const {uploadPresigned}=await import('https://esm.sh/@vercel/blob@2.5.0/client');
