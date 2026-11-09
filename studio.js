@@ -164,7 +164,7 @@ $('toggleShopeeKey').onclick=()=>{
 };
 $('copyShopeeConfig').onclick=()=>{
  const server=shopeeServer(),key=shopeeKey();
- if(!/^rtmps?:\\/\\/[^\\s/]+\\//i.test(server)){shopeeMessage('Confira o endereço RTMP da Shopee.');return;}
+ if(!(server.startsWith('rtmp://')||server.startsWith('rtmps://'))){shopeeMessage('Confira o endereço RTMP da Shopee.');return;}
  if(!key){shopeeMessage('Cole primeiro a chave que a Shopee forneceu para esta LIVE.');return;}
  copyShopee('Servidor: '+server+'\\nChave: '+key,'a configuração completa');
 };
