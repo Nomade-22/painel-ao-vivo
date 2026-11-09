@@ -23,12 +23,30 @@ function show(data){
  $('liveClicks').textContent=metrics.cliques==null?'—':Number(metrics.cliques).toLocaleString('pt-BR');
  $('liveSales').textContent=metrics.vendas==null?'—':Number(metrics.vendas).toLocaleString('pt-BR');
  $('liveGMV').textContent=metrics.gmv||'—';
+ $('liveViews').textContent=metrics.visualizacoes==null?'—':Number(metrics.visualizacoes).toLocaleString('pt-BR');
+ const comments=live.filter(e=>e.tipo==='comentario').length;
+ const followers=live.filter(e=>e.tipo==='seguidor').length;
+ const orders=live.filter(e=>e.tipo==='pedido').length;
+ $('liveComments').textContent=live.length?String(comments):'—';
+ $('liveEvents').textContent=live.length?(followers+' / '+orders):'—';
+ const lastUpdate=Number(metrics.atualizadoEm)||0;
+ $('metricsFreshness').textContent=(lastUpdate?'Métricas atualizadas às '+new Date(lastUpdate).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})+'. ':'Métricas automáticas ainda não recebidas. ')+
+ '* Comentários, seguidores e pedidos exibem somente eventos recentes capturados, não totais da LIVE.';
  const catalog=Array.isArray(data.catalogo)?data.catalogo:[];
  const index=catalog.findIndex(x=>x.numero===data.itemAtivo);
  $('kpiStock').textContent=p.estoque==null?'—':Number(p.estoque).toLocaleString('pt-BR')+' un.';
  $('kpiCommission').textContent=p.comissao||'—';
  $('kpiTotal').textContent=String(catalog.length);
  $('kpiRemaining').textContent=index<0?'—':String(catalog.filter(x=>x.numero>data.itemAtivo).length);
+ $('kpiPrice').textContent=p.preco||'—';
+ $('kpiOriginal').textContent=p.precoOriginal||'—';
+ $('kpiOffer').textContent=p.precoOferta||'—';
+ const rate=Number(p.taxaComissao);
+ $('kpiRate').textContent=Number.isFinite(rate)&&rate>0?(rate*100).toLocaleString('pt-BR',{maximumFractionDigits:2})+'%':'—';
+ const subtitle=$('productSubtitle');subtitle.replaceChildren();
+ const extra=[['🏪 Loja',p.loja],['📂 Categoria',p.categoria],['🧾 Item',selected?'#'+selected.numero:''],['🟢 Origem',selected?.origem==='tiktok'?'TikTok':'Cadastro V2J'],['🔄 Atualizado',p.atualizadoEm?new Date(p.atualizadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}):'']];
+ for(const [label,value] of extra){if(!value)continue;const chip=document.createElement('span');chip.textContent=label+': '+value;subtitle.append(chip);}
+
  $('name').textContent=p.nome||'Nenhum produto selecionado';
  const colors=$('colorOptions');colors.replaceChildren();
  for(const color of (Array.isArray(p.cores)?p.cores:[])){const chip=document.createElement('span');chip.textContent=color;colors.append(chip);}
