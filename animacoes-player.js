@@ -46,6 +46,17 @@ function pickedY(i,a){
 }
 function caption(a){
  if(!a.message)return;
+ const thanks=/^OBRIGADO (PELAS CURTIDAS|POR SEGUIR)!/.exec(a.message);
+ if(thanks){
+  const follow=thanks[1]==='POR SEGUIR';
+  const card=make('div','effect-thanks'+(follow?' follow':''));
+  card.style.setProperty('--accent',a.color);
+  card.append(make('span','effect-thanks-icon',follow?'🎉':'💖'));
+  card.append(make('strong','effect-thanks-title',follow?'OBRIGADO POR SEGUIR!':'OBRIGADO PELAS CURTIDAS!'));
+  const subtitle=a.message.slice(thanks[0].length).trim();
+  if(subtitle)card.append(make('span','effect-thanks-subtitle',subtitle));
+  stage.append(card);return;
+ }
  const el=make('div','effect-caption',a.emoji+' '+a.message);
  if(a.loop)el.classList.add('effect-caption-loop');
  stage.append(el);
