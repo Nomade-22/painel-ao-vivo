@@ -20,7 +20,7 @@ function findSelected(){return catalogue.find(x=>x.id===selectedEffect)||catalog
 function sync(data){
  state={...data,actions:Array.isArray(data.actions)?data.actions:[]};
  catalogue=Array.isArray(data.catalogue)?data.catalogue:catalogue;
- $('animacoesCatalogCount').textContent=String(catalogue.length+2);
+ $('animacoesCatalogCount').textContent=String(catalogue.length+3);
  const selector=$('animacoesEffect');
  if(catalogue.length && selector.dataset.catalogueVersion!==String(catalogue.length)){
   const extras=['banner','burst','stars'];
@@ -131,7 +131,8 @@ function renderGallery(){
  // Os agradecimentos são cards da coleção, no mesmo formato dos outros efeitos.
  const gratitude=[
   {action:thankYouActions.likes,category:'Carinho'},
-  {action:thankYouActions.follow,category:'Festa'}
+  {action:thankYouActions.follow,category:'Festa'},
+  {action:thankYouActions.purchase,category:'Luxo e vendas'}
  ];
  for(const entry of gratitude.filter(x=>category==='Todas'||x.category===category)){
   const action=entry.action;
@@ -268,7 +269,10 @@ const thankYouActions={
   color:'#ff4b87',duration:6000,intensity:75,speed:1,position:'center',loop:false},
  follow:{id:'v2j-thanks-follow',name:'Obrigado por seguir',effect:'confetti',
   emoji:'🎉',message:'OBRIGADO POR SEGUIR! Que alegria ter você com a gente 💚',
-  color:'#2dd4bf',duration:6000,intensity:75,speed:1,position:'center',loop:false}
+  color:'#2dd4bf',duration:6000,intensity:75,speed:1,position:'center',loop:false},
+ purchase:{id:'v2j-thanks-purchase',name:'Obrigado pela compra',effect:'confetti',
+  emoji:'🛍️',message:'OBRIGADO PELA COMPRA! Sua confiança faz nossa live brilhar ✨',
+  color:'#f5b942',duration:6000,intensity:85,speed:1,position:'center',loop:false}
 };
 function triggerThankYou(action){
  return send({presetId:action.effect,options:{
