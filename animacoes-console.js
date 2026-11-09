@@ -20,7 +20,7 @@ function findSelected(){return catalogue.find(x=>x.id===selectedEffect)||catalog
 function sync(data){
  state={...data,actions:Array.isArray(data.actions)?data.actions:[]};
  catalogue=Array.isArray(data.catalogue)?data.catalogue:catalogue;
- $('animacoesCatalogCount').textContent=String(catalogue.length);
+ $('animacoesCatalogCount').textContent=String(catalogue.length+2);
  const selector=$('animacoesEffect');
  if(catalogue.length && selector.dataset.catalogueVersion!==String(catalogue.length)){
   const extras=['banner','burst','stars'];
@@ -128,6 +128,26 @@ function showLabels(){
 }
 function renderGallery(){
  const area=$('animacoesGallery');area.replaceChildren();
+ // Os agradecimentos são cards da coleção, no mesmo formato dos outros efeitos.
+ const gratitude=[
+  {action:thankYouActions.likes,category:'Carinho'},
+  {action:thankYouActions.follow,category:'Festa'}
+ ];
+ for(const entry of gratitude.filter(x=>category==='Todas'||x.category===category)){
+  const action=entry.action;
+  const tile=document.createElement('div');
+  tile.className='animation-effect-tile';
+  tile.style.setProperty('--tile-color',action.color);
+  const icon=document.createElement('div');icon.className='animation-effect-icon';icon.textContent=action.emoji;
+  const title=document.createElement('strong');title.textContent=action.name;
+  const cat=document.createElement('small');cat.textContent=entry.category+' · Mensagem central';
+  const actions=document.createElement('div');actions.className='animation-tile-actions';
+  actions.append(
+   button('👁 Prévia',()=>localPreview(action),'secondary'),
+   button('▶ Acionar',()=>triggerThankYou(action),'animation-play-action')
+  );
+  tile.append(icon,title,cat,actions);area.append(tile);
+ }
  const items=catalogue.filter(x=>category==='Todas'||x.category===category);
  for(const item of items){
   const tile=document.createElement('div');
@@ -250,14 +270,11 @@ const thankYouActions={
   emoji:'🎉',message:'OBRIGADO POR SEGUIR! Que alegria ter você com a gente 💚',
   color:'#2dd4bf',duration:6000,intensity:75,speed:1,position:'center',loop:false}
 };
-for(const [kind,action] of Object.entries(thankYouActions)){
- $('animacoes'+(kind==='likes'?'Likes':'Follow')+'Preview').onclick=()=>localPreview(action);
- $('animacoes'+(kind==='likes'?'Likes':'Follow')+'Play').onclick=()=>send({
-  presetId:action.effect,options:{
-   color:action.color,duration:action.duration,intensity:action.intensity,
-   speed:action.speed,position:action.position,loop:false,message:action.message
-  }
- },'Agradecimento enviado ao OBS: '+action.name);
+function triggerThankYou(action){
+ return send({presetId:action.effect,options:{
+  color:action.color,duration:action.duration,intensity:action.intensity,
+  speed:action.speed,position:action.position,loop:false,message:action.message
+ }},'Agradecimento enviado ao OBS: '+action.name);
 }
 showLabels();load();
 setInterval(()=>{if(!document.hidden)load()},4500);
