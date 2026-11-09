@@ -59,3 +59,41 @@ $('batchStart').onclick=async()=>{
 };
 $('batchStop').onclick=async()=>{await chrome.runtime.sendMessage({type:'V2J_BATCH_STOP'});await batchStatus();};
 batchStatus();setInterval(batchStatus,2000);
+
+
+// Diagnóstico local: controle explícito e relatório sem dados sensíveis.
+const DIAG_KEY='v2jDiagnostics';
+async function diagStatus(){
+ const data=await chrome.storage.local.get(['v2jDiagEnabled',DIAG_KEY]);
+ const enabled=data.v2jDiagEnabled===true, report=data[DIAG_KEY]||{};
+ $('diagToggle').textContent=enabled?'■ Parar diagnóstico':'▶ Ativar diagnóstico';
+ $('diagStatus').textContent=(enabled?'● Gravando':'○ Pausado')+' · '+(report.events?.length||0)+' registros disponíveis · '+(report.total||0)+' observados';
+}
+$('diagToggle').onclick=async()=>{
+ const data=await chrome.storage.local.get('v2jDiagEnabled');
+ await chrome.storage.local.set({v2jDiagEnabled:data.v2jDiagEnabled!==true});
+ await diagStatus();
+};
+$('diagClear').onclick=async()=>{
+ if(!confirm('Apagar os registros locais de diagnóstico?'))return;
+ await chrome.storage.local.remove(DIAG_KEY);await diagStatus();
+};
+$('diagExport').onclick=async()=>{
+ const data=await chrome.storage.local.get(DIAG_KEY);
+ const report=data[DIAG_KEY];
+ if(!report?.events?.length){$('message').textContent='Não há chamadas registradas para exportar.';return;}
+ const summary={};
+ for(const e of report.events){
+  const key=e.method+' '+e.path;
+  const item=summary[key]||(summary[key]={calls:0,errors:0,averageMs:0,statuses:{}});
+  item.calls++;item.averageMs+=e.ms;
+  if(e.status>=400||e.status===0)item.errors++;
+  item.statuses[e.status]=(item.statuses[e.status]||0)+1;
+ }
+ for(const item of Object.values(summary))item.averageMs=Math.round(item.averageMs/item.calls);
+ const output={source:'V2J TikTok Shop - diagnóstico passivo',version:'0.6.1',exportedAt:new Date().toISOString(),startedAt:new Date(report.startedAt).toISOString(),updatedAt:new Date(report.updatedAt).toISOString(),totalObserved:report.total,retained:report.events.length,privacy:'Sem parâmetros de URL, headers, cookies, corpos, tokens ou IDs pessoais.',summary,events:report.events};
+ const blob=new Blob([JSON.stringify(output,null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='v2j-diagnostico-live-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
+ $('message').textContent='Relatório gerado. Envie o JSON aqui para análise.';
+};
+diagStatus();setInterval(diagStatus,10000);
