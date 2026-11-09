@@ -293,6 +293,7 @@ function openThanksEditor(tile,action){
  if(old){old.remove();return}
  const text=currentThanks(action);
  const form=document.createElement('form');form.className='thanks-inline-editor';
+ form.addEventListener('submit',e=>e.preventDefault());
  const heading=document.createElement('label');heading.textContent='Título principal';
  const headingInput=document.createElement('input');headingInput.maxLength=72;headingInput.required=true;headingInput.value=text.headline;
  const subtitle=document.createElement('label');subtitle.textContent='Mensagem complementar';
