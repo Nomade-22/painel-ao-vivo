@@ -22,6 +22,36 @@ function updateMediaControls(){
 const status=value=>$('status').textContent=value;
 const scene=()=>state.scenes.find(s=>s.id===state.activeScene)||state.scenes[0];
 const escapeText=s=>String(s||'');
+const systemSources=[
+ {name:'🎬 Reprodutor de vídeos do V2J',type:'page',url:'/video-obs.html'},
+ {name:'✨ Animações do V2J',type:'page',url:'/animacoes-obs.html'},
+ {name:'🃏 Cartas e imagens',type:'page',url:'/cartas-obs.html'},
+ {name:'📷 Câmera remota',type:'page',url:'/camera-obs.html'},
+ {name:'💬 Texto transparente',type:'page',url:'/visualizacao.html'},
+ {name:'🎤 Microfone remoto (áudio)',type:'page',url:'/microfone-obs.html'},
+ {name:'🖥️ Retorno da LIVE',type:'page',url:'/obs.html'}
+];
+const absoluteUrl=u=>new URL(u,location.origin).href;
+async function loadExistingSources(){
+ const select=$('existingSource');const previous=select.value;
+ select.replaceChildren(new Option('Selecione uma fonte já cadastrada…',''));
+ const group=(title,items)=>{const opt=document.createElement('optgroup');opt.label=title;items.forEach(item=>{const option=new Option(item.name,item.url);option.dataset.type=item.type;opt.append(option);});select.append(opt);};
+ group('Fontes do console V2J',systemSources.map(s=>({...s,url:absoluteUrl(s.url)})));
+ try{
+  const response=await fetch('/api/video',{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);
+  const data=await response.json();
+  const videos=(data.library||[]).filter(x=>x.url&&x.name).map(x=>({name:'🎥 '+x.name+' ('+(x.channel==='youtube'?'YouTube':'TikTok')+')',type:'video',url:x.url}));
+  if(videos.length)group('Vídeos já cadastrados ('+videos.length+')',videos);
+  $('reloadExisting').title='Fontes carregadas';
+ }catch(e){status('Fontes do console disponíveis; biblioteca de vídeos indisponível: '+e.message);}
+ if([...select.options].some(x=>x.value===previous))select.value=previous;
+}
+$('addExisting').onclick=()=>{
+ const opt=$('existingSource').selectedOptions[0];if(!opt?.value){status('Escolha uma fonte na lista.');return;}
+ addSource(opt.value,opt.textContent.replace(/^.*?\s(?=\S)/,''),opt.dataset.type||'page');
+};
+$('reloadExisting').onclick=loadExistingSources;
+
 async function load(){
  try{const r=await fetch(endpoint,{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);state=await r.json();render();status('Conectado ao Studio V2J.');}
  catch(e){status('Sem sincronização: '+e.message);}
@@ -41,11 +71,11 @@ function render(){
  const list=$('sources');list.replaceChildren();
  active.sources.forEach((source,index)=>{
   const row=document.createElement('div');row.className='source';
-  const info=document.createElement('div');const title=document.createElement('strong');title.textContent=source.name;
+  const info=document.createElement('div');const title=document.createElement('strong');title.textContent='Camada '+(index+1)+' · '+source.name;
   const detail=document.createElement('small');detail.textContent=source.type+' · '+source.url;info.append(title,detail);
   const options=document.createElement('div');options.style.display='flex';options.style.flexWrap='wrap';options.style.gap='4px';
-  options.append(button(source.visible?'👁':'🚫',()=>{source.visible=!source.visible;save();}),
-   button('↑',()=>moveSource(index,-1)),button('↓',()=>moveSource(index,1)),
+  options.append(button(source.visible?'👁 Visível':'🚫 Oculta',()=>{source.visible=!source.visible;save();}),
+   button('↑ Frente',()=>moveSource(index,1)),button('↓ Atrás',()=>moveSource(index,-1)),
    button('✕',()=>{if(confirm('Remover '+source.name+' desta cena?')){active.sources.splice(index,1);save();}},'danger'));
   row.append(info,options);list.append(row);
   if(source.type==='video'){
@@ -58,7 +88,7 @@ function render(){
    opts.append(label,range,mute,fit);list.append(opts);
   }
  });
- if(!active.sources.length){const empty=document.createElement('p');empty.textContent='Nenhuma fonte nesta cena.';list.append(empty);}
+ if(!active.sources.length){const empty=document.createElement('p');empty.textContent='Nenhuma camada nesta composição. Escolha uma fonte existente acima.';list.append(empty);}
  $('play').classList.toggle('active',state.playing);$('pause').classList.toggle('active',!state.playing);
  updateMediaControls();
 }
@@ -106,3 +136,4 @@ $('upload').onclick=async()=>{
 };
 const preview=document.createElement('iframe');preview.title='Prévia V2J Studio';preview.src=url;preview.style.cssText='width:100%;height:100%;border:0';$('preview').append(preview);
 load();
+loadExistingSources();
