@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "V2J · Sacolinha TikTok",
-  "version": "0.4.0",
-  "description": "Sincroniza sacolinha, descrições, fotos e cores visíveis dos produtos.",
+  "version": "0.5.0",
+  "description": "Sincroniza sacolinha e observa estatísticas verificadas da LIVE, além de fotos e descrições.",
   "permissions": [
     "storage",
     "activeTab",
@@ -47,6 +47,16 @@
       "js": [
         "live-monitor.js"
       ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://shop.tiktok.com/streamer/live/*"],
+      "js": ["live-control.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://painel-ao-vivo-jhonatan23.vercel.app/console.html*"],
+      "js": ["console-bridge.js"],
       "run_at": "document_idle"
     }
   ]
