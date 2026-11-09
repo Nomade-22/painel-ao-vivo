@@ -91,7 +91,14 @@ $('diagExport').onclick=async()=>{
   item.statuses[e.status]=(item.statuses[e.status]||0)+1;
  }
  for(const item of Object.values(summary))item.averageMs=Math.round(item.averageMs/item.calls);
- const output={source:'V2J TikTok Shop - diagnóstico passivo',version:'0.6.1',exportedAt:new Date().toISOString(),startedAt:new Date(report.startedAt).toISOString(),updatedAt:new Date(report.updatedAt).toISOString(),totalObserved:report.total,retained:report.events.length,privacy:'Sem parâmetros de URL, headers, cookies, corpos, tokens ou IDs pessoais.',summary,events:report.events};
+ const groups={};
+ const classify=path=>/\/live\/detail\/core\/stats|\/live\/detail\/trend\/chart/.test(path)?'estatisticas':/governance|violation/.test(path)?'seguranca_e_avisos':/live_product\/list|recommended_product|product\/pin|\/pin\/get/.test(path)?'produtos':/\/live\/detail\/room\/status/.test(path)?'estado_live':'outras';
+ for(const [endpoint,info] of Object.entries(summary)){
+  const category=classify(endpoint);
+  const item=groups[category]||(groups[category]={chamadas:0,errosHttp:0,rotas:[]});
+  item.chamadas+=info.calls;item.errosHttp+=info.errors;item.rotas.push(endpoint);
+ }
+ const output={source:'V2J TikTok Shop - diagnóstico passivo',version:'0.6.3',exportedAt:new Date().toISOString(),startedAt:new Date(report.startedAt).toISOString(),updatedAt:new Date(report.updatedAt).toISOString(),totalObserved:report.total,retained:report.events.length,privacy:'Sem parâmetros de URL, headers, cookies, corpos, tokens ou IDs pessoais.',interpretacao:'Chamadas a rotas de estatísticas e violações NÃO significam vendas ou infrações confirmadas. Os valores não estão contidos neste diagnóstico.',grupos:groups,summary,events:report.events};
  const blob=new Blob([JSON.stringify(output,null,2)],{type:'application/json'});
  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='v2j-diagnostico-live-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
  $('message').textContent='Relatório gerado. Envie o JSON aqui para análise.';
