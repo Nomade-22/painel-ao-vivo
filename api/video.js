@@ -3,6 +3,28 @@ import {getCache} from '@vercel/functions';
 // Uma única saída de vídeo, preservada no endereço original /video-obs.html.
 // Duas playlists são apenas pastas de organização, não transmissores separados.
 const cache=getCache({namespace:'painel-video-v1'});
+// V2J Studio usa chave/namespace próprios: não altera o reprodutor legado.
+const studioCache=getCache({namespace:'painel-studio-v1'});
+const studioDefault={activeScene:'cena-1',playing:true,updatedAt:0,scenes:[{id:'cena-1',name:'Cena principal',sources:[]}]};
+function studioNormalize(input){
+ const scenes=Array.isArray(input?.scenes)?input.scenes.slice(0,8).map((scene,index)=>({
+  id:String(scene.id||'cena-'+(index+1)).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,50),
+  name:String(scene.name||'Cena '+(index+1)).slice(0,70),
+  sources:(Array.isArray(scene.sources)?scene.sources:[]).slice(0,12).map((source,i)=>({
+   id:String(source.id||'fonte-'+i).replace(/[^a-zA-Z0-9_-]/g,'').slice(0,50),
+   name:String(source.name||'Fonte '+(i+1)).slice(0,90),
+   type:['video','image','page'].includes(source.type)?source.type:'video',
+   url:typeof source.url==='string'&&isHttps(source.url)&&source.url.length<=2000?source.url:'',
+   visible:source.visible!==false,muted:source.muted===true,
+   volume:Math.max(0,Math.min(100,Number(source.volume)||0)),
+   loop:source.loop!==false,
+   fit:['contain','cover'].includes(source.fit)?source.fit:'contain'
+  })).filter(s=>s.url)
+ })).filter(s=>s.id):[];
+ if(!scenes.length)return {...studioDefault};
+ const activeScene=scenes.some(s=>s.id===input?.activeScene)?input.activeScene:scenes[0].id;
+ return {activeScene,playing:input?.playing!==false,updatedAt:Number(input?.updatedAt)||0,scenes};
+}
 const initial={
  url:'',playing:false,loop:true,muted:true,command:0,library:[],
  transition:'fade',duration:850,mode:'single',playlistChannel:'tiktok',
@@ -57,6 +79,18 @@ const parse=req=>typeof req.body==='string'?JSON.parse(req.body):req.body||{};
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');
  if(!['GET','PUT','POST'].includes(req.method))return res.status(405).json({erro:'Método não permitido'});
+ if(req.query?.studio==='1'){
+  try{
+   const current=studioNormalize((await studioCache.get('studio'))||studioDefault);
+   if(req.method==='GET')return res.status(200).json(current);
+   if(req.method!=='PUT')return res.status(405).json({erro:'Método não permitido'});
+   const body=parse(req);
+   if(!body||typeof body!=='object'||Array.isArray(body))return res.status(400).json({erro:'Dados inválidos'});
+   const next=studioNormalize({...body,updatedAt:Date.now()});
+   await studioCache.set('studio',next,{ttl:2592000,name:'Cenas independentes V2J Studio'});
+   return res.status(200).json({ok:true,...next});
+  }catch(error){console.error('V2J Studio indisponível',error);return res.status(503).json({erro:'V2J Studio temporariamente indisponível'});}
+ }
  try{
   const current=normalize((await cache.get('video'))||initial);
   // Antigos pedidos com ?channel=youtube também usam a ÚNICA saída agora.
