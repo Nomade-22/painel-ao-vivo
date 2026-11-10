@@ -12,36 +12,40 @@
   compradores:['Compradores'],itensVendidos:['Itens vendidos']
  };
  const normalize=s=>(s||'').replace(/\s+/g,' ').trim();
- const numeric=/^(?:(?:R\$\s*)?\d[\d.,]*\s*%?|\d{2}:\d{2}:\d{2})$/;
+ const fold=s=>normalize(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+ const numeric=/^(?:(?:R\$\s*)?\d[\d.,]*\s*%?|\d{1,2}:\d{2}(?::\d{2})?)$/;
  function read(){
   const metricas={};
   // Apenas elementos cujo texto coincide integralmente com o rótulo conhecido.
-  const leaves=[...document.querySelectorAll('span,div,p,small,strong,label')].filter(e=>e.children.length===0);
+  const leaves=[...document.querySelectorAll('span,div,p,small,strong,label,td')]
+    .filter(e=>e.children.length===0&&e.getClientRects().length&&normalize(e.textContent).length<80);
   for(const [field,aliases] of Object.entries(fields)){
    for(const label of aliases){
-    const leaf=leaves.find(e=>normalize(e.textContent).toLowerCase()===label.toLowerCase());
+    const leaf=leaves.find(e=>fold(e.textContent)===fold(label));
     if(!leaf)continue;
     let value=null;
     for(let parent=leaf.parentElement,depth=0;parent&&depth<3;parent=parent.parentElement,depth++){
      const parts=(parent.innerText||'').split(/\n/).map(normalize).filter(Boolean);
-     const idx=parts.findIndex(p=>p.toLowerCase()===label.toLowerCase());
-     if(idx>=0&&numeric.test(parts[idx+1]||'')){value=parts[idx+1];break;}
-     if(parts.length===2&&parts[0].toLowerCase()===label.toLowerCase()&&numeric.test(parts[1])){value=parts[1];break;}
+     const idx=parts.findIndex(p=>fold(p)===fold(label));
+     if(idx<0)continue;
+     const nearest=[parts[idx+1],parts[idx-1]].filter(p=>numeric.test(p||''));
+     if(nearest.length){value=nearest[0];break;}
+     if(parts.length<=4){const candidates=parts.filter(p=>numeric.test(p));if(candidates.length===1){value=candidates[0];break;}}
     }
     if(value!==null){metricas[field]=value;break;}
    }
   }
   return metricas;
  }
- let last='',busy=false;
+ let last='',busy=false,lastSent=0;
  async function scan(){
   if(busy)return;
   const metricas=read(),serialized=JSON.stringify(metricas);
-  if(!Object.keys(metricas).length||serialized===last)return;
+  if(serialized===last&&Date.now()-lastSent<30000)return;
   busy=true;
   try{
    const result=await chrome.runtime.sendMessage({type:'V2J_SHOPEE_CREATOR_METRICS',metricas});
-   if(result?.ok)last=serialized;
+   if(result?.ok){last=serialized;lastSent=Date.now();}
   }catch{}finally{busy=false;}
  }
  setTimeout(scan,1500);setInterval(scan,10000);
