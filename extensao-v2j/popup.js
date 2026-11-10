@@ -1,5 +1,7 @@
 const $=id=>document.getElementById(id);
 let tabId=null,auto=false;
+let platform='tiktok';
+const diagKeys=()=>platform==='shopee'?['v2jShopeeDiagEnabled','v2jShopeeDiagnostics']:['v2jDiagEnabled','v2jDiagnostics'];
 const setConnection=(ok,label)=>{const el=$('connection');el.classList.toggle('ok',!!ok);el.textContent='● '+label;};
 document.querySelectorAll('.tabButton').forEach(button=>button.addEventListener('click',()=>{
  document.querySelectorAll('.tabButton').forEach(item=>item.setAttribute('aria-selected',String(item===button)));
@@ -14,6 +16,19 @@ async function command(type,extra={}) {
 }
 chrome.tabs.query({active:true,currentWindow:true},tabs=>{
  const tab=tabs[0];
+ if(tab?.url?.startsWith('https://live.shopee.com.br/')){
+   platform='shopee';tabId=tab.id;
+   setConnection(true,'Shopee detectada');
+   $('message').textContent='Preparando o diagnóstico Shopee sem recarregar a LIVE…';
+   document.querySelector('[data-tab="diag"]').click();
+   for(const el of document.querySelectorAll('.tabButton:not([data-tab="diag"])'))el.disabled=true;
+   document.querySelector('[data-panel="diag"] strong').textContent='Diagnóstico passivo Shopee Live';
+   chrome.scripting.executeScript({target:{tabId:tab.id},files:['diag-observer.js'],world:'MAIN'})
+     .then(()=>chrome.scripting.executeScript({target:{tabId:tab.id},files:['diag-bridge.js'],world:'ISOLATED'}))
+     .then(()=>{$('message').textContent='Observador pronto. Ative o diagnóstico e acompanhe a LIVE normalmente.';})
+     .catch(()=>{$('message').textContent='Não consegui ativar nesta aba; confirme se o endereço começa por live.shopee.com.br.';});
+   diagStatus();return;
+ }
  if(!tab?.url?.startsWith('https://shop.tiktok.com/streamer/live/')){
    $('message').textContent='Abra esta extensão com o Gerenciador de LIVE do TikTok na aba ativa.';
    setConnection(false,'TikTok não detectado');
@@ -62,25 +77,25 @@ batchStatus();setInterval(batchStatus,2000);
 
 
 // Diagnóstico local: controle explícito e relatório sem dados sensíveis.
-const DIAG_KEY='v2jDiagnostics';
 async function diagStatus(){
- const data=await chrome.storage.local.get(['v2jDiagEnabled',DIAG_KEY]);
- const enabled=data.v2jDiagEnabled===true, report=data[DIAG_KEY]||{};
+ const [enabledKey,diagKey]=diagKeys();
+ const data=await chrome.storage.local.get([enabledKey,diagKey]);
+ const enabled=data[enabledKey]===true, report=data[diagKey]||{};
  $('diagToggle').textContent=enabled?'■ Parar diagnóstico':'▶ Ativar diagnóstico';
  $('diagStatus').textContent=(enabled?'● Gravando':'○ Pausado')+' · '+(report.events?.length||0)+' registros disponíveis · '+(report.total||0)+' observados';
 }
 $('diagToggle').onclick=async()=>{
- const data=await chrome.storage.local.get('v2jDiagEnabled');
- await chrome.storage.local.set({v2jDiagEnabled:data.v2jDiagEnabled!==true});
+ const [enabledKey]=diagKeys();const data=await chrome.storage.local.get(enabledKey);
+ await chrome.storage.local.set({[enabledKey]:data[enabledKey]!==true});
  await diagStatus();
 };
 $('diagClear').onclick=async()=>{
  if(!confirm('Apagar os registros locais de diagnóstico?'))return;
- await chrome.storage.local.remove(DIAG_KEY);await diagStatus();
+ await chrome.storage.local.remove(diagKeys()[1]);await diagStatus();
 };
 $('diagExport').onclick=async()=>{
- const data=await chrome.storage.local.get(DIAG_KEY);
- const report=data[DIAG_KEY];
+ const diagKey=diagKeys()[1];const data=await chrome.storage.local.get(diagKey);
+ const report=data[diagKey];
  if(!report?.events?.length){$('message').textContent='Não há chamadas registradas para exportar.';return;}
  const summary={};
  for(const e of report.events){
@@ -98,9 +113,9 @@ $('diagExport').onclick=async()=>{
   const item=groups[category]||(groups[category]={chamadas:0,errosHttp:0,rotas:[]});
   item.chamadas+=info.calls;item.errosHttp+=info.errors;item.rotas.push(endpoint);
  }
- const output={source:'V2J TikTok Shop - diagnóstico passivo',version:'0.6.3',exportedAt:new Date().toISOString(),startedAt:new Date(report.startedAt).toISOString(),updatedAt:new Date(report.updatedAt).toISOString(),totalObserved:report.total,retained:report.events.length,privacy:'Sem parâmetros de URL, headers, cookies, corpos, tokens ou IDs pessoais.',interpretacao:'Chamadas a rotas de estatísticas e violações NÃO significam vendas ou infrações confirmadas. Os valores não estão contidos neste diagnóstico.',grupos:groups,summary,events:report.events};
+ const output={source:platform==='shopee'?'V2J Shopee Live - diagnóstico passivo':'V2J TikTok Shop - diagnóstico passivo',version:'0.6.4',exportedAt:new Date().toISOString(),startedAt:new Date(report.startedAt).toISOString(),updatedAt:new Date(report.updatedAt).toISOString(),totalObserved:report.total,retained:report.events.length,privacy:'Sem parâmetros de URL, headers, cookies, corpos, tokens ou IDs pessoais.',interpretacao:'Chamadas a rotas de estatísticas e violações NÃO significam vendas ou infrações confirmadas. Os valores não estão contidos neste diagnóstico.',grupos:groups,summary,events:report.events};
  const blob=new Blob([JSON.stringify(output,null,2)],{type:'application/json'});
- const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='v2j-diagnostico-live-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
+ const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='v2j-diagnostico-'+platform+'-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
  $('message').textContent='Relatório gerado. Envie o JSON aqui para análise.';
 };
 diagStatus();setInterval(diagStatus,10000);
