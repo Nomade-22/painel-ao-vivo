@@ -11,7 +11,7 @@ chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
  if(msg?.type!=='V2J_SHOPEE_LIVE_METRICS'||!sender.tab?.url?.startsWith('https://live.shopee.com.br/'))return;
  fetch('https://painel-ao-vivo-jhonatan23.vercel.app/api/shopee-retorno',{
   method:'PUT',credentials:'omit',headers:{'Content-Type':'application/json'},
-  body:JSON.stringify({origem:'live-shopee',metricas:msg.metricas})
+  body:JSON.stringify({origem:'live-shopee',metricas:msg.metricas,eventos:msg.eventos})
  }).then(async r=>{if(!r.ok)throw Error('HTTP '+r.status);respond({ok:true});})
    .catch(e=>respond({ok:false,error:e.message}));
  return true;
@@ -28,7 +28,7 @@ chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
   const results=await Promise.all(targets.map(async({tab,source})=>{
    try{
     const result=await chrome.tabs.sendMessage(tab.id,{type:'V2J_SHOPEE_FORCE_SCAN'});
-    return {source,ok:!!result?.ok,found:result?.found||0,error:result?.error||result?.message||''};
+    return {source,ok:!!result?.ok,found:result?.found||0,mensagensEnviadas:result?.mensagensEnviadas||0,error:result?.error||result?.message||''};
    }catch(e){return {source,ok:false,found:0,error:'Atualize a aba para carregar a extensão.'};}
   }));
   respond({ok:results.some(r=>r.ok),results});

@@ -38,8 +38,20 @@ export default async function handler(req,res){
   const produtos=Array.isArray(body.produtos)?body.produtos.slice(0,80).map(p=>({
    nome:cleanText(p?.nome,180),cliques:cleanValue(p?.cliques),ctr:cleanValue(p?.ctr),pedidos:cleanValue(p?.pedidos),vendas:cleanValue(p?.vendas),atc:cleanValue(p?.atc)
   })).filter(p=>p.nome):current.produtos;
-  const next={metricas,produtos,fontes,fontesConectadas,conflitos,ultimaLeituraSuspeita:suspicious?target:null,atualizadoEm:Date.now(),origem:'Shopee Live + Centro de Criação',coleta:'somente campos identificados; valores conflitantes não são exibidos nem somados'};
+  // Mensagens de chat: lista independente das métricas agregadas. A mesma mensagem
+  // pode ser recebida em várias consultas; seu ID impede duplicação.
+  const previous=Array.isArray(current.comentariosLive)?current.comentariosLive.slice(-100):[];
+  const ids=new Set(previous.map(e=>e.id));
+  const fresh=[];
+  if(target==='live'&&Array.isArray(body.eventos))for(const entry of body.eventos.slice(0,40)){
+   const id=cleanText(entry?.id,80),autor=cleanText(entry?.autor,80),texto=cleanText(entry?.texto,400);
+   if(!/^shopee-\d{1,12}$/.test(id)||!autor||!texto||ids.has(id))continue;
+   ids.add(id);
+   fresh.push({id,tipo:'comentario',autor,texto,hora:cleanText(entry.hora,12),recebidoEm:Date.now()});
+  }
+  const comentariosLive=[...previous,...fresh].slice(-100);
+  const next={metricas,produtos,comentariosLive,fontes,fontesConectadas,conflitos,ultimaLeituraSuspeita:suspicious?target:null,atualizadoEm:Date.now(),origem:'Shopee Live + Centro de Criação',coleta:'somente campos identificados; valores conflitantes não são exibidos nem somados'};
   await cache.set('estado',next,{ttl:2592000,name:'Retorno Shopee V2J'});
-  return res.status(200).json({ok:true,alterado:changed||JSON.stringify(produtos)!==JSON.stringify(current.produtos)});
+  return res.status(200).json({ok:true,novosComentarios:fresh.length,alterado:!!fresh.length||changed||JSON.stringify(produtos)!==JSON.stringify(current.produtos)});
  }catch{return res.status(500).json({erro:'Não foi possível processar o retorno da Shopee'});}
 }

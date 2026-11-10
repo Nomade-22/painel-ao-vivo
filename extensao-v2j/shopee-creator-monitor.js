@@ -5,11 +5,11 @@
  window.__v2jShopeeCreatorMonitor=true;
  if(!/^\/dashboard\/live(?:\/|$)/.test(location.pathname))return;
  const fields={
-  vendas:['Vendas (R$)','Vendas'],usuariosEngajados:['Usuários Engajados'],comentarios:['Comentários'],atc:['ATC'],
-  visualizacoes:['Visualizações totais'],tempoMedio:['Tempo de visualização média','Tempo de visualização médio'],
-  conversoes:['Total de Conversões'],gpm:['GPM (R$)','GPM'],pedidos:['Pedidos'],ads:['ADS (R$)','ADS'],
-  ccu:['CCU'],pcu:['PCU'],ctr:['CTR'],taxaCliquePedidos:['Taxa Cliques/Pedidos'],
-  compradores:['Compradores'],itensVendidos:['Itens vendidos']
+  vendas:['Vendas (R$)','Vendas','Sales','GMV'],usuariosEngajados:['Usuários Engajados','Engaged Users'],comentarios:['Comentários','Comments'],atc:['ATC','Add to Cart','Cart Adds'],
+  visualizacoes:['Visualizações totais','Total Views','Views'],tempoMedio:['Tempo de visualização média','Tempo de visualização médio','Average Watch Time'],
+  conversoes:['Total de Conversões','Total Conversions'],gpm:['GPM (R$)','GPM'],pedidos:['Pedidos','Orders'],ads:['ADS (R$)','ADS'],
+  ccu:['CCU','Current Viewers'],pcu:['PCU','Peak Viewers'],ctr:['CTR'],taxaCliquePedidos:['Taxa Cliques/Pedidos','Click to Order Rate'],
+  compradores:['Compradores','Buyers'],itensVendidos:['Itens vendidos','Items Sold']
  };
  const normalize=s=>(s||'').replace(/\s+/g,' ').trim();
  const fold=s=>normalize(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();

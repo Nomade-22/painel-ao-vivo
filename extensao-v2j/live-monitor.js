@@ -42,12 +42,12 @@
  function metrics(){
   // Retorna apenas campos com rótulo localizado; nunca estima métricas.
   const m={};
-  const clicks=metric(/Cliques no produto/i,'number');
+  const clicks=metric(/^(?:Cliques no produto|Product clicks|Product click count)$/i,'number');
   if(Number.isFinite(clicks))m.cliques=clicks;
   // Captura opcional: somente valores claramente rotulados na página.
-  const likes=metric(/^(?:Curtidas|Likes)$/i,'number');
-  const shares=metric(/^(?:Compartilhamentos|Shares)$/i,'number');
-  const cartAdds=metric(/^(?:Adições ao carrinho|Itens adicionados ao carrinho|Adds to cart)$/i,'number');
+  const likes=metric(/^(?:Curtidas|Likes|Like count)$/i,'number');
+  const shares=metric(/^(?:Compartilhamentos|Shares|Share count)$/i,'number');
+  const cartAdds=metric(/^(?:ATC|Adições ao carrinho|Itens adicionados ao carrinho|Adds to cart|Cart adds|Add to cart count)$/i,'number');
   if(Number.isFinite(likes))m.curtidas=likes;
   if(Number.isFinite(shares))m.compartilhamentos=shares;
   if(Number.isFinite(cartAdds))m.carrinhos=cartAdds;
@@ -58,14 +58,14 @@
  const known=new Set();
  const stableId=(type,content)=>{let h=2166136261;const value=session+'|'+type+'|'+content;for(let i=0;i<value.length;i++){h^=value.charCodeAt(i);h=Math.imul(h,16777619);}return String(h>>>0);};
  function events(){
-  const selectors=['[class*="comment-item"]','[class*="commentItem"]','[class*="message-item"]','[class*="messageItem"]','[data-testid*="comment"]','[class*="order-item"]','[class*="orderItem"]','[class*="follow-item"]','[class*="followItem"]'];
+  const selectors=['[class*="comment-item" i]','[class*="commentItem" i]','[class*="message-item" i]','[class*="messageItem" i]','[class*="chat-message" i]','[class*="chatMessage" i]','[data-testid*="comment" i]','[data-testid*="chat-message" i]','[class*="order-item" i]','[class*="orderItem" i]','[class*="follow-item" i]','[class*="followItem" i]'];
   const nodes=new Set(selectors.flatMap(s=>[...document.querySelectorAll(s)]));
   const result=[];
   for(const e of nodes){
-   if(e.querySelectorAll('input,textarea').length)continue;
+   if(!e.getClientRects().length||e.querySelectorAll('input,textarea').length)continue;
    const value=text(e);
    if(value.length<5||value.length>350||/aparecerão aqui|Digite algo|Todos os comentários|Todas as atividades|Você está off-line/i.test(value))continue;
-   if(e.querySelectorAll('[class*="comment-item"],[class*="message-item"],[class*="order-item"]').length)continue;
+   if(e.querySelectorAll('[class*="comment-item" i],[class*="message-item" i],[class*="chat-message" i],[class*="order-item" i]').length)continue;
    let tipo=/pedido|comprou|venda efetuada|purchase|order placed/i.test(value)?'pedido':/começou a seguir|seguiu você|followed/i.test(value)?'seguidor':'comentario';
    const pieces=(e.innerText||'').split(/\n/).map(normalize).filter(Boolean);
    const autor=pieces.length>1?pieces[0].slice(0,100):'Espectador';
