@@ -9,12 +9,12 @@
     try {
       const u = new URL(String(input), location.href);
       if (shopee) {
-        if (u.protocol !== 'https:' || !/(^|\.)shopee\.com\.br$/.test(u.hostname)) return '';
+        if (u.protocol !== 'https:' || !/(^|\.)(?:shopee\.com\.br|shopee\.com|shopeemobile\.com)$/.test(u.hostname)) return '';
         if (!/(?:^|\/)(?:api|webapi|graphql|live|stream|pc)(?:\/|$)/i.test(u.pathname)) return '';
       } else if (u.origin !== location.origin || !u.pathname.startsWith('/api/')) return '';
       // Não inclui query, tokens, IDs de usuário ou dados de produtos.
       const cleaned=u.pathname.split('/').map(segment =>
-        /^\d{7,}$/.test(segment) || /^[a-z0-9_-]{30,}$/i.test(segment) ? ':id' : segment
+        (shopee ? segment.length>=16 : /^[a-z0-9_-]{30,}$/i.test(segment)) || /^\d{7,}$/.test(segment) ? ':id' : segment
       ).join('/');
       return (shopee ? '/shopee/'+u.hostname+cleaned : cleaned).slice(0, 180);
     } catch { return ''; }
