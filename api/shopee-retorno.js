@@ -1,57 +1,175 @@
-import {getCache} from '@vercel/functions';
+import { getCache } from '@vercel/functions';
 
-const fields=['vendas','usuariosEngajados','comentarios','atc','visualizacoes','tempoMedio','conversoes','gpm','pedidos','ads','ccu','pcu','ctr','taxaCliquePedidos','compradores','itensVendidos'];
-const cleanText=(v,n=100)=>typeof v==='string'?v.trim().slice(0,n):'';
-const cleanValue=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0?v:typeof v==='string'&&/^(?:(?:R\$\s*)?[\d.,]+\s*%?|\d{2}:\d{2}:\d{2})$/.test(v.trim())?v.trim().slice(0,40):null;
-export default async function handler(req,res){
- res.setHeader('Cache-Control','no-store');
- if(!['GET','PUT'].includes(req.method))return res.status(405).json({erro:'Método não permitido'});
- try{
-  // Novo espaço: não reaproveita os zeros da leitura antiga, que foi invalidada.
-  const cache=getCache({namespace:'v2j-shopee-retorno-v2'});
-  if(req.method==='GET')return res.status(200).json(await cache.get('estado')||{metricas:{},produtos:[],atualizadoEm:0,origem:'aguardando'});
-  const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
-  if(!body||!['creator-shopee','live-shopee'].includes(body.origem) || !body.metricas || typeof body.metricas!=='object'||Array.isArray(body.metricas))return res.status(400).json({erro:'Formato inválido'});
-  const current=await cache.get('estado')||{metricas:{},produtos:[],atualizadoEm:0};
-  // Um único campo consolidado por indicador. Valores do Creator (dados oficiais
-  // agregados) prevalecem sobre os da sala LIVE; jamais somar contagens.
-  const fontes={live:{...(current.fontes?.live||{})},creator:{...(current.fontes?.creator||{})}};
-  const target=body.origem==='creator-shopee'?'creator':'live';
-  const fontesConectadas={...(current.fontesConectadas||{}),[target]:Date.now()};
-  let changed=false;
-  const submitted=Object.fromEntries(fields.map(field=>[field,cleanValue(body.metricas[field])]).filter(([,value])=>value!==null));
-  // Um dashboard inteiro com dezenas de zeros é indício de associação errada
-  // entre texto e card. Guarda o heartbeat, mas não divulga esses números.
-  const values=Object.values(submitted);
-  const suspicious=values.length>=8&&values.every(v=>Number(String(v).replace('R$','').replace(',','.').trim())===0);
-  if(!suspicious){for(const [field,value] of Object.entries(submitted)){if(value!==fontes[target][field]){fontes[target][field]=value;changed=true;}}}
-  const metricas={},conflitos={};
-  for(const field of fields){
-   const a=fontes.live[field],b=fontes.creator[field];
-   if(a!==undefined&&b!==undefined&&a!==b){
-    // Valores diferentes podem ser de instantes distintos; não mascarar a divergência.
-    conflitos[field]={live:a,creator:b};continue;
-   }
-   if(b!==undefined)metricas[field]=b;
-   else if(a!==undefined)metricas[field]=a;
+// Versão 0.8.1: estados independentes da LIVE, Creator e chat; preserva leitura v0.8.0.
+const NAMESPACE = 'v2j-shopee-retorno-v2';
+const TTL = 2592000;
+const FIELDS = [
+  'vendas', 'usuariosEngajados', 'comentarios', 'atc', 'visualizacoes',
+  'tempoMedio', 'conversoes', 'gpm', 'pedidos', 'ads', 'ccu', 'pcu',
+  'ctr', 'taxaCliquePedidos', 'compradores', 'itensVendidos'
+];
+const cleanText = (value, limit = 100) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
+const cleanValue = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value :
+  typeof value === 'string' && /^(?:(?:R\$\s*)?[\d.,]+\s*%?|\d{1,2}:\d{2}(?::\d{2})?)$/.test(value.trim()) ? value.trim().slice(0, 40) : null;
+const sourceKey = source => 'fonte-081-' + source;
+
+function cleanProducts(items) {
+  if (!Array.isArray(items)) return null;
+  return items.slice(0, 80).map(item => ({
+    nome: cleanText(item?.nome, 180), cliques: cleanValue(item?.cliques), ctr: cleanValue(item?.ctr),
+    pedidos: cleanValue(item?.pedidos), vendas: cleanValue(item?.vendas), atc: cleanValue(item?.atc)
+  })).filter(item => item.nome);
+}
+
+function legacySource(legacy, source) {
+  const metricas = legacy?.fontes?.[source] || {};
+  const timestamp = Number(legacy?.fontesConectadas?.[source]) || 0;
+  return {
+    metricas, campoEm: Object.fromEntries(Object.keys(metricas).map(key => [key, timestamp])),
+    heartbeatAt: timestamp, lastValidAt: timestamp && Object.keys(metricas).length ? timestamp : 0,
+    camposIdentificados: Object.keys(metricas).length
+  };
+}
+
+function consolidate(live, creator) {
+  const metricas = {}, conflitos = {}, metricaOrigem = {};
+  for (const field of FIELDS) {
+    const available = ['live', 'creator'].filter(source =>
+      (source === 'live' ? live : creator).metricas?.[field] !== undefined);
+    if (!available.length) continue;
+    const preferred = field === 'ccu' ? 'live' : 'creator';
+    let selected = available.includes(preferred) ? preferred : available[0];
+    if (available.length === 2) {
+      const preferredTime = Number((selected === 'live' ? live : creator).campoEm?.[field]) || 0;
+      const other = selected === 'live' ? 'creator' : 'live';
+      const otherTime = Number((other === 'live' ? live : creator).campoEm?.[field]) || 0;
+      // Dado preferido muito antigo? Exibir a outra fonte recente em vez de deixar vazio.
+      if (otherTime - preferredTime > 120000) selected = other;
+      if (String(live.metricas[field]) !== String(creator.metricas[field])) {
+        conflitos[field] = { live: live.metricas[field], creator: creator.metricas[field], exibindo: selected };
+      }
+    }
+    const source = selected === 'live' ? live : creator;
+    metricas[field] = source.metricas[field];
+    metricaOrigem[field] = { fonte: selected, atualizadoEm: Number(source.campoEm?.[field]) || 0 };
   }
-  const produtos=Array.isArray(body.produtos)?body.produtos.slice(0,80).map(p=>({
-   nome:cleanText(p?.nome,180),cliques:cleanValue(p?.cliques),ctr:cleanValue(p?.ctr),pedidos:cleanValue(p?.pedidos),vendas:cleanValue(p?.vendas),atc:cleanValue(p?.atc)
-  })).filter(p=>p.nome):current.produtos;
-  // Mensagens de chat: lista independente das métricas agregadas. A mesma mensagem
-  // pode ser recebida em várias consultas; seu ID impede duplicação.
-  const previous=Array.isArray(current.comentariosLive)?current.comentariosLive.slice(-100):[];
-  const ids=new Set(previous.map(e=>e.id));
-  const fresh=[];
-  if(target==='live'&&Array.isArray(body.eventos))for(const entry of body.eventos.slice(0,40)){
-   const id=cleanText(entry?.id,80),autor=cleanText(entry?.autor,80),texto=cleanText(entry?.texto,400);
-   if(!/^shopee-\d{1,12}$/.test(id)||!autor||!texto||ids.has(id))continue;
-   ids.add(id);
-   fresh.push({id,tipo:'comentario',autor,texto,hora:cleanText(entry.hora,12),recebidoEm:Date.now()});
+  return { metricas, conflitos, metricaOrigem };
+}
+
+function normalizeChat(stored, legacy) {
+  const fallback = Array.isArray(legacy?.comentariosLive) ? legacy.comentariosLive.slice(-100) : [];
+  const comments = Array.isArray(stored?.comentariosLive) ? stored.comentariosLive : fallback;
+  return {
+    comentariosLive: comments.slice(-100),
+    idsRecentes: Array.isArray(stored?.idsRecentes) ? stored.idsRecentes.slice(-2000) : comments.map(item => item.id),
+    ultimoComentarioEm: stored?.ultimoComentarioEm || comments.at(-1)?.recebidoEm || 0,
+    totalNovosComentarios: Number(stored?.totalNovosComentarios) || 0
+  };
+}
+
+function parseDiagnostics(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  return Object.fromEntries(['respostas', 'mensagensValidas', 'respostasSemMensagens', 'falhasJson', 'ultimaRespostaEm']
+    .map(field => [field, Math.max(0, Math.floor(Number(input[field]) || 0))]));
+}
+
+function buildResponse(live, creator, chat, legacy) {
+  const merged = consolidate(live, creator);
+  return {
+    versaoRetorno: '0.8.1', ...merged,
+    fontes: { live: live.metricas || {}, creator: creator.metricas || {} },
+    fontesConectadas: { live: live.heartbeatAt || 0, creator: creator.heartbeatAt || 0 },
+    fontesMeta: {
+      live: { ultimoSinalEm: live.heartbeatAt || 0, ultimasMetricasEm: live.lastValidAt || 0,
+        camposIdentificados: live.camposIdentificados || 0, diagnosticoChat: live.diagnosticoChat || null },
+      creator: { ultimoSinalEm: creator.heartbeatAt || 0, ultimasMetricasEm: creator.lastValidAt || 0,
+        camposIdentificados: creator.camposIdentificados || 0 }
+    },
+    comentariosLive: chat.comentariosLive,
+    saudeChat: { ultimoComentarioEm: chat.ultimoComentarioEm, totalNovosComentarios: chat.totalNovosComentarios },
+    produtos: creator.produtos || legacy?.produtos || [],
+    atualizadoEm: Math.max(live.heartbeatAt || 0, creator.heartbeatAt || 0),
+    origem: 'Shopee Live + Centro de Criação',
+    ultimaLeituraSuspeita: live.leituraSuspeita ? 'live' : creator.leituraSuspeita ? 'creator' : null,
+    coleta: 'Métricas por fonte com data e origem; divergências são exibidas sem somar contadores.'
+  };
+}
+
+export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!['GET', 'PUT'].includes(req.method)) return res.status(405).json({ erro: 'Método não permitido' });
+  try {
+    const cache = getCache({ namespace: NAMESPACE });
+    const legacy = await cache.get('estado') || {};
+    if (req.method === 'GET') {
+      const [currentLive, currentCreator, currentChat] = await Promise.all([
+        cache.get(sourceKey('live')), cache.get(sourceKey('creator')), cache.get('chat-081')
+      ]);
+      return res.status(200).json(buildResponse(
+        currentLive || legacySource(legacy, 'live'),
+        currentCreator || legacySource(legacy, 'creator'),
+        normalizeChat(currentChat, legacy), legacy));
+    }
+    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    if (!body || !['live-shopee', 'creator-shopee'].includes(body.origem) ||
+        !body.metricas || typeof body.metricas !== 'object' || Array.isArray(body.metricas)) {
+      return res.status(400).json({ erro: 'Formato inválido' });
+    }
+    const source = body.origem === 'live-shopee' ? 'live' : 'creator';
+    const previous = await cache.get(sourceKey(source)) || legacySource(legacy, source);
+    const now = Date.now();
+    const submitted = Object.fromEntries(FIELDS.map(field => [field, cleanValue(body.metricas[field])])
+      .filter(([, value]) => value !== null));
+    const values = Object.values(submitted);
+    const suspicious = values.length >= 8 && values.every(value =>
+      Number(String(value).replace('R$', '').replace(',', '.').trim()) === 0);
+    const camposAceitos = suspicious ? [] : Object.keys(submitted);
+    const next = {
+      ...previous, heartbeatAt: now, camposIdentificados: camposAceitos.length,
+      leituraSuspeita: suspicious,
+      metricas: { ...(previous.metricas || {}) }, campoEm: { ...(previous.campoEm || {}) }
+    };
+    if (camposAceitos.length) {
+      for (const field of camposAceitos) {
+        next.metricas[field] = submitted[field];
+        next.campoEm[field] = now;
+      }
+      next.lastValidAt = now;
+    }
+    if (source === 'live') {
+      const diagnostico = parseDiagnostics(body.diagnostico);
+      if (diagnostico) next.diagnosticoChat = diagnostico;
+    }
+    const produtos = cleanProducts(body.produtos);
+    if (produtos) next.produtos = produtos;
+    await cache.set(sourceKey(source), next, { ttl: TTL, name: 'V2J Shopee ' + source });
+
+    let fresh = [], confirmadosIds = [];
+    if (source === 'live' && Array.isArray(body.eventos) && body.eventos.length) {
+      const current = normalizeChat(await cache.get('chat-081'), legacy);
+      const ids = new Set(current.idsRecentes);
+      for (const event of body.eventos.slice(0, 40)) {
+        const id = cleanText(event?.id, 80), autor = cleanText(event?.autor, 80), texto = cleanText(event?.texto, 400);
+        if (!/^shopee-\d{1,12}$/.test(id) || !autor || !texto) continue;
+        confirmadosIds.push(id);
+        if (ids.has(id)) continue;
+        ids.add(id);
+        fresh.push({ id, tipo: 'comentario', autor, texto,
+          hora: cleanText(event?.hora, 12), recebidoEm: now });
+      }
+      if (fresh.length) {
+        await cache.set('chat-081', {
+          comentariosLive: [...current.comentariosLive, ...fresh].slice(-100),
+          idsRecentes: [...ids].slice(-2000), ultimoComentarioEm: now,
+          totalNovosComentarios: current.totalNovosComentarios + fresh.length
+        }, { ttl: TTL, name: 'Chat Shopee V2J' });
+      }
+    }
+    return res.status(200).json({ ok: true, versaoRetorno: '0.8.1', camposAceitos,
+      confirmadosIds, novosComentarios: fresh.length, leituraSuspeita: suspicious,
+      ultimaConfirmacaoEm: now });
+  } catch (error) {
+    console.error('V2J Shopee: falha de sincronização:', error?.message || 'erro desconhecido');
+    return res.status(500).json({ erro: 'Não foi possível processar o retorno da Shopee' });
   }
-  const comentariosLive=[...previous,...fresh].slice(-100);
-  const next={metricas,produtos,comentariosLive,fontes,fontesConectadas,conflitos,ultimaLeituraSuspeita:suspicious?target:null,atualizadoEm:Date.now(),origem:'Shopee Live + Centro de Criação',coleta:'somente campos identificados; valores conflitantes não são exibidos nem somados'};
-  await cache.set('estado',next,{ttl:2592000,name:'Retorno Shopee V2J'});
-  return res.status(200).json({ok:true,novosComentarios:fresh.length,alterado:!!fresh.length||changed||JSON.stringify(produtos)!==JSON.stringify(current.produtos)});
- }catch{return res.status(500).json({erro:'Não foi possível processar o retorno da Shopee'});}
 }
