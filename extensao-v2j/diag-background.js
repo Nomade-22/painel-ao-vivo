@@ -11,7 +11,7 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
     /^(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)$/.test(e.method) &&
     Number.isInteger(e.status) && e.status >= 0 && e.status <= 599 &&
     Number.isFinite(e.ms) && e.ms >= 0 && e.ms <= 600000
-  ).map(e => ({ at: e.at, path: e.path, method: e.method, status: e.status, ms: e.ms })) : [];
+  ).map(e => ({ at: e.at, path: shopee ? e.path.split('/').map((part,index)=>index>2&&part.length>=16?':id':part).join('/') : e.path, method: e.method, status: e.status, ms: e.ms })) : [];
   if (!events.length) return;
   diagWrite = diagWrite.then(async () => {
     const data = await chrome.storage.local.get([DIAG_KEY, ENABLE_KEY]);
