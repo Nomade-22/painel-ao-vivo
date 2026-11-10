@@ -10,15 +10,23 @@ export default async function handler(req,res){
   const cache=getCache({namespace:'v2j-shopee-retorno-v1'});
   if(req.method==='GET')return res.status(200).json(await cache.get('estado')||{metricas:{},produtos:[],atualizadoEm:0,origem:'aguardando'});
   const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
-  if(!body||body.origem!=='creator-shopee' || !body.metricas || typeof body.metricas!=='object')return res.status(400).json({erro:'Formato inválido'});
+  if(!body||!['creator-shopee','live-shopee'].includes(body.origem) || !body.metricas || typeof body.metricas!=='object'||Array.isArray(body.metricas))return res.status(400).json({erro:'Formato inválido'});
   const current=await cache.get('estado')||{metricas:{},produtos:[],atualizadoEm:0};
-  const metricas={...current.metricas};let changed=false;
-  for(const field of fields){const value=cleanValue(body.metricas[field]);if(value!==null&&value!==metricas[field]){metricas[field]=value;changed=true;}}
+  // Um único campo consolidado por indicador. Valores do Creator (dados oficiais
+  // agregados) prevalecem sobre os da sala LIVE; jamais somar contagens.
+  const fontes={
+   live:{...(current.fontes?.live||{})},
+   creator:{...(current.fontes?.creator||(current.origem==='Centro de Criação Shopee'?current.metricas:{}))}
+  };
+  const target=body.origem==='creator-shopee'?'creator':'live';
+  let changed=false;
+  for(const field of fields){const value=cleanValue(body.metricas[field]);if(value!==null&&value!==fontes[target][field]){fontes[target][field]=value;changed=true;}}
+  const metricas={...fontes.live,...fontes.creator};
   const produtos=Array.isArray(body.produtos)?body.produtos.slice(0,80).map(p=>({
    nome:cleanText(p?.nome,180),cliques:cleanValue(p?.cliques),ctr:cleanValue(p?.ctr),pedidos:cleanValue(p?.pedidos),vendas:cleanValue(p?.vendas),atc:cleanValue(p?.atc)
   })).filter(p=>p.nome):current.produtos;
   if(!changed&&JSON.stringify(produtos)===JSON.stringify(current.produtos))return res.status(200).json({ok:true,alterado:false});
-  const next={metricas,produtos,atualizadoEm:Date.now(),origem:'Centro de Criação Shopee',coleta:'campos visíveis na página'};
+  const next={metricas,produtos,fontes,atualizadoEm:Date.now(),origem:'Shopee Live + Centro de Criação',coleta:'campos visíveis nas duas páginas; fonte Creator prioritária; sem somar duplicados'};
   await cache.set('estado',next,{ttl:2592000,name:'Retorno Shopee V2J'});
   return res.status(200).json({ok:true,alterado:true});
  }catch{return res.status(500).json({erro:'Não foi possível processar o retorno da Shopee'});}
