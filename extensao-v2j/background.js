@@ -16,6 +16,25 @@ chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
    .catch(e=>respond({ok:false,error:e.message}));
  return true;
 });
+// Ação explícita no popup: solicita releitura das DUAS páginas, sem inventar contagens.
+chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
+ if(msg?.type!=='V2J_SHOPEE_FORCE_ALL'||sender.id!==chrome.runtime.id)return;
+ Promise.all([
+  chrome.tabs.query({url:'https://live.shopee.com.br/*'}),
+  chrome.tabs.query({url:'https://creator.shopee.com.br/dashboard/live/*'})
+ ]).then(async ([liveTabs,creatorTabs])=>{
+  const targets=[...liveTabs.map(t=>({tab:t,source:'LIVE'})),...creatorTabs.map(t=>({tab:t,source:'Centro de Criação'}))];
+  if(!targets.length){respond({ok:false,message:'Abra a Shopee LIVE ou o Centro de Criação em uma aba do Chrome.'});return;}
+  const results=await Promise.all(targets.map(async({tab,source})=>{
+   try{
+    const result=await chrome.tabs.sendMessage(tab.id,{type:'V2J_SHOPEE_FORCE_SCAN'});
+    return {source,ok:!!result?.ok,found:result?.found||0,error:result?.error||result?.message||''};
+   }catch(e){return {source,ok:false,found:0,error:'Atualize a aba para carregar a extensão.'};}
+  }));
+  respond({ok:results.some(r=>r.ok),results});
+ }).catch(e=>respond({ok:false,message:e.message}));
+ return true;
+});
 const TARGET='https://painel-ao-vivo-jhonatan23.vercel.app/api/retorno?sync=1';
 chrome.action.onClicked.addListener(async tab=>{
  if(!tab?.id||!tab.url?.startsWith('https://shop.tiktok.com/streamer/live/'))return;
