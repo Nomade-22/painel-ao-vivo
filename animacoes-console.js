@@ -260,7 +260,8 @@ async function load(){
   if(!response.ok)throw Error('HTTP '+response.status);
   const data=await response.json();
   if(!catalogue.length||data.command!==state.command||
-    JSON.stringify(data.actions)!==JSON.stringify(state.actions))sync(data);
+    JSON.stringify(data.actions)!==JSON.stringify(state.actions)||
+     JSON.stringify(data.thanksTexts)!==JSON.stringify(state.thanksTexts))sync(data);
  }catch(e){notify('Não foi possível sincronizar animações: '+e.message)}
  finally{loading=false}
 }
