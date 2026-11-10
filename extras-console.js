@@ -146,4 +146,4 @@ for(const [button,url,statusId] of [
   catch{document.getElementById(statusId).textContent='Selecione e copie manualmente o endereço exibido.';}
  };
 }
-Promise.all([import('./cartas-console.js'),import('./animacoes-console.js?v=vertical-parity-v10-20261110')]).catch(error=>console.error('Falha ao abrir abas de mídia:',error));
+Promise.all([import('./cartas-console.js'),import('./animacoes-console.js?v=sync-editors-v11-20261110')]).catch(error=>console.error('Falha ao abrir abas de mídia:',error));
