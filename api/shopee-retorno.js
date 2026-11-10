@@ -1,12 +1,13 @@
 import { getCache } from '@vercel/functions';
 
-// Versão 0.8.1: estados independentes da LIVE, Creator e chat; preserva leitura v0.8.0.
+// Versão 0.8.3: fontes independentes, confirmação por ID e mapa seguro das respostas.
 const NAMESPACE = 'v2j-shopee-retorno-v2';
 const TTL = 2592000;
 const FIELDS = [
   'vendas', 'usuariosEngajados', 'comentarios', 'atc', 'visualizacoes',
   'tempoMedio', 'conversoes', 'gpm', 'pedidos', 'ads', 'ccu', 'pcu',
-  'ctr', 'taxaCliquePedidos', 'compradores', 'itensVendidos'
+  'ctr', 'taxaCliquePedidos', 'compradores', 'itensVendidos',
+  'cliques', 'curtidas', 'compartilhamentos'
 ];
 const cleanText = (value, limit = 100) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 const cleanValue = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value :
@@ -69,14 +70,27 @@ function normalizeChat(stored, legacy) {
 
 function parseDiagnostics(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
-  return Object.fromEntries(['respostas', 'mensagensValidas', 'respostasSemMensagens', 'falhasJson', 'ultimaRespostaEm']
+  const result = Object.fromEntries(['respostas', 'mensagensValidas', 'respostasSemMensagens', 'falhasJson',
+    'respostasComItens', 'produtosReconhecidos', 'ultimaRespostaEm']
     .map(field => [field, Math.max(0, Math.floor(Number(input[field]) || 0))]));
+  // Somente caminhos técnicos fixos e tipos: sem conteúdo, valores ou identificadores.
+  for (const field of ['estruturaExemplo', 'estruturaItensExemplo']) {
+    result[field] = (Array.isArray(input[field]) ? input[field] : [])
+      .filter(value => typeof value === 'string' && /^root(?:\[\])?(?:\.[A-Za-z_]{1,31}(?:\[\])?)*(?::(?:array|object|number|string|boolean|null|undefined))?$/.test(value) &&
+        !/(?:password|token|cookie|secret|authorization|session|uuid|credential)/i.test(value))
+      .slice(0, 24);
+  }
+  return result;
 }
 
 function buildResponse(live, creator, chat, legacy) {
   const merged = consolidate(live, creator);
+  const creatorProducts = Array.isArray(creator.produtos) && creator.produtos.length > 0;
+  const liveProducts = Array.isArray(live.produtos) && live.produtos.length > 0;
+  const productsSource = creatorProducts && (!liveProducts || (creator.produtoEm || 0) >= (live.produtoEm || 0))
+    ? 'creator' : liveProducts ? 'live' : 'legado';
   return {
-    versaoRetorno: '0.8.1', ...merged,
+    versaoRetorno: '0.8.3', ...merged,
     fontes: { live: live.metricas || {}, creator: creator.metricas || {} },
     fontesConectadas: { live: live.heartbeatAt || 0, creator: creator.heartbeatAt || 0 },
     fontesMeta: {
@@ -87,7 +101,8 @@ function buildResponse(live, creator, chat, legacy) {
     },
     comentariosLive: chat.comentariosLive,
     saudeChat: { ultimoComentarioEm: chat.ultimoComentarioEm, totalNovosComentarios: chat.totalNovosComentarios },
-    produtos: creator.produtos || legacy?.produtos || [],
+    produtos: (productsSource === 'creator' ? creator.produtos : productsSource === 'live' ? live.produtos : legacy?.produtos) || [],
+    produtosOrigem: productsSource,
     atualizadoEm: Math.max(live.heartbeatAt || 0, creator.heartbeatAt || 0),
     origem: 'Shopee Live + Centro de Criação',
     ultimaLeituraSuspeita: live.leituraSuspeita ? 'live' : creator.leituraSuspeita ? 'creator' : null,
@@ -141,7 +156,7 @@ export default async function handler(req, res) {
       if (diagnostico) next.diagnosticoChat = diagnostico;
     }
     const produtos = cleanProducts(body.produtos);
-    if (produtos) next.produtos = produtos;
+    if (produtos) { next.produtos = produtos;next.produtoEm = now; }
     await cache.set(sourceKey(source), next, { ttl: TTL, name: 'V2J Shopee ' + source });
 
     let fresh = [], confirmadosIds = [];
@@ -165,9 +180,9 @@ export default async function handler(req, res) {
         }, { ttl: TTL, name: 'Chat Shopee V2J' });
       }
     }
-    return res.status(200).json({ ok: true, versaoRetorno: '0.8.1', camposAceitos,
+    return res.status(200).json({ ok: true, versaoRetorno: '0.8.3', camposAceitos,
       confirmadosIds, novosComentarios: fresh.length, leituraSuspeita: suspicious,
-      ultimaConfirmacaoEm: now });
+      produtosAceitos: produtos?.length ?? null, ultimaConfirmacaoEm: now });
   } catch (error) {
     console.error('V2J Shopee: falha de sincronização:', error?.message || 'erro desconhecido');
     return res.status(500).json({ erro: 'Não foi possível processar o retorno da Shopee' });
