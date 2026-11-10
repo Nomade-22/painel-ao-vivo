@@ -38,15 +38,20 @@
   return metricas;
  }
  let last='',busy=false,lastSent=0;
- async function scan(){
-  if(busy)return;
+ async function scan(force=false){
+  if(busy)return {ok:false,message:'Leitura em andamento'};
   const metricas=read(),serialized=JSON.stringify(metricas);
-  if(serialized===last&&Date.now()-lastSent<30000)return;
+  if(!force&&serialized===last&&Date.now()-lastSent<30000)return {ok:true,found:Object.keys(metricas).length,cached:true};
   busy=true;
   try{
    const result=await chrome.runtime.sendMessage({type:'V2J_SHOPEE_CREATOR_METRICS',metricas});
    if(result?.ok){last=serialized;lastSent=Date.now();}
-  }catch{}finally{busy=false;}
+   return {ok:!!result?.ok,found:Object.keys(metricas).length,error:result?.error};
+  }catch(e){return {ok:false,error:String(e.message||e)};}finally{busy=false;}
  }
+ chrome.runtime.onMessage.addListener((message,_sender,respond)=>{
+  if(message?.type!=='V2J_SHOPEE_FORCE_SCAN')return;
+  scan(true).then(respond);return true;
+ });
  setTimeout(scan,1500);setInterval(scan,10000);
 })();
