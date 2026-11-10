@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "V2J · Sacolinha TikTok",
-  "version": "0.6.6",
+  "version": "0.6.7",
   "description": "Sincroniza sacolinha e observa estatísticas verificadas da LIVE, além de fotos e descrições. Diagnóstico passivo opcional de chamadas durante a LIVE.",
   "permissions": [
     "storage",
@@ -38,6 +38,11 @@
       "matches": ["https://live.shopee.com.br/*"],
       "js": ["diag-bridge.js"],
       "run_at": "document_start"
+    },
+    {
+      "matches": ["https://live.shopee.com.br/*"],
+      "js": ["shopee-live-monitor.js"],
+      "run_at": "document_idle"
     },
     {
       "matches": [
