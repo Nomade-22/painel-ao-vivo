@@ -45,7 +45,7 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
 </section>
 <section class="panel">
  <h2>🛍️ Desempenho dos produtos</h2>
- <p class="muted">Dados de produtos só aparecem se forem identificados e enviados pela Shopee ou Centro de Criação.</p>
+ <p class="muted" id="productsInfo">Os itens são identificados nas respostas da sacolinha da LIVE ou no Centro de Criação. Dados não confirmados permanecem como “—”.</p>
  <div id="productList" class="scroll"><div class="empty">Nenhum produto recebido ainda.</div></div>
 </section>
 <section class="panel">
@@ -55,7 +55,11 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
   <div>Respostas do chat analisadas<strong id="chatResponses">—</strong></div>
   <div>Mensagens interpretadas<strong id="parsedMessages">—</strong></div>
   <div>Último comentário confirmado<strong id="lastComment">—</strong></div>
+  <div>Respostas sem comentário novo<strong id="emptyResponses">—</strong></div>
+  <div>Produtos identificados<strong id="productsFound">—</strong></div>
+  <div>Erros ao interpretar JSON<strong id="jsonErrors">—</strong></div>
  </div>
+ <div id="schemaInfo" class="muted detail" style="margin-top:12px"></div>
  <h2 style="margin-top:20px">📊 Origem, atualização e divergências</h2>
  <div id="details" class="muted detail">Abra a Shopee LIVE e o Centro de Criação no Chrome com a extensão V2J ativa.</div>
 </section>
@@ -68,6 +72,7 @@ const labels=[
  ['comentarios','💬 Comentários',''],['atc','🛍️ ATC / carrinhos',''],['ctr','🎯 CTR',''],
  ['tempoMedio','⏱️ Tempo médio',''],['conversoes','✅ Conversões',''],['compradores','👤 Compradores',''],
  ['gpm','📊 GPM',''],['taxaCliquePedidos','📉 Cliques / pedidos',''],['ads','📣 ADS','']
+ ,['cliques','🖱️ Cliques no produto',''],['curtidas','❤️ Curtidas',''],['compartilhamentos','🔗 Compartilhamentos','']
 ];
 const el=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -92,6 +97,9 @@ function show(data){
   esc(comment.texto||'')+'</div></div>').join(''):
   '<div class="empty">Aguardando comentários identificados no chat.</div>';
  const products=Array.isArray(data.produtos)?data.produtos:[];
+ el('productsInfo').textContent=products.length?
+  'Itens recebidos: '+products.length+' · Origem: '+(data.produtosOrigem==='creator'?'Centro de Criação':data.produtosOrigem==='live'?'Sacolinha Shopee LIVE':'Dados anteriores')+'. Indicadores sem confirmação aparecem como “—”.':
+  'Aguardando os dados de itens da sacolinha ou do Centro de Criação.';
  el('productList').innerHTML=products.length?'<table><thead><tr><th>Produto</th><th>Cliques</th><th>CTR</th><th>Pedidos</th><th>Vendas</th><th>ATC</th></tr></thead><tbody>'+
   products.map(product=>'<tr>'+['nome','cliques','ctr','pedidos','vendas','atc'].map(key=>'<td>'+esc(product[key]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table>':
   '<div class="empty">Nenhum produto recebido ainda.</div>';
@@ -107,6 +115,14 @@ function show(data){
  el('chatResponses').textContent=parser.respostas??'—';
  el('parsedMessages').textContent=parser.mensagensValidas??'—';
  el('lastComment').textContent=lastChat?age(lastChat):'—';
+ el('emptyResponses').textContent=parser.respostasSemMensagens??'—';
+ el('productsFound').textContent=parser.produtosReconhecidos??'—';
+ el('jsonErrors').textContent=parser.falhasJson??'—';
+ const shape=Array.isArray(parser.estruturaExemplo)?parser.estruturaExemplo:[];
+ const itemShape=Array.isArray(parser.estruturaItensExemplo)?parser.estruturaItensExemplo:[];
+ el('schemaInfo').textContent=(shape.length?'Estrutura do chat (somente nomes/tipos): '+shape.join(' · '):
+  'Estrutura do chat: aguardando uma resposta para mapear.')+
+  (itemShape.length?' | Estrutura dos produtos: '+itemShape.join(' · '):'');
  const recentMetrics=Object.values(data.metricaOrigem||{}).some(item=>Date.now()-Number(item.atualizadoEm||0)<120000);
  const recentComments=lastChat&&Date.now()-Number(lastChat)<60000;
  const communicating=[live,creator].some(item=>Date.now()-Number(item.ultimoSinalEm||0)<60000);
