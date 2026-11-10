@@ -3,6 +3,15 @@ let tabId=null,auto=false;
 let platform='tiktok';
 const diagKeys=()=>platform==='shopee'?['v2jShopeeDiagEnabled','v2jShopeeDiagnostics']:['v2jDiagEnabled','v2jDiagnostics'];
 const setConnection=(ok,label)=>{const el=$('connection');el.classList.toggle('ok',!!ok);el.textContent='● '+label;};
+$('shopeeForce').onclick=async()=>{
+ const button=$('shopeeForce'),status=$('shopeeForceStatus');button.disabled=true;
+ status.textContent='Procurando as duas abas e solicitando a leitura…';
+ try{
+  const result=await chrome.runtime.sendMessage({type:'V2J_SHOPEE_FORCE_ALL'});
+  status.textContent=result.results?.map(r=>`${r.source}: ${r.ok?'enviado':'não enviado'} · ${r.found} indicadores identificados${r.error?' · '+r.error:''}`).join(' | ')||result.message||'Não foi possível enviar.';
+ }catch(e){status.textContent='Falha ao comunicar com a extensão: '+e.message;}
+ finally{button.disabled=false;}
+};
 document.querySelectorAll('.tabButton').forEach(button=>button.addEventListener('click',()=>{
  document.querySelectorAll('.tabButton').forEach(item=>item.setAttribute('aria-selected',String(item===button)));
  document.querySelectorAll('.tabPanel').forEach(panel=>{panel.hidden=panel.dataset.panel!==button.dataset.tab;});
