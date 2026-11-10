@@ -1,4 +1,12 @@
 importScripts('diag-background.js');
+chrome.runtime.onMessage.addListener((msg,sender,respond)=>{
+ if(msg?.type!=='V2J_SHOPEE_CREATOR_METRICS'||!sender.tab?.url?.startsWith('https://creator.shopee.com.br/dashboard/live/'))return;
+ fetch('https://painel-ao-vivo-jhonatan23.vercel.app/api/shopee-retorno',{
+  method:'PUT',credentials:'omit',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({origem:'creator-shopee',metricas:msg.metricas})
+ }).then(async r=>{if(!r.ok)throw Error('HTTP '+r.status);respond({ok:true});}).catch(e=>respond({ok:false,error:e.message}));
+ return true;
+});
 const TARGET='https://painel-ao-vivo-jhonatan23.vercel.app/api/retorno?sync=1';
 chrome.action.onClicked.addListener(async tab=>{
  if(!tab?.id||!tab.url?.startsWith('https://shop.tiktok.com/streamer/live/'))return;
