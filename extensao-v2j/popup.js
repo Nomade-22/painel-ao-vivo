@@ -16,6 +16,16 @@ async function command(type,extra={}) {
 }
 chrome.tabs.query({active:true,currentWindow:true},tabs=>{
  const tab=tabs[0];
+ if(tab?.url?.startsWith('https://creator.shopee.com.br/dashboard/live/')){
+  platform='shopee';tabId=tab.id;setConnection(true,'Centro de Criação Shopee');
+  $('message').textContent='As métricas visíveis são sincronizadas automaticamente com o retorno Shopee.';
+  document.querySelector('[data-tab="diag"]').click();
+  document.querySelector('[data-panel="diag"] strong').textContent='Métricas do Centro de Criação';
+  for(const el of document.querySelectorAll('.tabButton:not([data-tab="diag"])'))el.disabled=true;
+  for(const id of ['diagToggle','diagExport','diagClear'])$(id).disabled=true;
+  $('diagStatus').textContent='Métricas comerciais: captura automática, sem diagnóstico de chamadas nesta aba.';
+  return;
+ }
  if(tab?.url?.startsWith('https://live.shopee.com.br/')){
    platform='shopee';tabId=tab.id;
    setConnection(true,'Shopee detectada');
