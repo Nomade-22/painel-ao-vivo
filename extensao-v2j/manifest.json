@@ -1,15 +1,17 @@
 {
   "manifest_version": 3,
   "name": "V2J · Sacolinha TikTok",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Sincroniza sacolinha e observa estatísticas verificadas da LIVE, além de fotos e descrições. Diagnóstico passivo opcional de chamadas durante a LIVE.",
   "permissions": [
     "storage",
     "activeTab",
+    "scripting",
     "alarms"
   ],
   "host_permissions": [
     "https://shop.tiktok.com/*",
+    "https://live.shopee.com.br/*",
     "https://painel-ao-vivo-jhonatan23.vercel.app/*"
   ],
   "action": {
@@ -20,6 +22,17 @@
     "service_worker": "background.js"
   },
   "content_scripts": [
+    {
+      "matches": ["https://live.shopee.com.br/*"],
+      "js": ["diag-observer.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://live.shopee.com.br/*"],
+      "js": ["diag-bridge.js"],
+      "run_at": "document_start"
+    },
     {
       "matches": [
         "https://shop.tiktok.com/streamer/live/*"
