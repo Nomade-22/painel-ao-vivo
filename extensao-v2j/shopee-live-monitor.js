@@ -12,7 +12,7 @@
   vendas:[/^vendas\s*(?:\(r\$\))?$/i]
  };
  const valid=/^(?:R\$\s*)?\d[\d.,]*$/;
- const cache=new Map();let last='',sending=false;
+ let last='',sending=false,lastSent=0;
  function collect(){
   const metrics={};
   const leaves=[...document.querySelectorAll('span,div,p,strong,small,label')]
@@ -37,11 +37,11 @@
   if(sending)return;
   const metrics=collect();
   const serialized=JSON.stringify(metrics);
-  if(!Object.keys(metrics).length||serialized===last)return;
+  if(serialized===last&&Date.now()-lastSent<30000)return;
   sending=true;
   try{
    const response=await chrome.runtime.sendMessage({type:'V2J_SHOPEE_LIVE_METRICS',metricas:metrics});
-   if(response?.ok)last=serialized;
+   if(response?.ok){last=serialized;lastSent=Date.now();}
   }catch{}finally{sending=false;}
  }
  setTimeout(scan,1500);
