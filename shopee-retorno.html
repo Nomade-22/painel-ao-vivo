@@ -4,6 +4,7 @@
 </style></head><body>
 <header><div><div class="sub">✦ V2J STUDIO / CENTRAL DE RETORNO</div><h1><span class="brand">Shopee</span> LIVE</h1><div id="status" class="status">Aguardando informações do Centro de Criação…</div></div><div><button id="export">⬇ Exportar relatório JSON</button> <a href="/console.html">Console V2J</a></div></header>
 <div id="kpis" class="grid"></div>
+<section class="panel"><h2>💬 Comentários da Shopee LIVE</h2><p class="muted">Mensagens identificadas pela extensão, sem repetições. Este histórico não substitui o contador oficial de comentários.</p><div id="liveComments"><div class="empty">Aguardando mensagens identificadas no chat.</div></div></section>
 <section class="panel"><h2>🛍️ Desempenho dos produtos</h2><p class="muted">Dados capturados apenas quando aparecem identificados no Centro de Criação da Shopee.</p><div id="productList" class="scroll"><div class="empty">Nenhum produto recebido ainda.</div></div></section>
 <section class="panel"><h2>📡 Conexão com as duas abas</h2><div id="connections" class="connections"><span class="tag">LIVE: aguardando</span> <span class="tag">Centro de Criação: aguardando</span></div><h2 style="margin-top:20px">📊 Origem e atualização dos dados</h2><div id="details" class="muted">Abra a Shopee Live e o Centro de Criação com a extensão V2J ativa para começar a sincronização.</div></section>
 <footer>“—” significa não disponível; nunca representa zero. Vendas e pedidos são indicadores do painel da Shopee, sujeitos à atualização da plataforma.</footer>
@@ -12,6 +13,8 @@ const labels=[['vendas','💰 Vendas','primary'],['pedidos','🛒 Pedidos',''],[
 const el=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));let snapshot=null;
 el('kpis').innerHTML=labels.map(([key,label,cls])=>`<article class="card ${cls}"><small>${label}</small><strong id="k-${key}">—</strong></article>`).join('');
 function show(data){snapshot=data;for(const [key] of labels){const value=data.metricas?.[key];el('k-'+key).textContent=value===undefined||value===null||value===''?'—':typeof value==='number'?value.toLocaleString('pt-BR'):value;}
+ const comments=(Array.isArray(data.comentariosLive)?data.comentariosLive:[]).slice(-30).reverse();
+ el('liveComments').innerHTML=comments.length?comments.map(c=>'<div style="border-bottom:1px solid #304761;padding:9px 0"><strong>'+esc(c.autor||'Espectador')+'</strong> <small class="muted">'+esc(c.hora||'')+'</small><div style="overflow-wrap:anywhere">'+esc(c.texto||'')+'</div></div>').join(''):'<div class="empty">Aguardando mensagens identificadas no chat.</div>';
  const products=data.produtos||[];el('productList').innerHTML=products.length?'<table><thead><tr><th>Produto</th><th>Cliques</th><th>CTR</th><th>Pedidos</th><th>Vendas</th><th>ATC</th></tr></thead><tbody>'+products.map(p=>'<tr>'+['nome','cliques','ctr','pedidos','vendas','atc'].map(k=>'<td>'+esc(p[k]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table>':'<div class="empty">Nenhum produto recebido ainda.</div>';
  const connected=(key)=>{const time=data.fontesConectadas?.[key];return time&&Date.now()-time<60000;};
  el('connections').textContent='Shopee LIVE: '+(connected('live')?'● Conectada':'○ Sem sinal')+'     |     Centro de Criação: '+(connected('creator')?'● Conectado':'○ Sem sinal');

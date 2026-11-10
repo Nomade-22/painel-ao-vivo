@@ -3,12 +3,41 @@ let tabId=null,auto=false;
 let platform='tiktok';
 const diagKeys=()=>platform==='shopee'?['v2jShopeeDiagEnabled','v2jShopeeDiagnostics']:['v2jDiagEnabled','v2jDiagnostics'];
 const setConnection=(ok,label)=>{const el=$('connection');el.classList.toggle('ok',!!ok);el.textContent='● '+label;};
+$('fieldAudit').onclick=async()=>{
+ const button=$('fieldAudit'),status=$('fieldAuditStatus');button.disabled=true;
+ status.textContent='Verificando abas TikTok e Shopee…';
+ try{
+  const tabs=await chrome.tabs.query({url:[
+   'https://shop.tiktok.com/streamer/live/*',
+   'https://live.shopee.com.br/*',
+   'https://creator.shopee.com.br/dashboard/live/*'
+  ]});
+  const results=await Promise.all(tabs.map(async tab=>{
+   try{
+    let response;
+    try{response=await chrome.tabs.sendMessage(tab.id,{type:'V2J_FIELD_AUDIT'});}
+    catch{
+     await chrome.scripting.executeScript({target:{tabId:tab.id},files:['field-audit.js']});
+     response=await chrome.tabs.sendMessage(tab.id,{type:'V2J_FIELD_AUDIT'});
+    }
+    return response?.diagnostico||{pagina:'desconhecida',erro:'Não foi possível mapear esta aba'};
+   }catch(e){return {pagina:new URL(tab.url).hostname,erro:'Atualize esta aba e tente novamente.'};}
+  }));
+  if(!results.length){status.textContent='Abra o TikTok LIVE e as abas Shopee antes de executar.';return;}
+  const report={versao:'0.7.1',geradoEm:new Date().toISOString(),diagnosticos:results};
+  const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));
+  const a=document.createElement('a');a.href=url;a.download='v2j-mapa-campos-live-'+new Date().toISOString().slice(0,10)+'.json';a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),5000);
+  status.textContent=results.length+' aba(s) verificadas. Envie o JSON para identificar os campos ausentes.';
+ }catch(e){status.textContent='Falha ao mapear campos: '+e.message;}
+ finally{button.disabled=false;}
+};
 $('shopeeForce').onclick=async()=>{
  const button=$('shopeeForce'),status=$('shopeeForceStatus');button.disabled=true;
  status.textContent='Procurando as duas abas e solicitando a leitura…';
  try{
   const result=await chrome.runtime.sendMessage({type:'V2J_SHOPEE_FORCE_ALL'});
-  status.textContent=result.results?.map(r=>`${r.source}: ${r.ok?'enviado':'não enviado'} · ${r.found} indicadores identificados${r.error?' · '+r.error:''}`).join(' | ')||result.message||'Não foi possível enviar.';
+  status.textContent=result.results?.map(r=>`${r.source}: ${r.ok?'enviado':'não enviado'} · ${r.found} indicadores identificados · ${r.mensagensEnviadas||0} novas mensagens${r.error?' · '+r.error:''}`).join(' | ')||result.message||'Não foi possível enviar.';
  }catch(e){status.textContent='Falha ao comunicar com a extensão: '+e.message;}
  finally{button.disabled=false;}
 };
