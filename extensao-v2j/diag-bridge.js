@@ -1,6 +1,8 @@
 // Encaminha metadados sanitizados ao armazenamento local da extensão, em lotes pequenos.
 (() => {
-  const KEY = 'v2jDiagEnabled';
+  if (window.__v2jDiagBridge) return;
+  window.__v2jDiagBridge=true;
+  const KEY = location.hostname === 'live.shopee.com.br' ? 'v2jShopeeDiagEnabled' : 'v2jDiagEnabled';
   let enabled = false;
   let queue = [];
   const setEnabled = value => {
@@ -15,7 +17,7 @@
   window.addEventListener('message', e => {
     if (!enabled || e.source !== window || e.origin !== location.origin || e.data?.source !== 'V2J_DIAG_MAIN') return;
     const x = e.data.event;
-    if (!x || !/^\/(api|gateway)\//.test(x.path) || x.path.length > 180 || !/^(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)$/.test(x.method)) return;
+    if (!x || !/^\/(api|gateway|shopee)\//.test(x.path) || x.path.length > 180 || !/^(GET|POST|PUT|PATCH|DELETE|OPTIONS|HEAD)$/.test(x.method)) return;
     queue.push({ at: x.at, method: x.method, path: x.path, status: x.status, ms: x.ms });
     if (queue.length > 100) queue = queue.slice(-100);
   });
