@@ -97,8 +97,10 @@ $('diagExport').onclick=async()=>{
  const diagKey=diagKeys()[1];const data=await chrome.storage.local.get(diagKey);
  const report=data[diagKey];
  if(!report?.events?.length){$('message').textContent='Não há chamadas registradas para exportar.';return;}
+ // Sanitiza inclusive registros antigos, anteriores à correção de identificadores.
+ const safeEvents=report.events.map(e=>({...e,path:platform==='shopee'?e.path.split('/').map((part,index)=>index>2&&part.length>=16?':id':part).join('/'):e.path}));
  const summary={};
- for(const e of report.events){
+ for(const e of safeEvents){
   const key=e.method+' '+e.path;
   const item=summary[key]||(summary[key]={calls:0,errors:0,averageMs:0,statuses:{}});
   item.calls++;item.averageMs+=e.ms;
@@ -107,13 +109,13 @@ $('diagExport').onclick=async()=>{
  }
  for(const item of Object.values(summary))item.averageMs=Math.round(item.averageMs/item.calls);
  const groups={};
- const classify=path=>/\/live\/detail\/core\/stats|\/live\/detail\/trend\/chart/.test(path)?'estatisticas':/governance|violation/.test(path)?'seguranca_e_avisos':/live_product\/list|recommended_product|product\/pin|\/pin\/get/.test(path)?'produtos':/\/live\/detail\/room\/status/.test(path)?'estado_live':'outras';
+ const classify=path=>/\/live\/detail\/core\/stats|\/live\/detail\/trend\/chart/.test(path)?'estatisticas':/governance|violation/.test(path)?'seguranca_e_avisos':/live_product\/list|recommended_product|product\/pin|\/pin\/get/.test(path)?'produtos':/\/live\/detail\/room\/status/.test(path)?'estado_live':/\/shopee\/.*\/chatroom\//.test(path)?'mensagens_shopee':/\/shopee\/.*\/(?:coin|super_rain)/.test(path)?'promocoes_shopee':'outras';
  for(const [endpoint,info] of Object.entries(summary)){
   const category=classify(endpoint);
   const item=groups[category]||(groups[category]={chamadas:0,errosHttp:0,rotas:[]});
   item.chamadas+=info.calls;item.errosHttp+=info.errors;item.rotas.push(endpoint);
  }
- const output={source:platform==='shopee'?'V2J Shopee Live - diagnóstico passivo':'V2J TikTok Shop - diagnóstico passivo',version:'0.6.4',exportedAt:new Date().toISOString(),startedAt:new Date(report.startedAt).toISOString(),updatedAt:new Date(report.updatedAt).toISOString(),totalObserved:report.total,retained:report.events.length,privacy:'Sem parâmetros de URL, headers, cookies, corpos, tokens ou IDs pessoais.',interpretacao:'Chamadas a rotas de estatísticas e violações NÃO significam vendas ou infrações confirmadas. Os valores não estão contidos neste diagnóstico.',grupos:groups,summary,events:report.events};
+ const output={source:platform==='shopee'?'V2J Shopee Live - diagnóstico passivo':'V2J TikTok Shop - diagnóstico passivo',version:'0.6.5',exportedAt:new Date().toISOString(),startedAt:new Date(report.startedAt).toISOString(),updatedAt:new Date(report.updatedAt).toISOString(),totalObserved:report.total,retained:safeEvents.length,privacy:'Sem parâmetros de URL, headers, cookies, corpos, tokens ou IDs pessoais.',interpretacao:'Chamadas a rotas de estatísticas e violações NÃO significam vendas ou infrações confirmadas. Os valores não estão contidos neste diagnóstico.',grupos:groups,summary,events:safeEvents};
  const blob=new Blob([JSON.stringify(output,null,2)],{type:'application/json'});
  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='v2j-diagnostico-'+platform+'-'+new Date().toISOString().slice(0,10)+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);
  $('message').textContent='Relatório gerado. Envie o JSON aqui para análise.';
