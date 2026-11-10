@@ -16,21 +16,29 @@
  const numeric=/^(?:(?:R\$\s*)?\d[\d.,]*\s*%?|\d{1,2}:\d{2}(?::\d{2})?)$/;
  function read(){
   const metricas={};
-  // Apenas elementos cujo texto coincide integralmente com o rótulo conhecido.
+  // Os dashboards usam grids com muitos "0" próximos. Só associamos um número
+  // ao rótulo quando o menor card contém UM único candidato numérico.
   const leaves=[...document.querySelectorAll('span,div,p,small,strong,label,td')]
     .filter(e=>e.children.length===0&&e.getClientRects().length&&normalize(e.textContent).length<80);
+  const allLabels=new Set(Object.values(fields).flat().map(fold));
   for(const [field,aliases] of Object.entries(fields)){
    for(const label of aliases){
     const leaf=leaves.find(e=>fold(e.textContent)===fold(label));
     if(!leaf)continue;
     let value=null;
-    for(let parent=leaf.parentElement,depth=0;parent&&depth<3;parent=parent.parentElement,depth++){
-     const parts=(parent.innerText||'').split(/\n/).map(normalize).filter(Boolean);
-     const idx=parts.findIndex(p=>fold(p)===fold(label));
-     if(idx<0)continue;
-     const nearest=[parts[idx+1],parts[idx-1]].filter(p=>numeric.test(p||''));
-     if(nearest.length){value=nearest[0];break;}
-     if(parts.length<=4){const candidates=parts.filter(p=>numeric.test(p));if(candidates.length===1){value=candidates[0];break;}}
+    for(let parent=leaf.parentElement,depth=0;parent&&depth<4;parent=parent.parentElement,depth++){
+     const siblings=leaves.filter(e=>parent.contains(e));
+     // Atravessar o limite de um card mistura métricas: rejeitar.
+     if(siblings.some(e=>e!==leaf&&allLabels.has(fold(e.textContent))))break;
+     const candidate=siblings.filter(e=>e!==leaf&&numeric.test(normalize(e.textContent)));
+     if(candidate.length===1){
+      const a=leaf.getBoundingClientRect(),b=candidate[0].getBoundingClientRect();
+      // O valor precisa estar visualmente junto do próprio rótulo.
+      if(Math.abs((a.left+a.right)/2-(b.left+b.right)/2)<190&&Math.abs((a.top+a.bottom)/2-(b.top+b.bottom)/2)<110){
+       value=normalize(candidate[0].textContent);break;
+      }
+     }
+     if(candidate.length>1)break;
     }
     if(value!==null){metricas[field]=value;break;}
    }
