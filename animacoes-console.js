@@ -268,13 +268,13 @@ async function load(){
 const thankYouActions={
  likes:{id:'v2j-thanks-likes',name:'Obrigado pelas curtidas',effect:'hearts',
   emoji:'💖',message:'OBRIGADO PELAS CURTIDAS! Vocês fazem nossa live brilhar ✨',
-  color:'#ff4b87',duration:6000,intensity:75,speed:1,position:'center',loop:false},
+  color:'#ff4b87',duration:10000,intensity:75,speed:1,position:'center',loop:false},
  follow:{id:'v2j-thanks-follow',name:'Obrigado por seguir',effect:'confetti',
   emoji:'🎉',message:'OBRIGADO POR SEGUIR! Que alegria ter você com a gente 💚',
-  color:'#2dd4bf',duration:6000,intensity:75,speed:1,position:'center',loop:false},
+  color:'#2dd4bf',duration:10000,intensity:75,speed:1,position:'center',loop:false},
  purchase:{id:'v2j-thanks-purchase',name:'Obrigado pela compra',effect:'confetti',
   emoji:'🛍️',message:'OBRIGADO PELA COMPRA! Sua confiança faz nossa live brilhar ✨',
-  color:'#f5b942',duration:6000,intensity:85,speed:1,position:'center',loop:false}
+  color:'#f5b942',duration:10000,intensity:85,speed:1,position:'center',loop:false}
 };
 function thankYouKey(action){return action.id.replace('v2j-thanks-','');}
 function currentThanks(action){
