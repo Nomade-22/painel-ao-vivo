@@ -87,3 +87,9 @@
 .thanks-inline-editor label{display:grid;gap:5px;font-size:12px;font-weight:700;color:#cbdcf9}
 .thanks-inline-editor input,.thanks-inline-editor textarea{width:100%;box-sizing:border-box;padding:9px;color:#fff;background:#182944;border:1px solid #577095;border-radius:7px;font:inherit;font-size:13px;resize:vertical}
 .thanks-inline-editor .animation-tile-actions button{font-size:12px}
+
+/* Prévia fiel à transmissão vertical 9:16: mesma proporção da fonte OBS. */
+.animation-preview-panel{align-items:center}
+.animation-preview-head{width:100%}
+#animacoesPreviewFrame{box-sizing:border-box;display:block;flex:none;width:min(100%,405px);height:auto;aspect-ratio:9 / 16;min-height:0;max-height:none;border-radius:14px}
+@media(max-width:720px){#animacoesPreviewFrame{width:min(100%,340px);height:auto;min-height:0;max-height:none}}
