@@ -70,15 +70,18 @@ function normalizeChat(stored, legacy) {
 
 function parseDiagnostics(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
-  const counter = value => {
+  const counter = (value, field) => {
     const number = Number(value);
-    return Number.isFinite(number) ? Math.min(1_000_000_000, Math.max(0, Math.floor(number))) : 0;
+    // Timestamps estão em milissegundos; não podem receber o limite de
+    // contadores, senão a página interpreta 2026 como uma data de 1970.
+    const upper = field === 'ultimaRespostaEm' || field === 'domUltimaLeituraEm' ? 4_102_444_800_000 : 1_000_000_000;
+    return Number.isFinite(number) ? Math.min(upper, Math.max(0, Math.floor(number))) : 0;
   };
   const result = Object.fromEntries(['respostas', 'mensagensValidas', 'respostasSemMensagens', 'falhasJson',
     'respostasComItens', 'produtosReconhecidos', 'ultimaRespostaEm',
     'domLinhasObservadas', 'domEntradas', 'domIntencoesCompra', 'domComentarios',
     'domSemAutor', 'domUltimaLeituraEm']
-    .map(field => [field, counter(input[field])]));
+    .map(field => [field, counter(input[field], field)]));
   // Somente caminhos técnicos fixos e tipos: sem conteúdo, valores ou identificadores.
   for (const field of ['estruturaExemplo', 'estruturaItensExemplo']) {
     result[field] = (Array.isArray(input[field]) ? input[field] : [])
