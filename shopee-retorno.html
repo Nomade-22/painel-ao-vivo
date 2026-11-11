@@ -22,6 +22,7 @@ section{margin-top:20px}.muted{color:#a9c0d6;font-size:13px}.sub{font-size:12px;
 .tag.off{opacity:.75}.health{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
 .health div{background:#1c3049;border:1px solid #35516d;border-radius:10px;padding:12px;font-size:12px;color:#c0d5e9}
 .health strong{display:block;font-size:19px;color:white;margin-top:5px}.detail{line-height:1.65;overflow-wrap:anywhere}
+.dom-note{background:#202f45;border-left:3px solid #ff864f;border-radius:8px;padding:11px 14px;margin:14px 0 0;color:#cfe0ee;font-size:13px;line-height:1.55}
 table{border-collapse:collapse;width:100%;min-width:670px}th,td{padding:12px;border-bottom:1px solid #33485e;text-align:left}
 th{color:#b7d0e5;font-size:12px}td{font-size:14px}.scroll{overflow:auto}
 .empty{padding:20px;color:#acbdd1;border:1px dashed #405571;border-radius:10px}
@@ -40,7 +41,7 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
 <div id="kpis" class="grid"></div>
 <section class="panel">
  <h2>💬 Comentários da Shopee LIVE</h2>
- <p class="muted">Exibe as mensagens confirmadas pela API V2J, sem repetição dos mesmos IDs. Não substitui o contador oficial da Shopee.</p>
+ <p class="muted">Mensagens confirmadas pelo Retorno V2J, capturadas pela API da Shopee ou diretamente do chat exibido na LIVE. Não substitui o contador oficial da Shopee.</p>
  <div id="liveComments"><div class="empty">Aguardando comentários identificados no chat.</div></div>
 </section>
 <section class="panel">
@@ -53,12 +54,22 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
  <div id="connections"><span class="tag off">LIVE: aguardando</span><span class="tag off">Creator: aguardando</span></div>
  <div class="health">
   <div>Respostas do chat analisadas<strong id="chatResponses">—</strong></div>
-  <div>Mensagens interpretadas<strong id="parsedMessages">—</strong></div>
+  <div>Mensagens interpretadas pela API<strong id="parsedMessages">—</strong></div>
   <div>Último comentário confirmado<strong id="lastComment">—</strong></div>
   <div>Respostas sem comentário novo<strong id="emptyResponses">—</strong></div>
   <div>Produtos identificados<strong id="productsFound">—</strong></div>
   <div>Erros ao interpretar JSON<strong id="jsonErrors">—</strong></div>
  </div>
+ <h2 style="margin-top:22px">💬 Leitura complementar do chat na tela</h2>
+ <div class="health">
+  <div>Comentários identificados<strong id="domComments">—</strong></div>
+  <div>Avisos de entrada observados<strong id="domEntries">—</strong></div>
+  <div>Avisos de intenção de compra<strong id="domPurchaseIntent">—</strong></div>
+  <div>Linhas diferentes observadas<strong id="domRows">—</strong></div>
+  <div>Textos sem autor identificado<strong id="domNoAuthor">—</strong></div>
+  <div>Última leitura da tela<strong id="domLastScan">—</strong></div>
+ </div>
+ <div class="dom-note"><strong>Importante:</strong> avisos como “está comprando produtos” não comprovam pedidos ou pagamentos. Avisos de entrada não são o total de espectadores únicos. Só mensagens com autor e texto identificáveis são encaminhadas como comentários.</div>
  <div id="schemaInfo" class="muted detail" style="margin-top:12px"></div>
  <h2 style="margin-top:20px">📊 Origem, atualização e divergências</h2>
  <div id="details" class="muted detail">Abra a Shopee LIVE e o Centro de Criação no Chrome com a extensão V2J ativa.</div>
@@ -118,6 +129,12 @@ function show(data){
  el('emptyResponses').textContent=parser.respostasSemMensagens??'—';
  el('productsFound').textContent=parser.produtosReconhecidos??'—';
  el('jsonErrors').textContent=parser.falhasJson??'—';
+ el('domComments').textContent=parser.domComentarios??'—';
+ el('domEntries').textContent=parser.domEntradas??'—';
+ el('domPurchaseIntent').textContent=parser.domIntencoesCompra??'—';
+ el('domRows').textContent=parser.domLinhasObservadas??'—';
+ el('domNoAuthor').textContent=parser.domSemAutor??'—';
+ el('domLastScan').textContent=parser.domUltimaLeituraEm?age(parser.domUltimaLeituraEm):'—';
  const shape=Array.isArray(parser.estruturaExemplo)?parser.estruturaExemplo:[];
  const itemShape=Array.isArray(parser.estruturaItensExemplo)?parser.estruturaItensExemplo:[];
  el('schemaInfo').textContent=(shape.length?'Estrutura do chat (somente nomes/tipos): '+shape.join(' · '):
@@ -128,7 +145,7 @@ function show(data){
  const communicating=[live,creator].some(item=>Date.now()-Number(item.ultimoSinalEm||0)<60000);
  el('status').dataset.live=recentMetrics||recentComments?'1':'0';
  el('status').textContent=recentMetrics||recentComments?'● Dados Shopee confirmados · '+prettyTime(data.atualizadoEm):
-  communicating?'● Extensão comunicando, aguardando dados válidos':'○ Sem dados recentes da Shopee';
+  communicating?'● Extensão comunicando; confira comentários e avisos capturados abaixo':'○ Sem dados recentes da Shopee';
  const conflicts=Object.entries(data.conflitos||{});
  const conflictSummary=conflicts.length?' · ⚠️ Indicadores divergentes: '+conflicts.map(([key,c])=>key+' (exibindo '+(c.exibindo==='creator'?'Creator':'LIVE')+')').join(', '):'';
  el('details').textContent='Campos exibidos: '+Object.keys(data.metricas||{}).length+
