@@ -1,6 +1,6 @@
 import { getCache } from '@vercel/functions';
 
-// Versão 0.8.3: fontes independentes, confirmação por ID e mapa seguro das respostas.
+// Versão 0.8.5: API + leitura complementar do chat exibido pela Shopee.
 const NAMESPACE = 'v2j-shopee-retorno-v2';
 const TTL = 2592000;
 const FIELDS = [
@@ -70,9 +70,15 @@ function normalizeChat(stored, legacy) {
 
 function parseDiagnostics(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const counter = value => {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.min(1_000_000_000, Math.max(0, Math.floor(number))) : 0;
+  };
   const result = Object.fromEntries(['respostas', 'mensagensValidas', 'respostasSemMensagens', 'falhasJson',
-    'respostasComItens', 'produtosReconhecidos', 'ultimaRespostaEm']
-    .map(field => [field, Math.max(0, Math.floor(Number(input[field]) || 0))]));
+    'respostasComItens', 'produtosReconhecidos', 'ultimaRespostaEm',
+    'domLinhasObservadas', 'domEntradas', 'domIntencoesCompra', 'domComentarios',
+    'domSemAutor', 'domUltimaLeituraEm']
+    .map(field => [field, counter(input[field])]));
   // Somente caminhos técnicos fixos e tipos: sem conteúdo, valores ou identificadores.
   for (const field of ['estruturaExemplo', 'estruturaItensExemplo']) {
     result[field] = (Array.isArray(input[field]) ? input[field] : [])
@@ -90,7 +96,7 @@ function buildResponse(live, creator, chat, legacy) {
   const productsSource = creatorProducts && (!liveProducts || (creator.produtoEm || 0) >= (live.produtoEm || 0))
     ? 'creator' : liveProducts ? 'live' : 'legado';
   return {
-    versaoRetorno: '0.8.3', ...merged,
+    versaoRetorno: '0.8.5', ...merged,
     fontes: { live: live.metricas || {}, creator: creator.metricas || {} },
     fontesConectadas: { live: live.heartbeatAt || 0, creator: creator.heartbeatAt || 0 },
     fontesMeta: {
@@ -106,7 +112,7 @@ function buildResponse(live, creator, chat, legacy) {
     atualizadoEm: Math.max(live.heartbeatAt || 0, creator.heartbeatAt || 0),
     origem: 'Shopee Live + Centro de Criação',
     ultimaLeituraSuspeita: live.leituraSuspeita ? 'live' : creator.leituraSuspeita ? 'creator' : null,
-    coleta: 'Métricas por fonte com data e origem; divergências são exibidas sem somar contadores.'
+    coleta: 'Métricas oficiais por fonte; comentários reconhecidos pela API ou tela; entradas e intenções de compra são apenas avisos, nunca vendas.'
   };
 }
 
@@ -180,7 +186,7 @@ export default async function handler(req, res) {
         }, { ttl: TTL, name: 'Chat Shopee V2J' });
       }
     }
-    return res.status(200).json({ ok: true, versaoRetorno: '0.8.3', camposAceitos,
+    return res.status(200).json({ ok: true, versaoRetorno: '0.8.5', camposAceitos,
       confirmadosIds, novosComentarios: fresh.length, leituraSuspeita: suspicious,
       produtosAceitos: produtos?.length ?? null, ultimaConfirmacaoEm: now });
   } catch (error) {
