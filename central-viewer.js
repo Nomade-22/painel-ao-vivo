@@ -42,6 +42,87 @@ function refreshCaptureHealth(data){
   '○ Eventos em tempo real: aguardando');
  setHealth('healthSession','off','Fonte: TikTok + leitura V2J; atividade da rede não confirma venda');
 }
+
+const PRODUCT_DISPLAY_MS={produto_visto:4600,carrinho:6200};
+const observedProductIds=new Set();
+const pendingProductQueue=[];
+let productQueueBootstrapped=false,activeProductEvent=null,queueTimer=null;
+const productEvent=e=>(e?.tipo==='produto_visto'||e?.tipo==='carrinho')&&
+ typeof e?.id==='string'&&Number.isInteger(Number(e.numeroProduto))&&
+ Number(e.numeroProduto)>=1&&Number(e.numeroProduto)<=999;
+const recentProductEvent=e=>Number(e.recebidoEm)>0&&
+ Date.now()-Number(e.recebidoEm)<120000&&Date.now()-Number(e.recebidoEm)>-60000;
+function productEventTitle(e,catalog){
+ const p=(Array.isArray(catalog)?catalog:[]).find(x=>Number(x.numero)===Number(e.numeroProduto));
+ const name=typeof p?.nome==='string'&&p.nome.trim()?p.nome.trim():'Produto da sacolinha';
+ return '#'+e.numeroProduto+' · '+name.slice(0,54)+(name.length>54?'…':'');
+}
+function renderQueueCurrent(){
+ const current=$('queueNow');if(!current)return;
+ current.replaceChildren();current.className='activity-now';
+ if(!activeProductEvent){
+  const emoji=document.createElement('span');emoji.className='activity-emoji';emoji.textContent='📦';
+  const info=document.createElement('div');info.className='activity-info';
+  const heading=document.createElement('div');heading.className='activity-product';heading.textContent='Aguardando novas atividades';
+  const hint=document.createElement('div');hint.className='activity-description';hint.textContent='Avisos de visualização e carrinho aparecerão um de cada vez.';
+  info.append(heading,hint);current.append(emoji,info);
+ }else{
+  const e=activeProductEvent,data=snapshot||{};
+  const emoji=document.createElement('span');emoji.className='activity-emoji';emoji.textContent=e.tipo==='carrinho'?'🛒':'👀';
+  const info=document.createElement('div');info.className='activity-info';
+  const heading=document.createElement('div');heading.className='activity-product';
+  heading.textContent=productEventTitle(e,data.catalogo);
+  const hint=document.createElement('div');hint.className='activity-description';
+  hint.textContent=(e.tipo==='carrinho'?'Adicionado ao carrinho':'Alguém está vendo este produto')+
+    (e.autor?' · '+e.autor:'')+' · aviso observado às '+(e.hora||'—');
+  info.append(heading,hint);current.append(emoji,info);
+  current.classList.add(e.tipo==='carrinho'?'cart':'view','active');
+ }
+ $('queuePending').textContent=activeProductEvent?
+  (pendingProductQueue.length?pendingProductQueue.length+' aguardando':'Exibindo agora'):
+  (pendingProductQueue.length?pendingProductQueue.length+' aguardando':'Fila vazia');
+}
+function playNextProductEvent(){
+ if(queueTimer){clearTimeout(queueTimer);queueTimer=null}
+ activeProductEvent=pendingProductQueue.shift()||null;
+ renderQueueCurrent();
+ if(activeProductEvent){
+  const ms=PRODUCT_DISPLAY_MS[activeProductEvent.tipo]||5000;
+  queueTimer=setTimeout(playNextProductEvent,ms);
+ }
+}
+function updateProductActivity(data){
+ const catalog=Array.isArray(data.catalogo)?data.catalogo:[];
+ const observed=(Array.isArray(data.liveEventos)?data.liveEventos:[])
+  .filter(productEvent).sort((a,b)=>(Number(a.recebidoEm)||0)-(Number(b.recebidoEm)||0));
+ // Não reproduzir a fila antiga ao abrir/atualizar a página.
+ if(!productQueueBootstrapped){
+  for(const e of observed)observedProductIds.add(e.id);
+  productQueueBootstrapped=true;
+ }else{
+  for(const e of observed){
+   if(observedProductIds.has(e.id))continue;
+   observedProductIds.add(e.id);
+   if(recentProductEvent(e))pendingProductQueue.push(e);
+  }
+  // Limite de segurança para avisos em alta frequência. O painel informa a fila pendente.
+  if(pendingProductQueue.length>100)pendingProductQueue.splice(0,pendingProductQueue.length-100);
+ }
+ const counts=new Map();
+ for(const e of observed.filter(recentProductEvent)){
+  if(e.tipo!=='carrinho')continue;
+  const n=Number(e.numeroProduto);
+  counts.set(n,(counts.get(n)||0)+1);
+ }
+ const sorted=[...counts.entries()].sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,6);
+ const summary=$('cartProductList');
+ if(summary)summary.textContent=sorted.length?
+  sorted.map(([n,count])=>'#'+n+' ('+count+' aviso'+(count===1?'':'s')+')').join(' · '):
+  'Nenhum aviso identificado nos últimos 2 minutos';
+ if(!activeProductEvent&&pendingProductQueue.length)playNextProductEvent();
+ else if(!activeProductEvent)renderQueueCurrent();
+ else $('queuePending').textContent=pendingProductQueue.length?pendingProductQueue.length+' aguardando':'Exibindo agora';
+}
 function messageNode(m){
  const node=document.createElement('div');node.className='message'+(m.tipo==='pedido'?' order':m.tipo==='seguidor'?' follow':'');
  const heading=document.createElement('div'),name=document.createElement('strong'),time=document.createElement('small'),body=document.createElement('p');
@@ -51,10 +132,11 @@ function messageNode(m){
 function show(data){
  snapshot=data;
  refreshCaptureHealth(data);
+ updateProductActivity(data);
  if(data.versao===version)return;version=data.versao;
  const list=$('messages');list.replaceChildren();
  const manual=Array.isArray(data.chat)?data.chat:[];
- const live=Array.isArray(data.liveEventos)?data.liveEventos:[];
+ const live=(Array.isArray(data.liveEventos)?data.liveEventos:[]).filter(e=>e.tipo!=='produto_visto'&&e.tipo!=='carrinho');
  const messages=[...manual.map(m=>({...m,tipo:'manual'})),...live].sort((a,b)=>(Number(a.recebidoEm)||0)-(Number(b.recebidoEm)||0)).slice(-70);
  if(!messages.length){const empty=document.createElement('div');empty.className='empty';empty.textContent='Aguardando comentários e avisos da LIVE…';list.append(empty);}
  else for(const m of messages)list.append(messageNode({...m,autor:m.tipo==='pedido'?'🛒 NOVO PEDIDO':m.tipo==='seguidor'?'👤 NOVO SEGUIDOR':m.autor}));
@@ -139,6 +221,8 @@ $('exportSummary').onclick=()=>{
   ['Comentários capturados (recentes)',events.filter(e=>e.tipo==='comentario').length],
   ['Seguidores capturados (recentes)',events.filter(e=>e.tipo==='seguidor').length],
   ['Pedidos capturados (recentes)',events.filter(e=>e.tipo==='pedido').length],
+  ['Avisos de produto visto (eventos retidos)',events.filter(e=>e.tipo==='produto_visto').length],
+  ['Avisos de adição ao carrinho (eventos retidos)',events.filter(e=>e.tipo==='carrinho').length],
   ['Itens na sacolinha',(snapshot.catalogo||[]).length],['Item ativo',snapshot.itemAtivo]
  ];
  exportDownload('v2j-resumo-live-'+reportDate()+'.csv',makeCsv([['Indicador','Valor'],...fields]),'text/csv;charset=utf-8');
@@ -157,7 +241,7 @@ $('exportProducts').onclick=()=>{
 $('exportFull').onclick=()=>{
  if(!ready())return;
  const data={exportadoEm:new Date().toISOString(),tipo:'Retrato atual da Central V2J — não é histórico de toda a LIVE',
-  observacao:'Campos vazios não foram capturados. Exibições técnicas (client_show_cnt) não são visualizações (watch_pv) nem espectadores únicos. Eventos são apenas os recentes retidos pelo V2J.',
+  observacao:'Avisos de produto visto e de carrinho não comprovam compra. A fila é exibida individualmente e contém somente eventos novos após abrir o retorno. Eventos são apenas os recentes retidos pelo V2J.',
   metricas:snapshot.liveMetricas||{},itemAtivo:snapshot.itemAtivo,
   produtos:snapshot.catalogo||[],eventosRecentes:snapshot.liveEventos||[],chatManual:snapshot.chat||[]};
  exportDownload('v2j-relatorio-live-'+reportDate()+'.json',JSON.stringify(data,null,2),'application/json;charset=utf-8');

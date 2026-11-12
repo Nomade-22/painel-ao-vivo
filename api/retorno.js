@@ -17,10 +17,14 @@ function cleanCentral(input){
  },produto:{nome:trim(p.nome,160),descricao:trim(p.descricao,5000),preco:trim(p.preco,80),link:typeof p.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
  imagens:(Array.isArray(p.imagens)?p.imagens:[]).slice(0,6).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000)},
  recado:trim(input?.recado,1200),
- liveEventos:(Array.isArray(input?.liveEventos)?input.liveEventos:[]).slice(-60).map(e=>({
- id:trim(e?.id,120),tipo:['comentario','seguidor','pedido','atividade'].includes(e?.tipo)?e.tipo:'atividade',
- autor:trim(e?.autor,100),texto:trim(e?.texto,500),hora:trim(e?.hora,12),recebidoEm:Number(e?.recebidoEm)||0
- })).filter(e=>e.id&&e.texto),
+ liveEventos:(Array.isArray(input?.liveEventos)?input.liveEventos:[]).slice(-160).map(e=>({
+ id:trim(e?.id,120),
+ tipo:['comentario','seguidor','pedido','atividade','produto_visto','carrinho'].includes(e?.tipo)?e.tipo:'atividade',
+ autor:trim(e?.autor,100),texto:trim(e?.texto,500),hora:trim(e?.hora,12),
+ numeroProduto:Number.isInteger(Number(e?.numeroProduto))&&Number(e.numeroProduto)>0&&Number(e.numeroProduto)<=999?Number(e.numeroProduto):null,
+ origem:e?.origem==='aviso_tiktok'?'aviso_tiktok':'outro',
+ recebidoEm:Number.isFinite(Number(e?.recebidoEm))&&Number(e.recebidoEm)>0?Number(e.recebidoEm):0
+ })).filter(e=>e.id&&e.texto&&(!['produto_visto','carrinho'].includes(e.tipo)||e.numeroProduto!==null)),
  chat:(Array.isArray(input?.chat)?input.chat:[]).slice(-40).map(m=>({id:trim(m?.id,90),autor:trim(m?.autor,80),texto:trim(m?.texto,400),hora:trim(m?.hora,12)})).filter(m=>m.texto),
  catalogo:(Array.isArray(input?.catalogo)?input.catalogo:[]).slice(0,200).map(p=>({
  numero:Math.max(1,Math.min(999,Math.floor(Number(p?.numero)||0))),
@@ -71,7 +75,7 @@ export default async function handler(req,res){
    if(typeof metrics.gmv==='string'&&/^R\$\s*[\d.,]+$/.test(metrics.gmv.trim()))updatedMetrics.gmv=metrics.gmv.trim().slice(0,80);
    if(updatedMetrics.cliques!==current.liveMetricas.cliques||updatedMetrics.vendas!==current.liveMetricas.vendas||updatedMetrics.visualizacoes!==current.liveMetricas.visualizacoes||updatedMetrics.carrinhos!==current.liveMetricas.carrinhos||updatedMetrics.curtidas!==current.liveMetricas.curtidas||updatedMetrics.compartilhamentos!==current.liveMetricas.compartilhamentos||updatedMetrics.exibicoesRegistradas!==current.liveMetricas.exibicoesRegistradas||updatedMetrics.gmv!==current.liveMetricas.gmv)updatedMetrics.atualizadoEm=Date.now();
    if(!fresh.length&&updatedMetrics.atualizadoEm===current.liveMetricas.atualizadoEm)return res.status(200).json({ok:true,novos:0});
-   const next=cleanCentral({...current,liveMetricas:updatedMetrics,liveEventos:[...current.liveEventos,...fresh].slice(-60),versao:Date.now()});
+   const next=cleanCentral({...current,liveMetricas:updatedMetrics,liveEventos:[...current.liveEventos,...fresh].slice(-160),versao:Date.now()});
    await cacheLive.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
    return res.status(200).json({ok:true,novos:fresh.length});
   }

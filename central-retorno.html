@@ -8,6 +8,20 @@ body{overflow:auto}.shell{min-height:100vh;padding:clamp(10px,2vw,28px);display:
 h2{font-size:1.08em;margin:0 0 12px;display:flex;align-items:center;justify-content:space-between}.tag{color:#79e7b4;font-size:.65em;font-weight:600}
 .chat{display:flex;flex-direction:column;min-height:0}.messages{min-height:0;overflow:auto;display:flex;flex-direction:column;gap:9px;scrollbar-color:#4d6687 transparent}
 .message{background:#1e3553;padding:10px 13px;border-radius:11px;overflow-wrap:anywhere}.message strong{color:#9bcbff}.message.order{background:#174c39;border:1px solid #55a67b}.message.follow{background:#3d315c;border:1px solid #7866a7}.message small{color:#a8b9cc;font-size:.7em;margin-left:8px}.message p{margin:3px 0 0;white-space:pre-wrap}
+.activity-queue{flex:none;background:linear-gradient(135deg,#1a3551,#172a44);border:1px solid #467192;border-radius:13px;padding:11px 13px;margin:0 0 12px}
+.activity-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;font-size:.72em;font-weight:800;letter-spacing:.015em}
+.activity-pending{font-size:.82em;color:#bcd6ec;font-weight:600}
+.activity-now{min-height:72px;background:#0d2136;border:1px solid #31506e;border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px}
+.activity-now.active{animation:activity-enter .28s ease-out}
+.activity-emoji{font-size:1.6em}.activity-info{min-width:0;flex:1;overflow-wrap:anywhere}
+.activity-product{font-weight:900;font-size:1.06em;color:#f4f9ff}
+.activity-description{color:#c9dff1;font-size:.78em;margin-top:3px}
+.activity-now.cart{border-color:#2d9571;background:linear-gradient(120deg,#153d35,#102c3c)}
+.activity-now.view{border-color:#4783bb}
+.activity-mini{font-size:.63em;line-height:1.45;color:#aac7df;margin-top:8px}
+.activity-cart-list{color:#9cf0cb;font-weight:700}
+@keyframes activity-enter{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.activity-now.active{animation:none}}
 .empty{color:#abc0d8;font-style:italic}.product{display:flex;flex-direction:column;min-height:0}.product-body{display:flex;flex-direction:column;gap:clamp(10px,2vw,24px);min-height:0;flex:1}.product-images{width:100%;max-width:none;min-width:0;height:clamp(180px,33vh,300px);display:flex;flex-direction:row;gap:7px;flex-shrink:0}.main-img{height:100%;width:auto;max-width:60%;min-height:0;object-fit:contain;background:#0b192b;border-radius:12px}.thumbs{display:flex;flex-direction:column;flex-wrap:wrap;gap:6px;overflow:auto}.thumbs img{height:65px;width:55px;object-fit:cover;border-radius:7px;cursor:pointer;border:2px solid transparent}.thumbs img.selected{border-color:#7cc9ff}
 .product-info{flex:1;min-height:120px;min-width:0;overflow:auto;scrollbar-color:#4d6687 transparent}.name{font-size:1.27em;font-weight:800;overflow-wrap:anywhere}.price{font-size:1.1em;color:#83edb9;font-weight:800;margin:6px 0}.product-meta{font-size:.88em;font-weight:650;color:#e0eeff;margin:10px 0;display:flex;gap:9px;flex-wrap:wrap;line-height:1.35}.product-meta span{background:#223b59;border:1px solid #3c5878;border-radius:9px;padding:7px 11px}.product-meta .low{background:#733e2e;color:#ffe0aa}.product-subtitle{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.product-subtitle span{background:#203c5a;border:1px solid #365e84;border-radius:7px;padding:5px 9px;font-size:.76em;color:#d2e4f8}.kpi .fresh{font-size:.48em;color:#9ab7d1;font-weight:500}.kpi strong{overflow-wrap:anywhere}.color-options{display:flex;flex-wrap:wrap;gap:7px;margin:9px 0 12px}.color-options span{background:#263f5c;border:1px solid #6584a6;border-radius:999px;padding:5px 10px;font-size:.75em;font-weight:700}.desc{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:10px}
 .notice{background:#264b73;border-color:#4a9cce}.notice h2{color:#c9eaff}.notice-content{font-size:1.18em;font-weight:750;white-space:pre-wrap;overflow-wrap:anywhere}
@@ -40,7 +54,15 @@ h2{font-size:1.08em;margin:0 0 12px;display:flex;align-items:center;justify-cont
  <span class="off" id="healthEvents">Eventos: aguardando</span>
  <span class="off" id="healthSession">Origem: TikTok + V2J</span>
 </div></header>
-<section class="panel chat"><h2>💬 Chat e eventos da LIVE <span class="tag" id="chatCount">MANUAL</span></h2><div class="messages" id="messages"><div class="empty">Aguardando mensagens do console…</div></div></section>
+<section class="panel chat"><h2>💬 Chat e eventos da LIVE <span class="tag" id="chatCount">MANUAL</span></h2>
+<div class="activity-queue" aria-label="Fila de atividades de produtos">
+ <div class="activity-header"><span>⚡ ATIVIDADES DOS PRODUTOS</span><span class="activity-pending" id="queuePending">Fila vazia</span></div>
+ <div class="activity-now" id="queueNow" role="status" aria-live="polite" aria-atomic="true">
+  <span class="activity-emoji">📦</span><div class="activity-info"><div class="activity-product">Aguardando atividades</div><div class="activity-description">Visualizações e adições ao carrinho aparecerão aqui, uma por vez.</div></div>
+ </div>
+ <div class="activity-mini">🛒 Adições ao carrinho observadas nos eventos recentes: <span class="activity-cart-list" id="cartProductList">—</span></div>
+ <div class="activity-mini">Somente avisos identificados no TikTok. Visualização ou carrinho não é pedido confirmado.</div>
+</div><div class="messages" id="messages"><div class="empty">Aguardando mensagens do console…</div></div></section>
 <section class="panel product"><h2>🛍️ Ficha do produto <span class="tag">FOTO E DESCRIÇÃO</span></h2><div class="product-body"><div class="product-images" id="productImages" hidden><img id="mainImage" class="main-img" alt="Imagem do produto"><div class="thumbs" id="thumbs"></div></div><div class="item-kpis" aria-label="Informações rápidas do produto">
  <div class="kpi"><small>📦 Estoque do item</small><strong id="kpiStock">—</strong></div>
  <div class="kpi"><small>💰 Comissão estimada</small><strong id="kpiCommission">—</strong></div>
