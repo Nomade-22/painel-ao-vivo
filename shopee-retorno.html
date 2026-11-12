@@ -23,6 +23,17 @@ section{margin-top:20px}.muted{color:#a9c0d6;font-size:13px}.sub{font-size:12px;
 .health div{background:#1c3049;border:1px solid #35516d;border-radius:10px;padding:12px;font-size:12px;color:#c0d5e9}
 .health strong{display:block;font-size:19px;color:white;margin-top:5px}.detail{line-height:1.65;overflow-wrap:anywhere}
 .dom-note{background:#202f45;border-left:3px solid #ff864f;border-radius:8px;padding:11px 14px;margin:14px 0 0;color:#cfe0ee;font-size:13px;line-height:1.55}
+.session-line{margin:9px 0 0;font-size:12px;color:#b9d4ea}
+.session-line strong{color:#89ecc6}.session-line.unverified strong{color:#ffd29b}
+.comment-question{background:#233956;border-left:3px solid #f5a66e;padding:9px 12px!important;border-radius:7px}
+.product-photo{width:44px;height:44px;object-fit:cover;border-radius:8px;vertical-align:middle;margin-right:10px;background:#233b56}
+.product-title{display:inline-block;vertical-align:middle;max-width:220px}
+.pills{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.stat-pill{border:1px solid #405771;border-radius:10px;padding:8px 13px;font-size:12px;background:#1a2f48}
+.stat-pill b{display:block;font-size:19px;color:#e5f6ff}
+.section-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
+.small-btn{background:#263d58;color:#e1edfa;border:1px solid #42617d;padding:7px 11px;font-size:12px}
+.small-btn.selected{background:#b95b33;border-color:#ee946e;color:#fff}
 table{border-collapse:collapse;width:100%;min-width:670px}th,td{padding:12px;border-bottom:1px solid #33485e;text-align:left}
 th{color:#b7d0e5;font-size:12px}td{font-size:14px}.scroll{overflow:auto}
 .empty{padding:20px;color:#acbdd1;border:1px dashed #405571;border-radius:10px}
@@ -35,18 +46,31 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
 <header>
  <div><div class="sub">✦ V2J STUDIO / CENTRAL DE RETORNO</div>
   <h1><span class="brand">Shopee</span> LIVE</h1>
-  <div id="status" class="status">Aguardando informações da Shopee…</div></div>
+  <div id="status" class="status">Aguardando informações da Shopee…</div>
+  <div id="sessionInfo" class="session-line unverified"><strong>● Identificação da LIVE pendente</strong></div></div>
  <div><button id="export">⬇ Exportar relatório JSON</button> <a href="/console.html">Console V2J</a></div>
 </header>
 <div id="kpis" class="grid"></div>
 <section class="panel">
+ <h2>📋 Resumo da transmissão atual</h2>
+ <div class="pills">
+  <div class="stat-pill">Comentários registrados<b id="summaryComments">—</b></div>
+  <div class="stat-pill">Avisos de entrada<b id="summaryEntries">—</b></div>
+  <div class="stat-pill">Intenção de compra<b id="summaryIntent">—</b></div>
+  <div class="stat-pill">Produtos identificados<b id="summaryProducts">—</b></div>
+ </div>
+ <p class="muted">Os contadores de avisos são observações técnicas; não representam pessoas únicas nem vendas confirmadas. O histórico muda somente quando a extensão identifica outro ID de LIVE.</p>
+</section>
+<section class="panel">
  <h2>💬 Comentários da Shopee LIVE</h2>
  <p class="muted">Mensagens confirmadas pelo Retorno V2J, capturadas pela API da Shopee ou diretamente do chat exibido na LIVE. Não substitui o contador oficial da Shopee.</p>
+ <div class="section-tools"><button class="small-btn selected" id="allComments" type="button">Todas as mensagens</button><button class="small-btn" id="questionComments" type="button">Perguntas e pedidos</button></div>
  <div id="liveComments"><div class="empty">Aguardando comentários identificados no chat.</div></div>
 </section>
 <section class="panel">
  <h2>🛍️ Desempenho dos produtos</h2>
  <p class="muted" id="productsInfo">Os itens são identificados nas respostas da sacolinha da LIVE ou no Centro de Criação. Dados não confirmados permanecem como “—”.</p>
+ <p class="muted">Preços extraídos do retorno técnico são exibidos como recebidos. A unidade/escala de valores não formatados deve ser validada na Shopee antes de utilizá-los em vendas.</p>
  <div id="productList" class="scroll"><div class="empty">Nenhum produto recebido ainda.</div></div>
 </section>
 <section class="panel">
@@ -69,7 +93,7 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
   <div>Textos sem autor identificado<strong id="domNoAuthor">—</strong></div>
   <div>Última leitura da tela<strong id="domLastScan">—</strong></div>
  </div>
- <div class="dom-note"><strong>Importante:</strong> avisos como “está comprando produtos” não comprovam pedidos ou pagamentos. Avisos de entrada não são o total de espectadores únicos. Só mensagens com autor e texto identificáveis são encaminhadas como comentários.</div>
+ <div class="dom-note"><strong>Importante:</strong> avisos como “está comprando produtos” não comprovam pedidos ou pagamentos. Avisos de entrada não são o total de espectadores únicos. Curtidas e novos seguidores permanecem indisponíveis enquanto não houver evento ou contador confiável; nenhuma animação deve ser acionada por aproximação.</div>
  <div id="schemaInfo" class="muted detail" style="margin-top:12px"></div>
  <h2 style="margin-top:20px">📊 Origem, atualização e divergências</h2>
  <div id="details" class="muted detail">Abra a Shopee LIVE e o Centro de Criação no Chrome com a extensão V2J ativa.</div>
@@ -89,7 +113,25 @@ const el=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const prettyTime=stamp=>Number(stamp)?new Date(stamp).toLocaleTimeString('pt-BR'):'—';
 const age=stamp=>Number(stamp)?Math.max(0,Math.floor((Date.now()-Number(stamp))/1000))+'s atrás':'não recebido';
-let snapshot=null,requesting=false;
+let snapshot=null,requesting=false,questionOnly=false;
+const isQuestion=c=>/\?|\b(?:mostra|mostrar|tem|tamanho|qual|quanto|pode|dispon[ií]vel|pre[çc]o|quero|me mostra|op[çc][oõ]es|salto)\b/i.test(String(c?.texto||''));
+const safeImage=value=>{
+ try{
+  const u=new URL(String(value||''));const host=u.hostname.toLowerCase();
+  return u.protocol==='https:'&&(host.endsWith('.susercontent.com')||host.endsWith('.shopee.com.br')||host.endsWith('.shopee.io'))?u.href:'';
+ }catch{return '';}
+};
+function drawComments(data){
+ const list=(Array.isArray(data?.comentariosLive)?data.comentariosLive:[]).slice(-100).reverse();
+ const comments=questionOnly?list.filter(isQuestion):list.slice(0,40);
+ el('liveComments').innerHTML=comments.length?comments.map(comment=>
+  '<div class="'+(isQuestion(comment)?'comment-question':'')+'" style="border-bottom:1px solid #304761;padding:9px 0"><strong>'+
+  esc(comment.autor||'Espectador')+'</strong> <small class="muted">'+esc(comment.hora||'')+
+  '</small><div style="overflow-wrap:anywhere">'+esc(comment.texto||'')+'</div></div>').join(''):
+  '<div class="empty">'+(questionOnly?'Nenhuma pergunta ou pedido identificado nesta LIVE.':'Aguardando comentários identificados no chat.')+'</div>';
+}
+el('allComments').onclick=()=>{questionOnly=false;el('allComments').classList.add('selected');el('questionComments').classList.remove('selected');if(snapshot)drawComments(snapshot);};
+el('questionComments').onclick=()=>{questionOnly=true;el('questionComments').classList.add('selected');el('allComments').classList.remove('selected');if(snapshot)drawComments(snapshot);};
 el('kpis').innerHTML=labels.map(([key,label,cls])=>
  `<article class="card ${cls}"><small>${label}</small><strong id="k-${key}">—</strong><span class="origin" id="o-${key}">Fonte não identificada</span></article>`).join('');
 function show(data){
@@ -101,19 +143,27 @@ function show(data){
   el('o-'+key).textContent=source?(source.fonte==='creator'?'Centro de Criação':'Shopee LIVE')+
     ' · '+age(source.atualizadoEm)+(data.conflitos?.[key]?' · ⚠️ Divergência':''):'Fonte não identificada';
  }
- const comments=(Array.isArray(data.comentariosLive)?data.comentariosLive:[]).slice(-30).reverse();
- el('liveComments').innerHTML=comments.length?comments.map(comment=>
-  '<div style="border-bottom:1px solid #304761;padding:9px 0"><strong>'+esc(comment.autor||'Espectador')+
-  '</strong> <small class="muted">'+esc(comment.hora||'')+'</small><div style="overflow-wrap:anywhere">'+
-  esc(comment.texto||'')+'</div></div>').join(''):
-  '<div class="empty">Aguardando comentários identificados no chat.</div>';
+ drawComments(data);
+ const sessao=data.sessao||{};
+ el('sessionInfo').className='session-line'+(sessao.identificada?'':' unverified');
+ el('sessionInfo').innerHTML=sessao.identificada?
+  '<strong>● LIVE identificada</strong> · ref. '+esc(sessao.referencia||'')+
+  ' · início do registro: '+esc(prettyTime(sessao.iniciadaEm))+' · comentários e métricas exclusivos desta LIVE':
+  '<strong>● Identificação da LIVE pendente</strong> · atualize a extensão para a versão 0.8.6 e abra a transmissão para ativar a limpeza automática.';
  const products=Array.isArray(data.produtos)?data.produtos:[];
  el('productsInfo').textContent=products.length?
   'Itens recebidos: '+products.length+' · Origem: '+(data.produtosOrigem==='creator'?'Centro de Criação':data.produtosOrigem==='live'?'Sacolinha Shopee LIVE':'Dados anteriores')+'. Indicadores sem confirmação aparecem como “—”.':
   'Aguardando os dados de itens da sacolinha ou do Centro de Criação.';
- el('productList').innerHTML=products.length?'<table><thead><tr><th>Produto</th><th>Cliques</th><th>CTR</th><th>Pedidos</th><th>Vendas</th><th>ATC</th></tr></thead><tbody>'+
-  products.map(product=>'<tr>'+['nome','cliques','ctr','pedidos','vendas','atc'].map(key=>'<td>'+esc(product[key]??'—')+'</td>').join('')+'</tr>').join('')+'</tbody></table>':
-  '<div class="empty">Nenhum produto recebido ainda.</div>';
+ el('productList').innerHTML=products.length?'<table><thead><tr><th>Produto</th><th>Preço recebido</th><th>Antes</th><th>Desconto</th><th>Cliques</th><th>CTR</th><th>Pedidos</th><th>Vendas</th><th>ATC</th></tr></thead><tbody>'+
+  products.map(product=>{
+   const img=safeImage(product.imagem);
+   const title=(img?'<img class="product-photo" loading="lazy" referrerpolicy="no-referrer" src="'+esc(img)+'" alt="">':'')+
+     '<span class="product-title">'+esc(product.nome||'')+'</span>';
+   const discount=product.desconto!==null&&product.desconto!==undefined?esc(product.desconto)+'%':'—';
+   return '<tr><td>'+title+'</td><td>'+esc(product.preco||'—')+'</td><td>'+esc(product.precoAnterior||'—')+
+    '</td><td>'+discount+'</td>'+['cliques','ctr','pedidos','vendas','atc'].map(key=>'<td>'+esc(product[key]??'—')+'</td>').join('')+'</tr>';
+  }).join('')+'</tbody></table>':
+  '<div class="empty">Nenhum produto recebido nesta LIVE.</div>';
  const meta=data.fontesMeta||{},live=meta.live||{},creator=meta.creator||{};
  const info=(name,item)=>{
   const connected=Date.now()-Number(item.ultimoSinalEm||0)<60000;
@@ -123,6 +173,10 @@ function show(data){
  };
  el('connections').innerHTML=info('LIVE',live)+info('Centro de Criação',creator);
  const parser=live.diagnosticoChat||{},lastChat=data.saudeChat?.ultimoComentarioEm||0;
+ el('summaryComments').textContent=data.saudeChat?.totalNovosComentarios??'—';
+ el('summaryEntries').textContent=parser.domEntradas??'—';
+ el('summaryIntent').textContent=parser.domIntencoesCompra??'—';
+ el('summaryProducts').textContent=products.length;
  el('chatResponses').textContent=parser.respostas??'—';
  el('parsedMessages').textContent=parser.mensagensValidas??'—';
  el('lastComment').textContent=lastChat?age(lastChat):'—';

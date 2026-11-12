@@ -1,8 +1,12 @@
 import { getCache } from '@vercel/functions';
+import { randomUUID, createHash } from 'node:crypto';
 
-// Versão 0.8.5: API + leitura complementar do chat exibido pela Shopee.
+// Versão 0.8.6: dados isolados por sessão da LIVE; reconexões não apagam histórico.
 const NAMESPACE = 'v2j-shopee-retorno-v2';
 const TTL = 2592000;
+const ACTIVE_KEY = 'sessao-atual-086';
+const chatKey = generation => generation ? 'chat-086-' + generation : 'chat-081';
+const sessionLabel = id => createHash('sha256').update(id).digest('hex').slice(0, 10);
 const FIELDS = [
   'vendas', 'usuariosEngajados', 'comentarios', 'atc', 'visualizacoes',
   'tempoMedio', 'conversoes', 'gpm', 'pedidos', 'ads', 'ccu', 'pcu',
@@ -12,12 +16,32 @@ const FIELDS = [
 const cleanText = (value, limit = 100) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 const cleanValue = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value :
   typeof value === 'string' && /^(?:(?:R\$\s*)?[\d.,]+\s*%?|\d{1,2}:\d{2}(?::\d{2})?)$/.test(value.trim()) ? value.trim().slice(0, 40) : null;
-const sourceKey = source => 'fonte-081-' + source;
+const sourceKey = (source, generation) => generation ? 'fonte-086-' + generation + '-' + source : 'fonte-081-' + source;
 
 function cleanProducts(items) {
   if (!Array.isArray(items)) return null;
+  const safeImage = value => {
+    if (typeof value !== 'string' || value.length > 600) return '';
+    try {
+      const parsed = new URL(value);
+      const host = parsed.hostname.toLowerCase();
+      if (parsed.protocol !== 'https:' || !(
+        host.endsWith('.susercontent.com') || host === 'susercontent.com' ||
+        host.endsWith('.shopee.com.br') || host.endsWith('.shopee.io')
+      )) return '';
+      parsed.search = ''; parsed.hash = '';
+      return parsed.toString();
+    } catch { return ''; }
+  };
   return items.slice(0, 80).map(item => ({
-    nome: cleanText(item?.nome, 180), cliques: cleanValue(item?.cliques), ctr: cleanValue(item?.ctr),
+    id: cleanText(item?.id, 80), nome: cleanText(item?.nome, 180),
+    numero: Number.isInteger(item?.numero) && item.numero > 0 && item.numero <= 200 ? item.numero : null,
+    imagem: safeImage(item?.imagem), preco: cleanText(item?.preco, 60),
+    precoAnterior: cleanText(item?.precoAnterior, 60),
+    moeda: cleanText(item?.moeda, 8),
+    desconto: item?.desconto !== null && Number.isFinite(Number(item?.desconto)) &&
+      Number(item.desconto) >= 0 && Number(item.desconto) <= 100 ? Number(item.desconto) : null,
+    cliques: cleanValue(item?.cliques), ctr: cleanValue(item?.ctr),
     pedidos: cleanValue(item?.pedidos), vendas: cleanValue(item?.vendas), atc: cleanValue(item?.atc)
   })).filter(item => item.nome);
 }
@@ -92,14 +116,16 @@ function parseDiagnostics(input) {
   return result;
 }
 
-function buildResponse(live, creator, chat, legacy) {
+function buildResponse(live, creator, chat, legacy, active) {
   const merged = consolidate(live, creator);
   const creatorProducts = Array.isArray(creator.produtos) && creator.produtos.length > 0;
   const liveProducts = Array.isArray(live.produtos) && live.produtos.length > 0;
   const productsSource = creatorProducts && (!liveProducts || (creator.produtoEm || 0) >= (live.produtoEm || 0))
     ? 'creator' : liveProducts ? 'live' : 'legado';
   return {
-    versaoRetorno: '0.8.5', ...merged,
+    versaoRetorno: '0.8.6', ...merged,
+    sessao: active ? { identificada: true, referencia: sessionLabel(active.id), iniciadaEm: active.createdAt, atualizadaEm: active.lastSeenAt } :
+      { identificada: false, referencia: null, iniciadaEm: 0 },
     fontes: { live: live.metricas || {}, creator: creator.metricas || {} },
     fontesConectadas: { live: live.heartbeatAt || 0, creator: creator.heartbeatAt || 0 },
     fontesMeta: {
@@ -125,14 +151,18 @@ export default async function handler(req, res) {
   try {
     const cache = getCache({ namespace: NAMESPACE });
     const legacy = await cache.get('estado') || {};
+    let active = await cache.get(ACTIVE_KEY);
     if (req.method === 'GET') {
+      const generation = active?.generation || null;
       const [currentLive, currentCreator, currentChat] = await Promise.all([
-        cache.get(sourceKey('live')), cache.get(sourceKey('creator')), cache.get('chat-081')
+        cache.get(sourceKey('live', generation)), cache.get(sourceKey('creator', generation)),
+        cache.get(chatKey(generation))
       ]);
+      const fallback = generation ? {} : legacy;
       return res.status(200).json(buildResponse(
-        currentLive || legacySource(legacy, 'live'),
-        currentCreator || legacySource(legacy, 'creator'),
-        normalizeChat(currentChat, legacy), legacy));
+        currentLive || legacySource(fallback, 'live'),
+        currentCreator || legacySource(fallback, 'creator'),
+        normalizeChat(currentChat, fallback), fallback, active));
     }
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     if (!body || !['live-shopee', 'creator-shopee'].includes(body.origem) ||
@@ -140,8 +170,32 @@ export default async function handler(req, res) {
       return res.status(400).json({ erro: 'Formato inválido' });
     }
     const source = body.origem === 'live-shopee' ? 'live' : 'creator';
-    const previous = await cache.get(sourceKey(source)) || legacySource(legacy, source);
     const now = Date.now();
+    // A sala LIVE é a única fonte autorizada a alterar a sessão corrente.
+    // Uma nova identificação muda o namespace de TODOS os dados, sem apagar o arquivo anterior.
+    const incomingId = cleanText(body.sessaoId, 80);
+    const observedAt = Number(body.sessaoObservadaEm);
+    let novaLive = false;
+    if (source === 'live' && /^[A-Za-z0-9_-]{3,80}$/.test(incomingId)) {
+      if (!active || active.id !== incomingId) {
+        // Evita que uma aba antiga ainda aberta restaure a LIVE anterior.
+        if (active && Number.isFinite(observedAt) && observedAt > 0 &&
+            Number(active.observedAt) > observedAt + 1000) {
+          return res.status(409).json({ erro: 'Requisição de uma LIVE anterior ignorada.', sessaoAnterior: true });
+        }
+        active = { id: incomingId, generation: randomUUID().replace(/-/g, ''),
+          observedAt: Number.isFinite(observedAt) && observedAt > 0 ? observedAt : now,
+          createdAt: now, lastSeenAt: now };
+        await cache.set(ACTIVE_KEY, active, { ttl: TTL, name: 'Sessão Shopee atual' });
+        novaLive = true;
+      } else if (now - Number(active.lastSeenAt || 0) > 30000) {
+        active.lastSeenAt = now;
+        await cache.set(ACTIVE_KEY, active, { ttl: TTL, name: 'Sessão Shopee atual' });
+      }
+    }
+    const generation = active?.generation || null;
+    const previous = await cache.get(sourceKey(source, generation)) ||
+      legacySource(generation ? {} : legacy, source);
     const submitted = Object.fromEntries(FIELDS.map(field => [field, cleanValue(body.metricas[field])])
       .filter(([, value]) => value !== null));
     const values = Object.values(submitted);
@@ -166,15 +220,15 @@ export default async function handler(req, res) {
     }
     const produtos = cleanProducts(body.produtos);
     if (produtos) { next.produtos = produtos;next.produtoEm = now; }
-    await cache.set(sourceKey(source), next, { ttl: TTL, name: 'V2J Shopee ' + source });
+    await cache.set(sourceKey(source, generation), next, { ttl: TTL, name: 'V2J Shopee ' + source });
 
     let fresh = [], confirmadosIds = [];
     if (source === 'live' && Array.isArray(body.eventos) && body.eventos.length) {
-      const current = normalizeChat(await cache.get('chat-081'), legacy);
+      const current = normalizeChat(await cache.get(chatKey(generation)), generation ? {} : legacy);
       const ids = new Set(current.idsRecentes);
       for (const event of body.eventos.slice(0, 40)) {
         const id = cleanText(event?.id, 80), autor = cleanText(event?.autor, 80), texto = cleanText(event?.texto, 400);
-        if (!/^shopee-\d{1,12}$/.test(id) || !autor || !texto) continue;
+        if (!/^shopee-\d{1,12}$/.test(id) || !autor || !texto || /^bem-vind[oa]\s+(?:à|a|ao)\s+shopee/i.test(autor)) continue;
         confirmadosIds.push(id);
         if (ids.has(id)) continue;
         ids.add(id);
@@ -182,14 +236,14 @@ export default async function handler(req, res) {
           hora: cleanText(event?.hora, 12), recebidoEm: now });
       }
       if (fresh.length) {
-        await cache.set('chat-081', {
+        await cache.set(chatKey(generation), {
           comentariosLive: [...current.comentariosLive, ...fresh].slice(-100),
           idsRecentes: [...ids].slice(-2000), ultimoComentarioEm: now,
           totalNovosComentarios: current.totalNovosComentarios + fresh.length
         }, { ttl: TTL, name: 'Chat Shopee V2J' });
       }
     }
-    return res.status(200).json({ ok: true, versaoRetorno: '0.8.5', camposAceitos,
+    return res.status(200).json({ ok: true, versaoRetorno: '0.8.6', novaLive, sessaoIdentificada: !!active, camposAceitos,
       confirmadosIds, novosComentarios: fresh.length, leituraSuspeita: suspicious,
       produtosAceitos: produtos?.length ?? null, ultimaConfirmacaoEm: now });
   } catch (error) {
