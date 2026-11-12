@@ -70,7 +70,7 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
 <section class="panel">
  <h2>🛍️ Desempenho dos produtos</h2>
  <p class="muted" id="productsInfo">Os itens são identificados nas respostas da sacolinha da LIVE ou no Centro de Criação. Dados não confirmados permanecem como “—”.</p>
- <p class="muted">Preços extraídos do retorno técnico são exibidos como recebidos. A unidade/escala de valores não formatados deve ser validada na Shopee antes de utilizá-los em vendas.</p>
+ <p class="muted">Valores em BRL são formatados em reais. “A conferir” indica preço anterior maior que o atual, mas desconto oficial informado como 0%; não presumimos desconto confirmado. Fotos ausentes e métricas sem fonte permanecem indisponíveis.</p>
  <div id="productList" class="scroll"><div class="empty">Nenhum produto recebido ainda.</div></div>
 </section>
 <section class="panel">
@@ -113,6 +113,23 @@ const el=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 const prettyTime=stamp=>Number(stamp)?new Date(stamp).toLocaleTimeString('pt-BR'):'—';
 const age=stamp=>Number(stamp)?Math.max(0,Math.floor((Date.now()-Number(stamp))/1000))+'s atrás':'não recebido';
+const STALE_METRIC_MS=120000;
+const priceLabel=(value,currency)=>{
+ const raw=String(value??'').trim();
+ if(!raw)return '—';
+ if(currency==='BRL'&&/^\d{1,8}(?:\.\d{1,2})?$/.test(raw)){
+  const amount=Number(raw);
+  if(Number.isFinite(amount))return new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(amount);
+ }
+ return raw;
+};
+const discountLabel=product=>{
+ if(product.desconto===null||product.desconto===undefined)return '—';
+ const current=Number(product.preco),previous=Number(product.precoAnterior);
+ if(Number(product.desconto)===0&&product.preco&&product.precoAnterior&&Number.isFinite(current)&&Number.isFinite(previous)&&previous>current+.01)
+   return 'A conferir';
+ return String(product.desconto)+'%';
+};
 let snapshot=null,requesting=false,questionOnly=false;
 const isQuestion=c=>/\?|\b(?:mostra|mostrar|tem|tamanho|qual|quanto|pode|dispon[ií]vel|pre[çc]o|quero|me mostra|op[çc][oõ]es|salto)\b/i.test(String(c?.texto||''));
 const safeImage=value=>{
@@ -138,9 +155,13 @@ function show(data){
  snapshot=data;
  for(const [key] of labels){
   const value=data.metricas?.[key],source=data.metricaOrigem?.[key];
-  el('k-'+key).textContent=value===undefined||value===null||value===''?'—':
+  const hasValue=value!==undefined&&value!==null&&value!=='';
+  const stale=hasValue&&source&&Date.now()-Number(source.atualizadoEm||0)>STALE_METRIC_MS;
+  el('k-'+key).textContent=!hasValue||stale?'—':
     typeof value==='number'?value.toLocaleString('pt-BR'):value;
-  el('o-'+key).textContent=source?(source.fonte==='creator'?'Centro de Criação':'Shopee LIVE')+
+  el('o-'+key).textContent=stale?
+    '⚠️ Último registro: '+value+' · '+age(source.atualizadoEm)+' · desatualizado':
+    source?(source.fonte==='creator'?'Centro de Criação':'Shopee LIVE')+
     ' · '+age(source.atualizadoEm)+(data.conflitos?.[key]?' · ⚠️ Divergência':''):'Fonte não identificada';
  }
  drawComments(data);
@@ -151,17 +172,22 @@ function show(data){
   ' · início do registro: '+esc(prettyTime(sessao.iniciadaEm))+' · comentários e métricas exclusivos desta LIVE':
   '<strong>● Identificação da LIVE pendente</strong> · atualize a extensão para a versão 0.8.6 e abra a transmissão para ativar a limpeza automática.';
  const products=Array.isArray(data.produtos)?data.produtos:[];
+ const withImage=products.filter(p=>safeImage(p.imagem)).length;
+ const inconsistent=products.filter(p=>discountLabel(p)==='A conferir').length;
  el('productsInfo').textContent=products.length?
-  'Itens recebidos: '+products.length+' · Origem: '+(data.produtosOrigem==='creator'?'Centro de Criação':data.produtosOrigem==='live'?'Sacolinha Shopee LIVE':'Dados anteriores')+'. Indicadores sem confirmação aparecem como “—”.':
+  'Itens recebidos: '+products.length+' · Fotos disponíveis: '+withImage+'/'+products.length+
+  ' · Descontos a conferir: '+inconsistent+
+  ' · Origem: '+(data.produtosOrigem==='creator'?'Centro de Criação':data.produtosOrigem==='live'?'Sacolinha Shopee LIVE':'Dados anteriores')+
+  '. Indicadores sem confirmação aparecem como “—”.':
   'Aguardando os dados de itens da sacolinha ou do Centro de Criação.';
  el('productList').innerHTML=products.length?'<table><thead><tr><th>Produto</th><th>Preço recebido</th><th>Antes</th><th>Desconto</th><th>Cliques</th><th>CTR</th><th>Pedidos</th><th>Vendas</th><th>ATC</th></tr></thead><tbody>'+
   products.map(product=>{
    const img=safeImage(product.imagem);
    const title=(img?'<img class="product-photo" loading="lazy" referrerpolicy="no-referrer" src="'+esc(img)+'" alt="">':'')+
      '<span class="product-title">'+esc(product.nome||'')+'</span>';
-   const discount=product.desconto!==null&&product.desconto!==undefined?esc(product.desconto)+'%':'—';
-   return '<tr><td>'+title+'</td><td>'+esc(product.preco||'—')+'</td><td>'+esc(product.precoAnterior||'—')+
-    '</td><td>'+discount+'</td>'+['cliques','ctr','pedidos','vendas','atc'].map(key=>'<td>'+esc(product[key]??'—')+'</td>').join('')+'</tr>';
+   const discount=discountLabel(product);
+   return '<tr><td>'+title+'</td><td>'+esc(priceLabel(product.preco,product.moeda))+'</td><td>'+esc(priceLabel(product.precoAnterior,product.moeda))+
+    '</td><td>'+esc(discount)+'</td>'+['cliques','ctr','pedidos','vendas','atc'].map(key=>'<td>'+esc(product[key]??'—')+'</td>').join('')+'</tr>';
   }).join('')+'</tbody></table>':
   '<div class="empty">Nenhum produto recebido nesta LIVE.</div>';
  const meta=data.fontesMeta||{},live=meta.live||{},creator=meta.creator||{};
