@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>V2J · Shopee Afiliados</title>
+<style>
+:root{color-scheme:dark;background:#091320;color:#ecf3ff;font-family:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+*{box-sizing:border-box}body{margin:0;padding:clamp(16px,3vw,34px);max-width:1320px;margin-inline:auto}
+a{color:#b6ddfd}header{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:26px}
+h1{font-size:clamp(25px,3.5vw,38px);letter-spacing:-.03em;margin:4px 0}h2{font-size:19px;margin:0 0 12px}
+.kicker{letter-spacing:.14em;font-size:11px;color:#9fbddc;font-weight:750}.brand{color:#ff8b52}
+.muted{color:#abbfd3;font-size:13px;line-height:1.55}.hint{color:#f9c48b;font-size:12px}.status{font-size:13px}
+.panel{border:1px solid #314b68;background:#14263e;border-radius:18px;padding:clamp(16px,2vw,23px);margin:18px 0}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button{cursor:pointer;border:0;border-radius:10px;background:#ff854e;color:#171722;padding:12px 16px;font-weight:800}
+button:disabled{opacity:.5;cursor:not-allowed}button.secondary{background:#2c4661;color:#deecff;border:1px solid #4c6480}
+input,select{font:inherit;background:#0b1a2d;border:1px solid #46607d;color:#edf4ff;border-radius:10px;padding:11px;min-width:0;width:100%}
+label{display:block;color:#c3d7ec;font-size:12px;font-weight:700;margin-bottom:7px}.field{flex:1;min-width:180px}
+.badge{font-size:12px;font-weight:700;background:#28445b;color:#c0dcee;border:1px solid #416582;border-radius:99px;padding:7px 11px}
+.badge.ok{color:#8aefd0;border-color:#2b7c67;background:#194436}.badge.warn{color:#ffd29b;border-color:#8e6b3d;background:#413225}
+.offer-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:13px;margin-top:17px}
+.offer{border:1px solid #395675;border-radius:14px;background:#1b314c;padding:14px;display:flex;gap:12px;align-items:flex-start}
+.offer img{width:73px;height:73px;object-fit:cover;border-radius:10px;flex:none;background:#27415b}.offer .title{font-weight:700;font-size:13px;line-height:1.45;min-height:36px;overflow-wrap:anywhere}
+.offer .meta{font-size:12px;color:#b4cde3;line-height:1.7;margin:8px 0}.offer a{font-size:12px;overflow-wrap:anywhere}
+.warning{border-left:3px solid #f49c68;padding:10px 14px;background:#293347;border-radius:7px;font-size:13px;line-height:1.55}
+.empty{padding:22px;border:1px dashed #53728e;border-radius:12px;color:#afc6dc}
+.results{overflow-wrap:anywhere}#message[data-error="1"]{color:#ffb79e}#message[data-error="0"]{color:#a2f5d0}
+#conversionsList{display:grid;gap:12px}.conv{border:1px solid #3a536e;padding:12px 15px;border-radius:12px;background:#1b304a}.conv strong{color:#fff}
+footer{margin-top:24px;color:#9db5cc;font-size:12px}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.offer-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+ <div><div class="kicker">✦ V2J STUDIO / INTEGRAÇÕES</div><h1><span class="brand">Shopee</span> Afiliados</h1><div class="muted">Ofertas, links rastreáveis e conversões da API oficial — separado dos dados da Shopee LIVE.</div></div>
+ <nav class="row"><a href="/shopee-retorno.html">Retorno Shopee LIVE</a><a href="/console.html">Console V2J</a></nav>
+</header>
+<section class="panel">
+ <h2>🔒 Conexão protegida</h2>
+ <div class="row"><span class="badge" id="configStatus">Consultando configuração…</span><span class="badge" id="accessStatus">Acesso restrito</span></div>
+ <p class="muted">O App ID e o Secret são usados apenas no servidor Vercel. Digite aqui somente a <strong>chave de acesso administrativa do V2J</strong> configurada em <code>V2J_AFFILIATE_DASHBOARD_KEY</code>. Não é o App Secret da Shopee. A chave fica na memória desta página e não é salva no navegador.</p>
+ <div class="row"><div class="field"><label for="panelKey">Chave administrativa do painel</label><input id="panelKey" type="password" autocomplete="off" placeholder="Chave do V2J (não é App Secret)"></div><button id="forgetKey" type="button" class="secondary">Limpar chave</button></div>
+ <p class="hint" id="setupHint">Para ativar, configure as três variáveis de ambiente da integração na Vercel e publique uma nova implantação.</p>
+ <p class="status" id="message" aria-live="polite"></p>
+</section>
+<div class="grid">
+ <section class="panel">
+  <h2>🛍️ Buscar produtos</h2><p class="muted">Encontre ofertas, links de afiliado e taxas de comissão conforme sua conta permitir.</p>
+  <form id="productForm"><label for="keyword">Produto ou categoria</label><div class="row"><div class="field"><input id="keyword" placeholder="Ex.: sapatilha feminina" required minlength="2" maxlength="80"></div><button type="submit">Buscar</button></div></form>
+ </section>
+ <section class="panel">
+  <h2>📈 Relatório de conversões</h2><p class="muted">Pedidos atribuídos a links de afiliado, sujeitos a validação. <strong>Não são vendas da LIVE em tempo real.</strong></p>
+  <div class="row"><div class="field"><label for="days">Período</label><select id="days"><option value="7">Últimos 7 dias</option><option value="30">Últimos 30 dias</option></select></div><button id="loadConversions" type="button">Consultar</button></div>
+ </section>
+</div>
+<div class="grid">
+ <section class="panel">
+  <h2>🔗 Criar link de afiliado</h2><p class="muted">Gere um link rastreável a partir de uma URL de produto da Shopee.</p>
+  <form id="linkForm"><label for="originUrl">Link de origem</label><input id="originUrl" type="url" placeholder="https://shopee.com.br/..." required maxlength="600"><label style="margin-top:12px" for="subIds">SubIDs (opcionais, separados por vírgulas)</label><input id="subIds" placeholder="v2j,live,oferta" maxlength="255"><button style="margin-top:12px" type="submit">Gerar link</button></form>
+  <p class="muted" id="generatedLink"></p>
+ </section>
+ <section class="panel">
+  <h2>🏷️ Campanhas da Shopee</h2><p class="muted">Consulte campanhas que podem ser divulgadas com links de afiliado.</p><button id="campaigns" type="button" class="secondary">Consultar campanhas</button>
+  <div class="warning" style="margin-top:18px">Curtidas, novos seguidores e comentários ao vivo não fazem parte dos recursos confirmados desta API. A extensão V2J LIVE continuará tratando desses eventos separadamente.</div>
+ </section>
+</div>
+<section class="panel results"><h2 id="resultsTitle">Resultados da API</h2><div id="results" class="empty">Configure as credenciais no servidor e faça uma consulta.</div></section>
+<footer>V2J · API Shopee Afiliados. Os valores de comissão podem mudar após validação. Sem credenciais no código, na extensão ou no histórico local.</footer>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmtDate=unix=>Number.isFinite(Number(unix))&&Number(unix)>1e9?new Date(Number(unix)*1000).toLocaleString('pt-BR'):'—';
+function safeUrl(input){try{const u=new URL(String(input||''));const h=u.hostname.toLowerCase();return u.protocol==='https:'&&(h==='shopee.com.br'||h.endsWith('.shopee.com.br')||h==='shope.ee')?u.href:'';}catch{return '';}}
+function safeImage(input){try{const u=new URL(String(input||''));const h=u.hostname.toLowerCase();return u.protocol==='https:'&&(h==='susercontent.com'||h.endsWith('.susercontent.com')||h.endsWith('.shopee.com.br'))?u.href:'';}catch{return '';}}
+function message(m,failed=false){$('message').textContent=m;$('message').dataset.error=failed?'1':'0';}
+const timeout=ms=>AbortSignal.timeout(ms);
+async function status(){try{const r=await fetch('/api/shopee-afiliados',{cache:'no-store',signal:timeout(9000)});const d=await r.json();$('configStatus').textContent=d.configured?'Credenciais configuradas (não verificadas)':'Shopee ainda não configurada';$('configStatus').className='badge '+(d.configured?'ok':'warn');$('accessStatus').textContent=d.protected?'Proteção ativa':'Proteção pendente';$('accessStatus').className='badge '+(d.protected?'ok':'warn');$('setupHint').textContent=d.configured&&d.protected?'Pronto para testar: consulte produtos usando sua chave administrativa.':'Configure SHOPEE_AFFILIATE_APP_ID, SHOPEE_AFFILIATE_APP_SECRET e V2J_AFFILIATE_DASHBOARD_KEY na Vercel.';}catch(e){message('Não foi possível verificar o servidor: '+e.message,true);}}
+async function action(payload){
+ const key=$('panelKey').value.trim();if(!key){message('Digite a chave administrativa do V2J. Não informe o Secret da Shopee aqui.',true);return null;}
+ message('Consultando a API Shopee…');
+ try{
+  const r=await fetch('/api/shopee-afiliados',{method:'POST',cache:'no-store',signal:timeout(20000),headers:{'Content-Type':'application/json','Authorization':'Bearer '+key},body:JSON.stringify(payload)});
+  const data=await r.json();if(!r.ok)throw Error(data.message||'HTTP '+r.status);
+  message('Consulta concluída às '+new Date(data.fetchedAt).toLocaleTimeString('pt-BR'));
+  return data;
+ }catch(e){message('Não foi possível concluir a consulta: '+e.message,true);return null;}
+}
+function renderOffers(data,kind){
+ const items=kind==='products'?data.products:data.campaigns;
+ $('resultsTitle').textContent=kind==='products'?'🛍️ Ofertas encontradas':'🏷️ Campanhas disponíveis';
+ $('results').className='offer-grid';
+ if(!items?.length){$('results').className='empty';$('results').textContent='Nenhum resultado recebido para essa consulta.';return;}
+ $('results').innerHTML=items.map(p=>{
+  const img=safeImage(p.imageUrl),url=safeUrl(kind==='products'?p.affiliateLink:p.link),name=kind==='products'?p.name:p.name;
+  const details=kind==='products'?[
+    p.shop?'Loja: '+p.shop:'',p.minPrice!==null?'Preço API: '+String(p.minPrice):'',
+    p.commissionRate!==null?'Comissão (taxa informada pela API): '+String(p.commissionRate):''
+  ]: [p.commissionRate!==null?'Comissão (taxa informada pela API): '+String(p.commissionRate):''];
+  return '<article class="offer">'+(img?'<img loading="lazy" src="'+esc(img)+'" alt="">':'')+'<div><div class="title">'+esc(name)+'</div><div class="meta">'+details.filter(Boolean).map(esc).join(' · ')+'</div>'+(url?'<a target="_blank" rel="noopener noreferrer" href="'+esc(url)+'">Abrir link de afiliado</a>':'<small>Link indisponível</small>')+'</div></article>';
+ }).join('');
+}
+function renderConversions(data){
+ $('resultsTitle').textContent='📈 Conversões atribuídas aos links de afiliado';
+ const items=data.conversions||[];$('results').className='';
+ if(!items.length){$('results').className='empty';$('results').textContent='Nenhuma conversão encontrada neste período (ou ainda não disponibilizada pela Shopee).';return;}
+ $('results').innerHTML='<p class="muted">Registros recebidos: '+items.length+(data.hasNextPage?' · Existem mais páginas; esta consulta mostra apenas a primeira.':'')+'</p><div id="conversionsList">'+items.map(v=>{
+  const orders=(v.orders||[]).map(o=>'<div class="muted">Status: '+esc(o.status||'—')+' · Itens: '+(o.items||[]).map(i=>esc(i.name||'Item')+' × '+esc(i.quantity??'?')).join('; ')+'</div>').join('');
+  return '<article class="conv"><strong>'+esc(fmtDate(v.purchaseTime))+'</strong> · Comissão estimada: '+esc(v.totalCommission??'—')+'<div class="muted">SubIDs: '+esc(v.tracking||'—')+'</div>'+orders+'</article>';
+ }).join('')+'</div><p class="muted">'+esc(data.note||'')+'</p>';
+}
+$('productForm').onsubmit=async e=>{e.preventDefault();const d=await action({action:'products',keyword:$('keyword').value.trim()});if(d)renderOffers(d,'products');};
+$('campaigns').onclick=async()=>{const d=await action({action:'campaigns'});if(d)renderOffers(d,'campaigns');};
+$('loadConversions').onclick=async()=>{const now=Math.floor(Date.now()/1000);const d=await action({action:'conversions',start:now-Number($('days').value)*86400,end:now});if(d)renderConversions(d);};
+$('linkForm').onsubmit=async e=>{e.preventDefault();const d=await action({action:'shortlink',url:$('originUrl').value,subIds:$('subIds').value.split(',').map(s=>s.trim()).filter(Boolean)});const el=$('generatedLink');el.textContent='';if(d?.shortLink){const url=safeUrl(d.shortLink);if(url){const a=document.createElement('a');a.href=url;a.textContent=url;a.target='_blank';a.rel='noopener noreferrer';el.append('Link gerado: ',a);}else{message('A Shopee retornou um link fora dos domínios autorizados; por segurança ele não será aberto.',true);}}};
+$('forgetKey').onclick=()=>{$('panelKey').value='';message('Chave removida da memória desta página.');};
+status();
+</script>
+</body>
+</html>
