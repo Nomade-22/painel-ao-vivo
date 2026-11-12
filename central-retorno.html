@@ -13,6 +13,11 @@ h2{font-size:1.08em;margin:0 0 12px;display:flex;align-items:center;justify-cont
 .notice{background:#264b73;border-color:#4a9cce}.notice h2{color:#c9eaff}.notice-content{font-size:1.18em;font-weight:750;white-space:pre-wrap;overflow-wrap:anywhere}
 @media (min-width:700px){.shell{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;height:100vh}.top{grid-column:1/-1}.chat{grid-column:1;grid-row:2}.product{grid-column:2;grid-row:2;border-left:3px solid #527ba7}.product-body{flex-direction:column}.product-images{width:100%;max-width:none;height:clamp(180px,34vh,300px);flex-direction:row}.main-img{max-width:60%;height:100%}.thumbs{flex-direction:column;flex-wrap:wrap}.notice{grid-column:1/-1;grid-row:3;max-height:24vh;overflow:auto}}
 @media (max-width:600px){.product-body{flex-direction:column}.product-images{width:100%;max-width:none;height:230px;flex-direction:row}.main-img{width:auto;max-width:75%;min-height:0}.thumbs{flex-direction:column}}
+.capture-health{order:5;flex:0 0 100%;display:flex;gap:7px;flex-wrap:wrap;font-size:.57em;line-height:1.3}
+.capture-health span{background:#162d45;border:1px solid #3e5b78;color:#c4ddf2;border-radius:9px;padding:6px 10px}
+.capture-health span.ok{background:#173c33;border-color:#2e8363;color:#a4f8d2}
+.capture-health span.stale{background:#3c2c23;border-color:#8f643d;color:#ffd9a8}
+.capture-health span.off{background:#2b3545;border-color:#495870;color:#bfcee0}
 .desc{font-size:.96em;line-height:1.55}.product-body{overflow:hidden}@media (max-width:600px){.product-images{max-height:200px}}
 </style></head><body>
 <main class="shell">
@@ -21,13 +26,20 @@ h2{font-size:1.08em;margin:0 0 12px;display:flex;align-items:center;justify-cont
  <div class="kpi"><small>👆 Cliques nos produtos (painel)</small><strong id="liveClicks">—</strong></div>
  <div class="kpi"><small>🛒 Vendas (API)</small><strong id="liveSales">—</strong></div>
  <div class="kpi"><small>💵 GMV da LIVE (API)</small><strong id="liveGMV">—</strong></div>
- <div class="kpi"><small>👀 Visualizações (API)</small><strong id="liveViews">—</strong></div>
+ <div class="kpi"><small>👀 Visualizações (watch_pv)</small><strong id="liveViews">—</strong></div>
+ <div class="kpi"><small>📺 Exibições técnicas (client_show_cnt)</small><strong id="liveImpressions">—</strong></div>
  <div class="kpi"><small>💬 Comentários recentes*</small><strong id="liveComments">—</strong></div>
  <div class="kpi"><small>👤 Seguidores / 🛒 Pedidos*</small><strong id="liveEvents">—</strong></div>
  <div class="kpi"><small>🛒 Adições ao carrinho</small><strong id="liveCartAdds">—</strong></div>
  <div class="kpi"><small>❤️ Curtidas</small><strong id="liveLikes">—</strong></div>
  <div class="kpi"><small>↗️ Compartilhamentos</small><strong id="liveShares">—</strong></div>
-</div><small id="metricsFreshness" style="order:4;flex:0 0 100%;font-size:.56em;color:#9bbbd9">* Contagem limitada aos eventos recentes capturados pela extensão, não ao total da LIVE.</small></header>
+</div><small id="metricsFreshness" style="order:4;flex:0 0 100%;font-size:.56em;color:#9bbbd9">* Contagem limitada aos eventos recentes capturados pela extensão, não ao total da LIVE.</small>
+<div class="capture-health" aria-label="Qualidade dos dados" id="captureHealth">
+ <span class="off" id="healthMetrics">Métricas: aguardando</span>
+ <span class="off" id="healthCatalog">Produtos: aguardando</span>
+ <span class="off" id="healthEvents">Eventos: aguardando</span>
+ <span class="off" id="healthSession">Origem: TikTok + V2J</span>
+</div></header>
 <section class="panel chat"><h2>💬 Chat e eventos da LIVE <span class="tag" id="chatCount">MANUAL</span></h2><div class="messages" id="messages"><div class="empty">Aguardando mensagens do console…</div></div></section>
 <section class="panel product"><h2>🛍️ Ficha do produto <span class="tag">FOTO E DESCRIÇÃO</span></h2><div class="product-body"><div class="product-images" id="productImages" hidden><img id="mainImage" class="main-img" alt="Imagem do produto"><div class="thumbs" id="thumbs"></div></div><div class="item-kpis" aria-label="Informações rápidas do produto">
  <div class="kpi"><small>📦 Estoque do item</small><strong id="kpiStock">—</strong></div>
