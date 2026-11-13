@@ -9,8 +9,9 @@ const chatKey = generation => generation ? 'chat-086-' + generation : 'chat-081'
 const sessionLabel = id => createHash('sha256').update(id).digest('hex').slice(0, 10);
 const FIELDS = [
   'vendas', 'usuariosEngajados', 'comentarios', 'atc', 'visualizacoes',
-  'tempoMedio', 'conversoes', 'gpm', 'pedidos', 'ads', 'ccu', 'pcu',
+  'tempoMedio', 'conversoes', 'gpm', 'pedidos', 'ads', 'abs', 'ccu', 'pcu',
   'ctr', 'taxaCliquePedidos', 'compradores', 'itensVendidos',
+  'comentariosMinuto', 'atcMinuto', 'usuariosEngajadosMinuto',
   'cliques', 'curtidas', 'compartilhamentos'
 ];
 const cleanText = (value, limit = 100) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
@@ -116,6 +117,17 @@ function parseDiagnostics(input) {
   return result;
 }
 
+function cleanCreatorDiagnostics(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const safeNames = items => (Array.isArray(items) ? items : []).filter(name =>
+    typeof name === 'string' && /^[A-Za-z]{2,40}$/.test(name)).slice(0, 35);
+  const at = Number(input.leituraEm);
+  return {
+    rotulos: safeNames(input.rotulos), campos: safeNames(input.campos),
+    leituraEm: Number.isFinite(at) && at > 0 && at < 4102444800000 ? at : 0
+  };
+}
+
 function buildResponse(live, creator, chat, legacy, active) {
   const merged = consolidate(live, creator);
   const creatorProducts = Array.isArray(creator.produtos) && creator.produtos.length > 0;
@@ -123,7 +135,7 @@ function buildResponse(live, creator, chat, legacy, active) {
   const productsSource = creatorProducts && (!liveProducts || (creator.produtoEm || 0) >= (live.produtoEm || 0))
     ? 'creator' : liveProducts ? 'live' : 'legado';
   return {
-    versaoRetorno: '0.8.6', ...merged,
+    versaoRetorno: '0.8.12', ...merged,
     sessao: active ? { identificada: true, referencia: sessionLabel(active.id), iniciadaEm: active.createdAt, atualizadaEm: active.lastSeenAt } :
       { identificada: false, referencia: null, iniciadaEm: 0 },
     fontes: { live: live.metricas || {}, creator: creator.metricas || {} },
@@ -132,7 +144,8 @@ function buildResponse(live, creator, chat, legacy, active) {
       live: { ultimoSinalEm: live.heartbeatAt || 0, ultimasMetricasEm: live.lastValidAt || 0,
         camposIdentificados: live.camposIdentificados || 0, diagnosticoChat: live.diagnosticoChat || null },
       creator: { ultimoSinalEm: creator.heartbeatAt || 0, ultimasMetricasEm: creator.lastValidAt || 0,
-        camposIdentificados: creator.camposIdentificados || 0 }
+        camposIdentificados: creator.camposIdentificados || 0,
+        diagnosticoCreator: creator.diagnosticoCreator || null, versaoLeitor: creator.versaoLeitor || '' }
     },
     comentariosLive: chat.comentariosLive,
     saudeChat: { ultimoComentarioEm: chat.ultimoComentarioEm, totalNovosComentarios: chat.totalNovosComentarios },
@@ -171,25 +184,45 @@ export default async function handler(req, res) {
     }
     const source = body.origem === 'live-shopee' ? 'live' : 'creator';
     const now = Date.now();
-    // A sala LIVE é a única fonte autorizada a alterar a sessão corrente.
-    // Uma nova identificação muda o namespace de TODOS os dados, sem apagar o arquivo anterior.
     const incomingId = cleanText(body.sessaoId, 80);
     const observedAt = Number(body.sessaoObservadaEm);
     let novaLive = false;
-    if (source === 'live' && /^[A-Za-z0-9_-]{3,80}$/.test(incomingId)) {
-      if (!active || active.id !== incomingId) {
-        // Evita que uma aba antiga ainda aberta restaure a LIVE anterior.
-        if (active && Number.isFinite(observedAt) && observedAt > 0 &&
-            Number(active.observedAt) > observedAt + 1000) {
-          return res.status(409).json({ erro: 'Requisição de uma LIVE anterior ignorada.', sessaoAnterior: true });
-        }
-        active = { id: incomingId, generation: randomUUID().replace(/-/g, ''),
-          observedAt: Number.isFinite(observedAt) && observedAt > 0 ? observedAt : now,
-          createdAt: now, lastSeenAt: now };
-        await cache.set(ACTIVE_KEY, active, { ttl: TTL, name: 'Sessão Shopee atual' });
-        novaLive = true;
-      } else if (now - Number(active.lastSeenAt || 0) > 30000) {
-        active.lastSeenAt = now;
+    // Sala LIVE e Centro de Criação possuem IDs próprios. Os dois podem
+    // identificar a sessão; não reiniciar quando uma fonte associa o seu ID pela 1ª vez.
+    const isLiveId = source === 'live' && /^[A-Za-z0-9_-]{3,80}$/.test(incomingId);
+    const isCreatorId = source === 'creator' && /^[0-9]{3,20}$/.test(incomingId);
+    const oldObserved = Number(active?.observedAt) || 0;
+    const olderRequest = active && Number.isFinite(observedAt) && observedAt > 0 &&
+      oldObserved > observedAt + 1000;
+    let changed = false;
+    if (isLiveId) {
+      changed = !active || (active.liveRoomId && active.liveRoomId !== incomingId) ||
+        (!active.liveRoomId && !active.creatorRoomId && active.id !== incomingId);
+    } else if (isCreatorId) {
+      changed = !active ||
+        (active.creatorRoomId && active.creatorRoomId !== incomingId) ||
+        (!active.creatorRoomId && now - Number(active.lastSeenAt || active.createdAt || 0) > 120000);
+    }
+    if (changed && olderRequest) {
+      return res.status(409).json({ erro: 'Requisição de uma LIVE anterior ignorada.', sessaoAnterior: true });
+    }
+    if (changed) {
+      active = {
+        id: isLiveId ? incomingId : 'creator-' + incomingId,
+        generation: randomUUID().replace(/-/g, ''),
+        liveRoomId: isLiveId ? incomingId : null,
+        creatorRoomId: isCreatorId ? incomingId : null,
+        observedAt: Number.isFinite(observedAt) && observedAt > 0 ? observedAt : now,
+        createdAt: now, lastSeenAt: now
+      };
+      novaLive = true;
+      await cache.set(ACTIVE_KEY, active, { ttl: TTL, name: 'Sessão Shopee atual' });
+    } else if (active && (isLiveId || isCreatorId)) {
+      const nextLiveId = isLiveId ? incomingId : active.liveRoomId;
+      const nextCreatorId = isCreatorId ? incomingId : active.creatorRoomId;
+      if (nextLiveId !== active.liveRoomId || nextCreatorId !== active.creatorRoomId ||
+          now - Number(active.lastSeenAt || 0) > 30000) {
+        active = {...active,liveRoomId:nextLiveId||null,creatorRoomId:nextCreatorId||null,lastSeenAt:now};
         await cache.set(ACTIVE_KEY, active, { ttl: TTL, name: 'Sessão Shopee atual' });
       }
     }
@@ -217,6 +250,11 @@ export default async function handler(req, res) {
     if (source === 'live') {
       const diagnostico = parseDiagnostics(body.diagnostico);
       if (diagnostico) next.diagnosticoChat = diagnostico;
+    } else {
+      const diagnostico = cleanCreatorDiagnostics(body.diagnosticoCreator);
+      if (diagnostico) next.diagnosticoCreator = diagnostico;
+      if (typeof body.versaoLeitor === 'string' && /^0\.8\.\d{1,3}$/.test(body.versaoLeitor))
+        next.versaoLeitor = body.versaoLeitor;
     }
     const produtos = cleanProducts(body.produtos);
     if (produtos) { next.produtos = produtos;next.produtoEm = now; }
@@ -243,7 +281,7 @@ export default async function handler(req, res) {
         }, { ttl: TTL, name: 'Chat Shopee V2J' });
       }
     }
-    return res.status(200).json({ ok: true, versaoRetorno: '0.8.6', novaLive, sessaoIdentificada: !!active, camposAceitos,
+    return res.status(200).json({ ok: true, versaoRetorno: '0.8.12', novaLive, sessaoIdentificada: !!active, camposAceitos,
       confirmadosIds, novosComentarios: fresh.length, leituraSuspeita: suspicious,
       produtosAceitos: produtos?.length ?? null, ultimaConfirmacaoEm: now });
   } catch (error) {
