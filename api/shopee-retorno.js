@@ -12,7 +12,7 @@ const FIELDS = [
   'tempoMedio', 'conversoes', 'gpm', 'pedidos', 'ads', 'abs', 'ccu', 'pcu',
   'ctr', 'taxaCliquePedidos', 'compradores', 'itensVendidos',
   'comentariosMinuto', 'atcMinuto', 'usuariosEngajadosMinuto',
-  'cliques', 'curtidas', 'compartilhamentos'
+  'cliques', 'curtidas', 'compartilhamentos', 'totalEspectadores', 'taxaComentarios'
 ];
 const cleanText = (value, limit = 100) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 const cleanValue = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value :
@@ -43,8 +43,48 @@ function cleanProducts(items) {
     desconto: item?.desconto !== null && Number.isFinite(Number(item?.desconto)) &&
       Number(item.desconto) >= 0 && Number(item.desconto) <= 100 ? Number(item.desconto) : null,
     cliques: cleanValue(item?.cliques), ctr: cleanValue(item?.ctr),
-    pedidos: cleanValue(item?.pedidos), vendas: cleanValue(item?.vendas), atc: cleanValue(item?.atc)
+    pedidos: cleanValue(item?.pedidos), itensVendidos: cleanValue(item?.itensVendidos),
+    vendas: cleanValue(item?.vendas), atc: cleanValue(item?.atc),
+    comissao: cleanValue(item?.comissao),
+    origem: item?.origem === 'creator' ? 'creator' : 'live',
+    periodo: item?.periodo === 'visivel' ? 'visivel' : null
   })).filter(item => item.nome);
+}
+
+function mergeProducts(liveItems, creatorItems) {
+  const live = (Array.isArray(liveItems) ? liveItems : []).map(item => ({...item}));
+  const creator = Array.isArray(creatorItems) ? creatorItems : [];
+  const normalizeName = value => String(value || '').normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9 ]/g, ' ')
+    .replace(/\s+/g, ' ').trim().toLowerCase();
+  for (const item of creator) {
+    const target = normalizeName(item.nome);
+    let matches = live.map((p, index) => ({p,index})).filter(({p}) =>
+      item.id && p.id === item.id);
+    if (!matches.length && target.length >= 12)
+      matches = live.map((p,index)=>({p,index})).filter(({p}) =>
+        normalizeName(p.nome).startsWith(target) ||
+        target.startsWith(normalizeName(p.nome)));
+    if (matches.length > 1 && item.preco) {
+      const cents = value => {
+        const raw = String(value || '').replace(/[^0-9.,]/g,'');
+        return raw.includes(',') ? raw.replace(/\./g,'').replace(',','.') : raw;
+      };
+      const money = cents(item.preco);
+      matches = matches.filter(({p}) => cents(p.preco) === money);
+    }
+    if (matches.length === 1) {
+      const {p,index} = matches[0];
+      live[index] = {...p, cliques:item.cliques ?? p.cliques, ctr:item.ctr ?? p.ctr,
+        pedidos:item.pedidos ?? p.pedidos, itensVendidos:item.itensVendidos ?? p.itensVendidos,
+        vendas:item.vendas ?? p.vendas, comissao:item.comissao ?? p.comissao,
+        origem:'live+creator'};
+    } else {
+      // Sem correspondência única, não atribuir pedidos ao produto errado.
+      live.push({...item, origem:'creator', semCorrespondencia: true});
+    }
+  }
+  return live.slice(0,100);
 }
 
 function legacySource(legacy, source) {
@@ -124,18 +164,21 @@ function cleanCreatorDiagnostics(input) {
   const at = Number(input.leituraEm);
   return {
     rotulos: safeNames(input.rotulos), campos: safeNames(input.campos),
-    leituraEm: Number.isFinite(at) && at > 0 && at < 4102444800000 ? at : 0
+    leituraEm: Number.isFinite(at) && at > 0 && at < 4102444800000 ? at : 0,
+    linhasProdutos: Number.isInteger(input.linhasProdutos) && input.linhasProdutos >= 0 && input.linhasProdutos <= 80 ? input.linhasProdutos : 0
   };
 }
 
 function buildResponse(live, creator, chat, legacy, active) {
   const merged = consolidate(live, creator);
-  const creatorProducts = Array.isArray(creator.produtos) && creator.produtos.length > 0;
-  const liveProducts = Array.isArray(live.produtos) && live.produtos.length > 0;
-  const productsSource = creatorProducts && (!liveProducts || (creator.produtoEm || 0) >= (live.produtoEm || 0))
-    ? 'creator' : liveProducts ? 'live' : 'legado';
+  const creatorProducts = Array.isArray(creator.produtos) ? creator.produtos : [];
+  const liveProducts = Array.isArray(live.produtos) ? live.produtos :
+    Array.isArray(legacy?.produtos) ? legacy.produtos : [];
+  const productsSource = creatorProducts.length && liveProducts.length ? 'live+creator' :
+    creatorProducts.length ? 'creator' : liveProducts.length ? 'live' : 'indisponivel';
+  const mergedProducts = mergeProducts(liveProducts, creatorProducts);
   return {
-    versaoRetorno: '0.8.12', ...merged,
+    versaoRetorno: '0.8.13', ...merged,
     sessao: active ? { identificada: true, referencia: sessionLabel(active.id), iniciadaEm: active.createdAt, atualizadaEm: active.lastSeenAt } :
       { identificada: false, referencia: null, iniciadaEm: 0 },
     fontes: { live: live.metricas || {}, creator: creator.metricas || {} },
@@ -149,7 +192,8 @@ function buildResponse(live, creator, chat, legacy, active) {
     },
     comentariosLive: chat.comentariosLive,
     saudeChat: { ultimoComentarioEm: chat.ultimoComentarioEm, totalNovosComentarios: chat.totalNovosComentarios },
-    produtos: (productsSource === 'creator' ? creator.produtos : productsSource === 'live' ? live.produtos : legacy?.produtos) || [],
+    produtos: mergedProducts,
+    produtosCreator: creatorProducts,
     produtosOrigem: productsSource,
     atualizadoEm: Math.max(live.heartbeatAt || 0, creator.heartbeatAt || 0),
     origem: 'Shopee Live + Centro de Criação',

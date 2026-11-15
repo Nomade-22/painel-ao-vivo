@@ -70,9 +70,13 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
 </section>
 <section class="panel">
  <h2>🛍️ Desempenho dos produtos</h2>
+ <p class="muted">Cliques, pedidos, itens vendidos e vendas podem vir da tabela do Centro de Criação. Comissão não aparece no relatório fornecido; fica indisponível até existir uma fonte confirmada.</p>
  <p class="muted" id="productsInfo">Os itens são identificados nas respostas da sacolinha da LIVE ou no Centro de Criação. Dados não confirmados permanecem como “—”.</p>
  <p class="muted">Valores em BRL são formatados em reais. “A conferir” indica preço anterior maior que o atual, mas desconto oficial informado como 0%; não presumimos desconto confirmado. Fotos ausentes e métricas sem fonte permanecem indisponíveis.</p>
  <div id="productList" class="scroll"><div class="empty">Nenhum produto recebido ainda.</div></div>
+ <h2 style="margin-top:18px">📊 Produtos do Centro de Criação</h2>
+ <p id="creatorProductsInfo" class="muted">Aguardando resultados individuais. Os valores pertencem ao período selecionado na Shopee.</p>
+ <div id="creatorProducts" class="scroll"><div class="empty">Nenhum resultado individual recebido.</div></div>
 </section>
 <section class="panel">
  <h2>📡 Integridade do retorno</h2>
@@ -80,6 +84,7 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
  <div class="health">
   <div>Rótulos visíveis no Centro de Criação<strong id="creatorLabels">—</strong></div>
   <div>Indicadores realmente interpretados<strong id="creatorParsed">—</strong></div>
+  <div>Linhas de produtos detectadas<strong id="creatorRows">—</strong></div>
   <div>Última leitura do Centro de Criação<strong id="creatorLastScan">—</strong></div>
  </div>
  <p class="muted" id="creatorReaderInfo">O leitor da extensão precisa estar ativo na aba creator.shopee.com.br/dashboard/live/…</p>
@@ -105,11 +110,11 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
  <h2 style="margin-top:20px">📊 Origem, atualização e divergências</h2>
  <div id="details" class="muted detail">Abra a Shopee LIVE e o Centro de Criação no Chrome com a extensão V2J ativa.</div>
 </section>
-<footer>“—” significa indisponível, nunca zero. Métricas “último minuto” não são totais da LIVE. Gráficos de tendências, origem dos espectadores e perfil do comprador ainda dependem de respostas estruturadas da Shopee. Dados comerciais seguem a fonte oficial.</footer>
+<footer>“—” significa indisponível, nunca zero. Comissão é diferente de vendas. Métricas “último minuto” não são totais da LIVE. Gráficos de tendências, origem dos espectadores e perfil do comprador ainda dependem de respostas estruturadas da Shopee. Dados comerciais seguem a fonte oficial.</footer>
 <script>
 const labels=[
  ['vendas','💰 Vendas (R$)','primary'],['pedidos','🛒 Pedidos',''],['itensVendidos','📦 Itens vendidos',''],
- ['visualizacoes','👀 Visualizações totais',''],['comentarios','💬 Comentários totais',''],
+ ['visualizacoes','👀 Visualizações totais',''],['totalEspectadores','👤 Total de espectadores',''],['comentarios','💬 Comentários totais',''],['taxaComentarios','💬 Taxa de comentários',''],
  ['ccu','📺 Espectadores atuais (CCU)',''],['pcu','📈 Pico de espectadores (PCU)',''],
  ['compradores','👤 Compradores',''],['gpm','📊 GPM (R$)',''],['abs','💵 ABS / valor médio (R$)',''],
  ['ctr','🎯 CTR',''],['taxaCliquePedidos','📉 Taxa cliques / pedidos',''],
@@ -120,6 +125,7 @@ const labels=[
  ['usuariosEngajados','👥 Usuários engajados (outra fonte)',''],
  ['atc','🛍️ ATC (outra fonte)',''],
  ['conversoes','✅ Conversões',''],['ads','📣 ADS',''],
+ ['comissaoNaoInformada','💸 Comissão de afiliado',''],
  ['cliques','🖱️ Cliques no produto',''],['curtidas','❤️ Curtidas',''],['compartilhamentos','🔗 Compartilhamentos','']
 ];
 const el=id=>document.getElementById(id);
@@ -185,24 +191,34 @@ function show(data){
   ' · início do registro: '+esc(prettyTime(sessao.iniciadaEm))+' · comentários e métricas exclusivos desta LIVE':
   '<strong>● Identificação da LIVE pendente</strong> · atualize a extensão para a versão 0.8.6 e abra a transmissão para ativar a limpeza automática.';
  const products=Array.isArray(data.produtos)?data.produtos:[];
+ const creatorItems=Array.isArray(data.produtosCreator)?data.produtosCreator:[];
  const withImage=products.filter(p=>safeImage(p.imagem)).length;
  const inconsistent=products.filter(p=>discountLabel(p)==='A conferir').length;
  el('productsInfo').textContent=products.length?
   'Itens recebidos: '+products.length+' · Fotos disponíveis: '+withImage+'/'+products.length+
   ' · Descontos a conferir: '+inconsistent+
-  ' · Origem: '+(data.produtosOrigem==='creator'?'Centro de Criação':data.produtosOrigem==='live'?'Sacolinha Shopee LIVE':'Dados anteriores')+
+  ' · Origem: '+(data.produtosOrigem==='creator'?'Centro de Criação':data.produtosOrigem==='live+creator'?'LIVE + Centro de Criação':data.produtosOrigem==='live'?'Sacolinha Shopee LIVE':'Indisponível')+
   '. Indicadores sem confirmação aparecem como “—”.':
   'Aguardando os dados de itens da sacolinha ou do Centro de Criação.';
- el('productList').innerHTML=products.length?'<table><thead><tr><th>Produto</th><th>Preço recebido</th><th>Antes</th><th>Desconto</th><th>Cliques</th><th>CTR</th><th>Pedidos</th><th>Vendas</th><th>ATC</th></tr></thead><tbody>'+
+ el('productList').innerHTML=products.length?'<table><thead><tr><th>Produto</th><th>Preço recebido</th><th>Antes</th><th>Desconto</th><th>Cliques</th><th>CTR</th><th>Pedidos</th><th>Itens vendidos</th><th>Vendas</th><th>ATC</th><th>Comissão</th></tr></thead><tbody>'+
   products.map(product=>{
    const img=safeImage(product.imagem);
    const title=(img?'<img class="product-photo" loading="lazy" referrerpolicy="no-referrer" src="'+esc(img)+'" alt="">':'')+
      '<span class="product-title">'+esc(product.nome||'')+'</span>';
    const discount=discountLabel(product);
    return '<tr><td>'+title+'</td><td>'+esc(priceLabel(product.preco,product.moeda))+'</td><td>'+esc(priceLabel(product.precoAnterior,product.moeda))+
-    '</td><td>'+esc(discount)+'</td>'+['cliques','ctr','pedidos','vendas','atc'].map(key=>'<td>'+esc(product[key]??'—')+'</td>').join('')+'</tr>';
+    '</td><td>'+esc(discount)+'</td>'+['cliques','ctr','pedidos','itensVendidos','vendas','atc','comissao'].map(key=>'<td>'+esc(product[key]??'—')+'</td>').join('')+'</tr>';
   }).join('')+'</tbody></table>':
   '<div class="empty">Nenhum produto recebido nesta LIVE.</div>';
+ el('creatorProductsInfo').textContent=creatorItems.length?
+  creatorItems.length+' linhas lidas do Centro de Criação; pode ser apenas parte dos produtos. Valores conforme período escolhido na Shopee.':
+  'Aguardando itens. Abra ou role até a tabela de produtos no Centro de Criação.';
+ el('creatorProducts').innerHTML=creatorItems.length?
+  '<table><thead><tr><th>Produto</th><th>Cliques</th><th>CTR</th><th>Pedidos</th><th>Itens vendidos</th><th>Vendas</th><th>Comissão</th></tr></thead><tbody>'+
+  creatorItems.map(p=>'<tr><td>'+esc(p.nome||'—')+'</td>'+
+    ['cliques','ctr','pedidos','itensVendidos','vendas','comissao'].map(k=>'<td>'+esc(p[k]??'—')+'</td>').join('')+'</tr>').join('')+
+  '</tbody></table>':
+  '<div class="empty">O Centro de Criação ainda não enviou resultados individuais.</div>';
  const meta=data.fontesMeta||{},live=meta.live||{},creator=meta.creator||{};
  const info=(name,item)=>{
   const connected=Date.now()-Number(item.ultimoSinalEm||0)<60000;
@@ -216,8 +232,9 @@ function show(data){
  el('creatorLabels').textContent=Array.isArray(creatorDiag.rotulos)?creatorDiag.rotulos.length:'—';
  el('creatorParsed').textContent=Array.isArray(creatorDiag.campos)?creatorDiag.campos.length:'—';
  el('creatorLastScan').textContent=creatorDiag.leituraEm?age(creatorDiag.leituraEm):'—';
+ el('creatorRows').textContent=Number.isInteger(creatorDiag.linhasProdutos)?creatorDiag.linhasProdutos:'—';
  el('creatorReaderInfo').textContent=creator.versaoLeitor?
-   'Leitor V2J '+creator.versaoLeitor+' · '+(creatorDiag.campos?.length||0)+' campos reconhecidos. Se os rótulos existem e não foram interpretados, envie o diagnóstico para correção.':
+   'Leitor V2J '+creator.versaoLeitor+' · '+(creatorDiag.campos?.length||0)+' campos reconhecidos · '+(creatorDiag.linhasProdutos||0)+' linhas de produto. Caso não capture, exporte o diagnóstico Creator na extensão.':
    'Leitor ainda não identificado. Instale a extensão V2J LIVE v0.8.12, abra o Centro de Criação e use a leitura forçada.';
  el('summaryComments').textContent=data.saudeChat?.totalNovosComentarios??'—';
  el('summaryEntries').textContent=parser.domEntradas??'—';
