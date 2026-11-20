@@ -75,7 +75,8 @@ function mergeProducts(liveItems, creatorItems) {
     }
     if (matches.length === 1) {
       const {p,index} = matches[0];
-      live[index] = {...p, cliques:item.cliques ?? p.cliques, ctr:item.ctr ?? p.ctr,
+      live[index] = {...p, imagem: p.imagem || item.imagem || '',
+        cliques:item.cliques ?? p.cliques, ctr:item.ctr ?? p.ctr,
         pedidos:item.pedidos ?? p.pedidos, itensVendidos:item.itensVendidos ?? p.itensVendidos,
         vendas:item.vendas ?? p.vendas, comissao:item.comissao ?? p.comissao,
         origem:'live+creator'};
@@ -165,7 +166,9 @@ function cleanCreatorDiagnostics(input) {
   return {
     rotulos: safeNames(input.rotulos), campos: safeNames(input.campos),
     leituraEm: Number.isFinite(at) && at > 0 && at < 4102444800000 ? at : 0,
-    linhasProdutos: Number.isInteger(input.linhasProdutos) && input.linhasProdutos >= 0 && input.linhasProdutos <= 80 ? input.linhasProdutos : 0
+    linhasProdutos: Number.isInteger(input.linhasProdutos) && input.linhasProdutos >= 0 && input.linhasProdutos <= 80 ? input.linhasProdutos : 0,
+    valoresZerados: Number.isInteger(input.valoresZerados) && input.valoresZerados >= 0 && input.valoresZerados <= 35 ? input.valoresZerados : 0,
+    valoresNaoZerados: Number.isInteger(input.valoresNaoZerados) && input.valoresNaoZerados >= 0 && input.valoresNaoZerados <= 35 ? input.valoresNaoZerados : 0
   };
 }
 
@@ -178,7 +181,7 @@ function buildResponse(live, creator, chat, legacy, active) {
     creatorProducts.length ? 'creator' : liveProducts.length ? 'live' : 'indisponivel';
   const mergedProducts = mergeProducts(liveProducts, creatorProducts);
   return {
-    versaoRetorno: '0.8.13', ...merged,
+    versaoRetorno: '0.8.14', ...merged,
     sessao: active ? { identificada: true, referencia: sessionLabel(active.id), iniciadaEm: active.createdAt, atualizadaEm: active.lastSeenAt } :
       { identificada: false, referencia: null, iniciadaEm: 0 },
     fontes: { live: live.metricas || {}, creator: creator.metricas || {} },

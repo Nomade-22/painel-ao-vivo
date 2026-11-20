@@ -85,6 +85,8 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
   <div>Rótulos visíveis no Centro de Criação<strong id="creatorLabels">—</strong></div>
   <div>Indicadores realmente interpretados<strong id="creatorParsed">—</strong></div>
   <div>Linhas de produtos detectadas<strong id="creatorRows">—</strong></div>
+  <div>Valores zerados na leitura<strong id="creatorZeros">—</strong></div>
+  <div>Valores diferentes de zero<strong id="creatorNonzeros">—</strong></div>
   <div>Última leitura do Centro de Criação<strong id="creatorLastScan">—</strong></div>
  </div>
  <p class="muted" id="creatorReaderInfo">O leitor da extensão precisa estar ativo na aba creator.shopee.com.br/dashboard/live/…</p>
@@ -233,8 +235,12 @@ function show(data){
  el('creatorParsed').textContent=Array.isArray(creatorDiag.campos)?creatorDiag.campos.length:'—';
  el('creatorLastScan').textContent=creatorDiag.leituraEm?age(creatorDiag.leituraEm):'—';
  el('creatorRows').textContent=Number.isInteger(creatorDiag.linhasProdutos)?creatorDiag.linhasProdutos:'—';
+ el('creatorZeros').textContent=Number.isInteger(creatorDiag.valoresZerados)?creatorDiag.valoresZerados:'—';
+ el('creatorNonzeros').textContent=Number.isInteger(creatorDiag.valoresNaoZerados)?creatorDiag.valoresNaoZerados:'—';
  el('creatorReaderInfo').textContent=creator.versaoLeitor?
-   'Leitor V2J '+creator.versaoLeitor+' · '+(creatorDiag.campos?.length||0)+' campos reconhecidos · '+(creatorDiag.linhasProdutos||0)+' linhas de produto. Caso não capture, exporte o diagnóstico Creator na extensão.':
+   'Leitor V2J '+creator.versaoLeitor+' · '+(creatorDiag.campos?.length||0)+' campos estáveis · '+(creatorDiag.linhasProdutos||0)+' linhas de produto. '+
+   (data.ultimaLeituraSuspeita==='creator'?'A Shopee retornou uma leitura suspeita de zeros; os números foram bloqueados para evitar vendas falsas. ':'')+
+   'Se os valores oficiais não aparecerem, exporte o diagnóstico Creator para investigar as chamadas de rede.':
    'Leitor ainda não identificado. Instale a extensão V2J LIVE v0.8.12, abra o Centro de Criação e use a leitura forçada.';
  el('summaryComments').textContent=data.saudeChat?.totalNovosComentarios??'—';
  el('summaryEntries').textContent=parser.domEntradas??'—';
