@@ -181,7 +181,7 @@ function buildResponse(live, creator, chat, legacy, active) {
     creatorProducts.length ? 'creator' : liveProducts.length ? 'live' : 'indisponivel';
   const mergedProducts = mergeProducts(liveProducts, creatorProducts);
   return {
-    versaoRetorno: '0.8.14', ...merged,
+    versaoRetorno: '0.8.15', ...merged,
     sessao: active ? { identificada: true, referencia: sessionLabel(active.id), iniciadaEm: active.createdAt, atualizadaEm: active.lastSeenAt } :
       { identificada: false, referencia: null, iniciadaEm: 0 },
     fontes: { live: live.metricas || {}, creator: creator.metricas || {} },
