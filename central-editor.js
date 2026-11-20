@@ -29,11 +29,10 @@ async function load(){
 async function save(patch,success){
  if(busy)return;busy=true;status('Publicando no retorno…');
  try{
-  const payload={...data,...patch};
-  const r=await fetch('/api/retorno?central=1',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const r=await fetch('/api/retorno?patch=1',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});
   const response=await r.json().catch(()=>({}));
-  if(!r.ok)throw Error(response.erro||'HTTP '+r.status);
-  show({...payload,versao:response.versao});status('✅ '+success);
+  if(!r.ok||!response.ok)throw Error(response.erro||'HTTP '+r.status);
+  show(response.estado);status('✅ '+success);
  }catch(e){status('Erro ao publicar: '+e.message);}
  finally{busy=false;}
 }
@@ -47,6 +46,27 @@ $('clearChat').addEventListener('click',()=>{if(confirm('Apagar todo o chat manu
 $('saveNotice').addEventListener('click',()=>save({recado:$('notice').value},'Recado atualizado.'));
 $('clearNotice').addEventListener('click',()=>save({recado:''},'Recado removido.'));
 load();
+// Mantenha visível no painel a mesma seleção que pode ser feita diretamente
+// no retorno. Não altere campos que o operador esteja editando.
+async function updateSharedSelection(){
+ if(busy||document.hidden)return;
+ try{
+  const r=await fetch('/api/retorno?central=1',{cache:'no-store'});
+  if(!r.ok)return;
+  const fresh=await r.json();
+  const oldSignature=(data.catalogo||[]).map(p=>p.numero+'|'+p.nome+'|'+p.atualizadoEm).join(';');
+  const newSignature=(fresh.catalogo||[]).map(p=>p.numero+'|'+p.nome+'|'+p.atualizadoEm).join(';');
+  if(fresh.itemAtivo===data.itemAtivo&&oldSignature===newSignature)return;
+  data={...data,itemAtivo:fresh.itemAtivo,catalogo:fresh.catalogo,versao:fresh.versao};
+  if(document.activeElement!==$('bagNumber')&&$('bagEditPanel').hidden){
+   $('bagNumber').value=fresh.itemAtivo||'';
+   fillBag();
+  }
+  renderBag();
+  status('✅ Sacolinha e item ativo sincronizados com o retorno V2J.');
+ }catch(_error){}
+}
+setInterval(updateSharedSelection,4000);
 
 function bagItem(num){return (data.catalogo||[]).find(p=>p.numero===Number(num));}
 function closeBagEdit(){$('bagEditPanel').hidden=true;}

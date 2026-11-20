@@ -139,6 +139,39 @@ export default async function handler(req,res){
    await cacheSync.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
    return res.status(200).json({ok:true,recebidos:imported.length,armazenados:next.catalogo.length});
   }
+  // Seleção compartilhada: o retorno altera APENAS o número ativo, sem
+  // substituir métricas, comentários, recados ou a sacolinha sincronizada.
+  if(req.query?.select==='1'){
+   if(req.method!=='PUT')return res.status(405).json({erro:'Método inválido'});
+   const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
+   const numero=Number(body?.numero);
+   if(!Number.isInteger(numero)||numero<1||numero>999)return res.status(400).json({erro:'Informe um número de 1 a 999.'});
+   const cacheSelect=getCache({namespace:'central-retorno-v1'});
+   const current=cleanCentral(await cacheSelect.get('estado')||defaultCentral);
+   if(!current.catalogo.some(p=>p.numero===numero))return res.status(404).json({erro:'Produto #'+numero+' não encontrado na sacolinha V2J. Sincronize ou cadastre o item pelo painel.'});
+   if(current.itemAtivo===numero)return res.status(200).json({ok:true,itemAtivo:numero,versao:current.versao,inalterado:true});
+   const next=cleanCentral({...current,itemAtivo:numero,versao:Math.max(Date.now(),Number(current.versao||0)+1)});
+   await cacheSelect.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
+   return res.status(200).json({ok:true,itemAtivo:numero,versao:next.versao});
+  }
+  // Edição parcial do painel: evita regravar um snapshot antigo e apagar
+  // a seleção feita diretamente no retorno, ou eventos enviados pela extensão.
+  if(req.query?.patch==='1'){
+   if(req.method!=='PUT')return res.status(405).json({erro:'Método inválido'});
+   const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
+   if(!body||typeof body!=='object'||Array.isArray(body))return res.status(400).json({erro:'Dados inválidos'});
+   const fields=['produto','recado','chat','catalogo','itemAtivo','liveMetricas'];
+   const patch=Object.fromEntries(fields.filter(key=>Object.prototype.hasOwnProperty.call(body,key)).map(key=>[key,body[key]]));
+   if(!Object.keys(patch).length)return res.status(400).json({erro:'Nenhum campo editável informado'});
+   const centralCache=getCache({namespace:'central-retorno-v1'});
+   const current=cleanCentral(await centralCache.get('estado')||defaultCentral);
+   const next=cleanCentral({...current,...patch,
+    ...(patch.liveMetricas&&typeof patch.liveMetricas==='object'?
+      {liveMetricas:{...current.liveMetricas,...patch.liveMetricas}}:{}),
+    versao:Math.max(Date.now(),Number(current.versao||0)+1)});
+   await centralCache.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
+   return res.status(200).json({ok:true,versao:next.versao,estado:next});
+  }
   if(req.query?.central==='1'){
    const centralCache=getCache({namespace:'central-retorno-v1'});
    if(req.method==='GET')return res.status(200).json(cleanCentral(await centralCache.get('estado')||defaultCentral));

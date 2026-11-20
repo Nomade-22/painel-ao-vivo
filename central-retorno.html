@@ -33,6 +33,44 @@ h2{font-size:1.08em;margin:0 0 12px;display:flex;align-items:center;justify-cont
 .capture-health span.stale{background:#3c2c23;border-color:#8f643d;color:#ffd9a8}
 .capture-health span.off{background:#2b3545;border-color:#495870;color:#bfcee0}
 .desc{font-size:.96em;line-height:1.55}.product-body{overflow:hidden}@media (max-width:600px){.product-images{max-height:200px}}
+
+/* Três áreas independentes: chat, descrição e ficha. */
+.description-panel{display:flex;flex-direction:column;min-height:0;border-left:3px solid #e28a50}
+.description-panel h2{margin-bottom:6px;gap:8px;flex-wrap:wrap}
+.description-select{display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin:8px 0 9px}
+.description-select label{display:flex;flex-direction:column;gap:4px;font-size:.65em;color:#b9d4eb;font-weight:750}
+.description-select input{width:98px;padding:8px 10px;border:1px solid #6387aa;border-radius:9px;background:#0d223b;color:#f8fbff;font:700 15px system-ui}
+.description-select button{padding:9px 12px;border:1px solid #edab71;border-radius:9px;background:#e4884d;color:#172133;font:800 13px system-ui;cursor:pointer}
+.description-select button:disabled{opacity:.55;cursor:wait}
+.description-feedback{font-size:.62em;line-height:1.35;color:#aadbc3;margin:0 0 9px;min-height:1.3em}
+.description-feedback.error{color:#ffb29c}
+.description-scroll{flex:1;min-height:0;overflow:auto;scrollbar-color:#537496 transparent;padding:14px 15px;background:#0e2035;border:1px solid #35536e;border-radius:12px}
+.description-item{font-size:.72em;color:#9ec7ef;font-weight:800;margin-bottom:10px;overflow-wrap:anywhere}
+.description-text{font-size:clamp(15px,1.08vw,21px);line-height:1.62;white-space:pre-wrap;overflow-wrap:anywhere;color:#eff6ff;margin:0}
+@media (min-width:1150px){
+ .shell{grid-template-columns:minmax(235px,.92fr) minmax(275px,1.12fr) minmax(380px,1.55fr);grid-template-rows:auto minmax(0,1fr) auto;height:100vh}
+ .top{grid-column:1/-1}
+ .chat{grid-column:1;grid-row:2}
+ .description-panel{grid-column:2;grid-row:2}
+ .product{grid-column:3;grid-row:2}
+ .notice{grid-column:1/-1;grid-row:3}
+ .item-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .product-images{height:clamp(175px,26vh,260px)}
+}
+@media (min-width:700px) and (max-width:1149px){
+ .shell{height:auto;grid-template-rows:auto minmax(320px,55vh) minmax(400px,1fr) auto}
+ .chat{grid-column:1;grid-row:2}
+ .description-panel{grid-column:2;grid-row:2}
+ .product{grid-column:1/-1;grid-row:3}
+ .notice{grid-column:1/-1;grid-row:4;max-height:none}
+}
+@media (max-width:699px){
+ .shell{height:auto;grid-template-rows:auto auto auto auto auto}
+ .chat{min-height:330px;max-height:67vh}
+ .description-panel{min-height:350px;max-height:70vh}
+ .product{min-height:500px}
+ .notice{max-height:none}
+}
 </style></head><body>
 <main class="shell">
 <header class="top"><div class="brand">✦ V2J <span style="color:#8fbefa">RETORNO LIVE</span></div><span class="status" id="status">Conectando…</span><div class="export-actions" role="group" aria-label="Exportar dados da LIVE"><button id="exportSummary" type="button">⬇ Resumo CSV</button><button id="exportProducts" type="button">⬇ Produtos CSV</button><button id="exportFull" type="button">⬇ Relatório JSON</button></div>
@@ -63,7 +101,21 @@ h2{font-size:1.08em;margin:0 0 12px;display:flex;align-items:center;justify-cont
  <div class="activity-mini">🛒 Adições ao carrinho observadas nos eventos recentes: <span class="activity-cart-list" id="cartProductList">—</span></div>
  <div class="activity-mini">Somente avisos identificados no TikTok. Visualização ou carrinho não é pedido confirmado.</div>
 </div><div class="messages" id="messages"><div class="empty">Aguardando mensagens do console…</div></div></section>
-<section class="panel product"><h2>🛍️ Ficha do produto <span class="tag">FOTO E DESCRIÇÃO</span></h2><div class="product-body"><div class="product-images" id="productImages" hidden><img id="mainImage" class="main-img" alt="Imagem do produto"><div class="thumbs" id="thumbs"></div></div><div class="item-kpis" aria-label="Informações rápidas do produto">
+<section class="panel description-panel" aria-label="Descrição do produto">
+ <h2>📝 Descrição do produto <span class="tag" id="descriptionSelected">SEM ITEM</span></h2>
+ <form id="descriptionSelect" class="description-select">
+  <label for="descriptionNumber">Número na sacolinha
+   <input id="descriptionNumber" name="numero" type="number" inputmode="numeric" min="1" max="999" step="1" placeholder="Ex.: 3" required>
+  </label>
+  <button id="descriptionShow" type="submit">Mostrar produto</button>
+ </form>
+ <div id="descriptionFeedback" class="description-feedback" role="status" aria-live="polite">Selecione o produto aqui ou pelo painel V2J.</div>
+ <div class="description-scroll">
+  <div id="descriptionItem" class="description-item">Aguardando seleção do produto</div>
+  <p id="desc" class="description-text">A descrição do item selecionado aparecerá aqui.</p>
+ </div>
+</section>
+<section class="panel product"><h2>🛍️ Ficha do produto <span class="tag">FOTOS E INDICADORES</span></h2><div class="product-body"><div class="product-images" id="productImages" hidden><img id="mainImage" class="main-img" alt="Imagem do produto"><div class="thumbs" id="thumbs"></div></div><div class="item-kpis" aria-label="Informações rápidas do produto">
  <div class="kpi"><small>📦 Estoque do item</small><strong id="kpiStock">—</strong></div>
  <div class="kpi"><small>💰 Comissão estimada</small><strong id="kpiCommission">—</strong></div>
  <div class="kpi"><small>🛍️ Itens na sacolinha</small><strong id="kpiTotal">—</strong></div>
@@ -72,6 +124,6 @@ h2{font-size:1.08em;margin:0 0 12px;display:flex;align-items:center;justify-cont
  <div class="kpi"><small>🏷️ Preço original</small><strong id="kpiOriginal">—</strong></div>
  <div class="kpi"><small>🔥 Oferta</small><strong id="kpiOffer">—</strong></div>
  <div class="kpi"><small>📊 Taxa de comissão</small><strong id="kpiRate">—</strong></div>
-</div><div class="product-info"><div class="name" id="name">Nenhum produto selecionado</div><div class="product-subtitle" id="productSubtitle"></div><div class="color-options" id="colorOptions" hidden></div><div class="desc" id="desc">Cadastre as informações no console V2J.</div></div></div></section>
+</div><div class="product-info"><div class="name" id="name">Nenhum produto selecionado</div><div class="product-subtitle" id="productSubtitle"></div><div class="color-options" id="colorOptions" hidden></div></div></div></section>
 <section class="panel notice"><h2>📣 Recado para a apresentadora <span class="tag">PRIORIDADE</span></h2><div class="notice-content" id="notice">Nenhum recado no momento.</div></section>
 </main><script src="/central-viewer.js" defer></script></body></html>

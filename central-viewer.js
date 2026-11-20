@@ -129,6 +129,37 @@ function messageNode(m){
  name.textContent=m.autor||'Espectador';time.textContent=m.hora||'';body.textContent=m.texto;
  heading.append(name,time);node.append(heading,body);return node;
 }
+
+let selectionSubmitting=false,selectionError=false;
+const selectionFeedback=(text,isError=false)=>{
+ const el=$('descriptionFeedback');
+ el.textContent=text;
+ el.classList.toggle('error',isError);
+ selectionError=isError;
+};
+$('descriptionNumber').addEventListener('input',()=>{if(selectionError)selectionFeedback('Digite o número do item e clique em Mostrar produto.');});
+$('descriptionSelect').addEventListener('submit',async event=>{
+ event.preventDefault();
+ if(selectionSubmitting)return;
+ const numero=Number($('descriptionNumber').value);
+ if(!Number.isInteger(numero)||numero<1||numero>999){
+  selectionFeedback('Informe um número de 1 a 999.',true);return;
+ }
+ selectionSubmitting=true;
+ $('descriptionShow').disabled=true;
+ selectionFeedback('Selecionando produto #'+numero+' no retorno e no painel…');
+ try{
+  const response=await fetch('/api/retorno?select=1',{
+   method:'PUT',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({numero}),cache:'no-store',signal:AbortSignal.timeout(9000)
+  });
+  const data=await response.json().catch(()=>({}));
+  if(!response.ok||!data.ok)throw Error(data.erro||'Não foi possível selecionar o item.');
+  selectionFeedback('✅ Produto #'+numero+' selecionado. O painel e o retorno usam o mesmo item.');
+  await poll();
+ }catch(error){selectionFeedback('⚠ '+(error?.message||'Falha na seleção.'),true);}
+ finally{selectionSubmitting=false;$('descriptionShow').disabled=false;}
+});
 function show(data){
  snapshot=data;
  refreshCaptureHealth(data);
@@ -145,6 +176,10 @@ function show(data){
  const selected=(data.catalogo||[]).find(item=>item.numero===data.itemAtivo);
  const sameProduct=selected&&data.produto?.link&&selected.link&&data.produto.link.match(/\/view\/product\/(\d+)/)?.[1]===selected.link.match(/\/view\/product\/(\d+)/)?.[1];
  const p=selected?{nome:'#'+selected.numero+' · '+selected.nome,preco:selected.preco,descricao:selected.descricao||(sameProduct?data.produto.descricao:''),cores:selected.cores||[],loja:selected.loja,categoria:selected.categoria,comissao:selected.comissao,taxaComissao:selected.taxaComissao,link:selected.link,imagens:selected.imagens?.length?selected.imagens:(sameProduct&&data.produto?.imagens?.length?data.produto.imagens:(selected.imagem?[selected.imagem]:[])),estoque:selected.estoque,precoOferta:selected.precoOferta,precoOriginal:selected.precoOriginal,ofertaInicio:selected.ofertaInicio,ofertaFim:selected.ofertaFim,atualizadoEm:selected.atualizadoEm}:data.produto||{};
+ if(!selectionSubmitting&&document.activeElement!==$('descriptionNumber'))$('descriptionNumber').value=data.itemAtivo||'';
+ $('descriptionSelected').textContent=selected?'ITEM #'+selected.numero:'SEM ITEM';
+ $('descriptionItem').textContent=selected?'#'+selected.numero+' · '+selected.nome:(p.nome||'Nenhum produto selecionado');
+ if(!selectionError&&!selectionSubmitting)selectionFeedback(selected?'Exibindo o item #'+selected.numero+' · seleção compartilhada com o painel V2J.':'Selecione um produto aqui ou pelo painel V2J.');
  const metrics=data.liveMetricas||{};
  const comments=live.filter(e=>e.tipo==='comentario').length;
  const followers=live.filter(e=>e.tipo==='seguidor').length;
@@ -171,7 +206,7 @@ function show(data){
  const colors=$('colorOptions');colors.replaceChildren();
  for(const color of (Array.isArray(p.cores)?p.cores:[])){const chip=document.createElement('span');chip.textContent=color;colors.append(chip);}
  colors.hidden=!colors.children.length;
- $('desc').textContent=p.descricao||'Cadastre as informações no console V2J.';
+ $('desc').textContent=p.descricao||'Ainda não há descrição cadastrada para este produto. No painel V2J, edite a descrição ou use “Buscar descrição e fotos”.';
  $('notice').textContent=data.recado||'Nenhum recado no momento.';
  const urls=Array.isArray(p.imagens)?p.imagens.filter(url=>/^https:\/\//i.test(url)):[];
  $('productImages').hidden=!urls.length;
