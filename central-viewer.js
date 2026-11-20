@@ -43,6 +43,31 @@ function refreshCaptureHealth(data){
  setHealth('healthSession','off','Fonte: TikTok + leitura V2J; atividade da rede não confirma venda');
 }
 
+function refreshTikTokSignals(data){
+ const root=$('tiktokSignals');if(!root)return;
+ const signals=data.sinaisTikTok||{};
+ root.replaceChildren();
+ const labels=[['pin','📌 Produto fixado'],['coupon','🎟️ Cupons'],
+  ['trends','📈 Tendências'],['governance','🛡️ Segurança'],['relation','👥 Relacionamento']];
+ for(const [key,name] of labels){
+  const item=signals[key],chip=document.createElement('span');
+  const received=item&&Number(item.at)>0;
+  const recent=received&&Date.now()-Number(item.at)<120000;
+  chip.className=recent?'ok':received?'warn':'';
+  let suffix=received?(recent?'resposta '+dataAge(item.at)+' atrás':'histórico · '+dataAge(item.at)+' atrás'):'sem resposta';
+  if(recent&&item.apiOk===false)suffix='resposta com erro de API';
+  if(recent&&key==='coupon'&&Number.isInteger(item.linhas))suffix+=' · '+item.linhas+' linhas (disponibilidade não confirmada)';
+  if(recent&&key==='trends'&&item.series&&Object.keys(item.series).length)
+   suffix+=' · '+Object.keys(item.series).length+' séries';
+  if(recent&&key==='pin'&&item.possibleProductId)suffix+=' · ID candidato '+item.possibleProductId;
+  if(recent&&key==='governance'&&(item.isWarned===true||item.isTerminated===true)){
+   suffix='⚠ Aviso detectado; confira o TikTok';chip.className='warn';
+  }
+  if(key==='relation'&&recent)suffix+=' · não confirma novo seguidor';
+  chip.textContent=name+': '+suffix;
+  root.append(chip);
+ }
+}
 const PRODUCT_DISPLAY_MS={produto_visto:4600,carrinho:6200};
 const observedProductIds=new Set();
 const pendingProductQueue=[];
@@ -163,6 +188,7 @@ $('descriptionSelect').addEventListener('submit',async event=>{
 function show(data){
  snapshot=data;
  refreshCaptureHealth(data);
+ refreshTikTokSignals(data);
  updateProductActivity(data);
  if(data.versao===version)return;version=data.versao;
  const list=$('messages');list.replaceChildren();
@@ -277,7 +303,7 @@ $('exportFull').onclick=()=>{
  if(!ready())return;
  const data={exportadoEm:new Date().toISOString(),tipo:'Retrato atual da Central V2J — não é histórico de toda a LIVE',
   observacao:'Avisos de produto visto e de carrinho não comprovam compra. A fila é exibida individualmente e contém somente eventos novos após abrir o retorno. Eventos são apenas os recentes retidos pelo V2J.',
-  metricas:snapshot.liveMetricas||{},itemAtivo:snapshot.itemAtivo,
+  metricas:snapshot.liveMetricas||{},sinaisDaRedeTikTok:snapshot.sinaisTikTok||{},itemAtivo:snapshot.itemAtivo,
   produtos:snapshot.catalogo||[],eventosRecentes:snapshot.liveEventos||[],chatManual:snapshot.chat||[]};
  exportDownload('v2j-relatorio-live-'+reportDate()+'.json',JSON.stringify(data,null,2),'application/json;charset=utf-8');
 };

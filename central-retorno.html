@@ -27,6 +27,10 @@ h2{font-size:1.08em;margin:0 0 12px;display:flex;align-items:center;justify-cont
 .notice{background:#264b73;border-color:#4a9cce}.notice h2{color:#c9eaff}.notice-content{font-size:1.18em;font-weight:750;white-space:pre-wrap;overflow-wrap:anywhere}
 @media (min-width:700px){.shell{grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;height:100vh}.top{grid-column:1/-1}.chat{grid-column:1;grid-row:2}.product{grid-column:2;grid-row:2;border-left:3px solid #527ba7}.product-body{flex-direction:column}.product-images{width:100%;max-width:none;height:clamp(180px,34vh,300px);flex-direction:row}.main-img{max-width:60%;height:100%}.thumbs{flex-direction:column;flex-wrap:wrap}.notice{grid-column:1/-1;grid-row:3;max-height:24vh;overflow:auto}}
 @media (max-width:600px){.product-body{flex-direction:column}.product-images{width:100%;max-width:none;height:230px;flex-direction:row}.main-img{width:auto;max-width:75%;min-height:0}.thumbs{flex-direction:column}}
+.tiktok-net{order:6;flex:0 0 100%;display:flex;flex-wrap:wrap;gap:6px;font-size:.55em;line-height:1.3}
+.tiktok-net span{background:#172d46;border:1px solid #3e5574;color:#cbe0f6;border-radius:8px;padding:6px 8px}
+.tiktok-net span.ok{border-color:#39785a;color:#afefca}
+.tiktok-net span.warn{border-color:#9c643d;color:#ffe0bc}
 .capture-health{order:5;flex:0 0 100%;display:flex;gap:7px;flex-wrap:wrap;font-size:.57em;line-height:1.3}
 .capture-health span{background:#162d45;border:1px solid #3e5b78;color:#c4ddf2;border-radius:9px;padding:6px 10px}
 .capture-health span.ok{background:#173c33;border-color:#2e8363;color:#a4f8d2}
@@ -91,6 +95,9 @@ h2{font-size:1.08em;margin:0 0 12px;display:flex;align-items:center;justify-cont
  <span class="off" id="healthCatalog">Produtos: aguardando</span>
  <span class="off" id="healthEvents">Eventos: aguardando</span>
  <span class="off" id="healthSession">Origem: TikTok + V2J</span>
+</div>
+<div id="tiktokSignals" class="tiktok-net" aria-label="Monitoramento das rotas de API do TikTok">
+ <span>Rede TikTok: aguardando produto fixado, cupons, tendências e avisos</span>
 </div></header>
 <section class="panel chat"><h2>💬 Chat e eventos da LIVE <span class="tag" id="chatCount">MANUAL</span></h2>
 <div class="activity-queue" aria-label="Fila de atividades de produtos">

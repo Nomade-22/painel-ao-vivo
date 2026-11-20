@@ -48,7 +48,8 @@ function cleanProducts(items) {
     cliques: cleanValue(item?.cliques), ctr: cleanValue(item?.ctr),
     pedidos: cleanValue(item?.pedidos), itensVendidos: cleanValue(item?.itensVendidos),
     vendas: cleanValue(item?.vendas), atc: cleanValue(item?.atc),
-    comissao: cleanValue(item?.comissao),
+    comissao: cleanValue(item?.comissao), vendasBrutoApi: cleanValue(item?.vendasBrutoApi),
+    comissaoBrutoApi: cleanValue(item?.comissaoBrutoApi),
     origem: item?.origem === 'creator' ? 'creator' : 'live',
     periodo: item?.periodo === 'visivel' ? 'visivel' : null
   })).filter(item => item.nome);
@@ -82,6 +83,9 @@ function mergeProducts(liveItems, creatorItems) {
         cliques:item.cliques ?? p.cliques, ctr:item.ctr ?? p.ctr,
         pedidos:item.pedidos ?? p.pedidos, itensVendidos:item.itensVendidos ?? p.itensVendidos,
         vendas:item.vendas ?? p.vendas, comissao:item.comissao ?? p.comissao,
+        vendasBrutoApi:item.vendasBrutoApi ?? p.vendasBrutoApi,
+        comissaoBrutoApi:item.comissaoBrutoApi ?? p.comissaoBrutoApi,
+        atc:item.atc ?? p.atc,
         origem:'live+creator'};
     } else {
       // Sem correspondência única, não atribuir pedidos ao produto errado.
@@ -91,6 +95,74 @@ function mergeProducts(liveItems, creatorItems) {
   return live.slice(0,100);
 }
 
+
+const TREND_KEYS=['gmv','paidGmv','confirmedOrder','paidOrder','confirmedGmv','order',
+ 'entering','ccu','engagedCcu','addToCart','comment'];
+function safeNonnegative(value, max=1e12) {
+ const n=Number(value);
+ return value!==null&&value!==undefined&&value!==''&&Number.isFinite(n)&&n>=0&&n<=max?n:null;
+}
+function cleanExtras(input) {
+ if (!input||typeof input!=='object'||Array.isArray(input))return {};
+ const extras={};
+ if(input.products&&typeof input.products==='object'){
+  const p=input.products;
+  extras.products={
+   total:safeNonnegative(p.total,1e6),linhasRecebidas:safeNonnegative(p.linhasRecebidas,1e6),
+   linhasInterpretadas:safeNonnegative(p.linhasInterpretadas,100),
+   chavesExemplo:(Array.isArray(p.chavesExemplo)?p.chavesExemplo:[])
+    .filter(x=>typeof x==='string'&&/^[A-Za-z][A-Za-z0-9_]{1,35}$/.test(x))
+    .slice(0,30),
+   produtos:cleanProducts(p.produtos)||[]
+  };
+ }
+ if(input.comments&&typeof input.comments==='object'){
+  const c=input.comments;
+  extras.comments={
+   linhasRecebidas:safeNonnegative(c.linhasRecebidas,1e6),
+   mensagensValidas:safeNonnegative(c.mensagensValidas,1e6),
+   comentarios:(Array.isArray(c.comentarios)?c.comentarios:[]).slice(-60).map(x=>({
+    autor:cleanText(x?.autor,70),texto:cleanText(x?.texto,320)
+   })).filter(x=>x.autor&&x.texto)
+  };
+ }
+ if(input.trends&&typeof input.trends==='object'){
+  const series={};
+  for(const key of TREND_KEYS){
+   const src=input.trends.series?.[key];
+   if(!src||typeof src!=='object')continue;
+   series[key]={totalPontos:safeNonnegative(src.totalPontos,1e6),
+    pontos:(Array.isArray(src.pontos)?src.pontos:[]).slice(-80).map(x=>safeNonnegative(x))
+   };
+  }
+  extras.trends={series};
+ }
+ if(input.violations&&typeof input.violations==='object'){
+  const v=input.violations,alert= v.isWarned===true||v.isTerminated===true;
+  extras.violations={
+   isWarned:v.isWarned===true,isTerminated:v.isTerminated===true,
+   titulo:alert?cleanText(v.titulo,160):'',descricao:alert?cleanText(v.descricao,340):'',
+   gravidade:alert?cleanText(v.gravidade,60):'',recursoDisponivel:alert&&v.recursoDisponivel===true
+  };
+ }
+ return extras;
+}
+function creatorProductUnion(domProducts, apiProducts){
+ const result=(Array.isArray(domProducts)?domProducts:[]).map(x=>({...x}));
+ for(const item of Array.isArray(apiProducts)?apiProducts:[]){
+  const norm=x=>String(x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9]/g,'').toLowerCase();
+  const match=result.findIndex(p=>(item.id&&p.id===item.id) ||
+   (norm(item.nome).length>=12 && norm(item.nome)===norm(p.nome)));
+  if(match>=0){
+   const old=result[match];
+   result[match]={...old,...Object.fromEntries(Object.entries(item).filter(([k,v])=>
+    v!==null&&v!==undefined&&v!==''&&
+    !['preco','precoAnterior','desconto','moeda'].includes(k))),
+    imagem:old.imagem||item.imagem||'',origem:'creator'};
+  }else result.push({...item,origem:'creator'});
+ }
+ return result.slice(0,100);
+}
 function legacySource(legacy, source) {
   const metricas = legacy?.fontes?.[source] || {};
   const timestamp = Number(legacy?.fontesConectadas?.[source]) || 0;
@@ -177,7 +249,8 @@ function cleanCreatorDiagnostics(input) {
 
 function buildResponse(live, creator, chat, legacy, active) {
   const merged = consolidate(live, creator);
-  const creatorProducts = Array.isArray(creator.produtos) ? creator.produtos : [];
+  const extra=creator.extras||{};
+  const creatorProducts=creatorProductUnion(creator.produtos,extra.products?.produtos);
   const liveProducts = Array.isArray(live.produtos) ? live.produtos :
     Array.isArray(legacy?.produtos) ? legacy.produtos : [];
   const productsSource = creatorProducts.length && liveProducts.length ? 'live+creator' :
@@ -201,6 +274,14 @@ function buildResponse(live, creator, chat, legacy, active) {
     saudeChat: { ultimoComentarioEm: chat.ultimoComentarioEm, totalNovosComentarios: chat.totalNovosComentarios },
     produtos: mergedProducts,
     produtosCreator: creatorProducts,
+    produtosApi:extra.products||null,
+    tendenciasCreator:extra.trends||null,
+    comentariosApiDiagnostico:extra.comments?{
+     linhasRecebidas:extra.comments.linhasRecebidas,
+     mensagensValidas:extra.comments.mensagensValidas
+    }:null,
+    alertaCreator:extra.violations||null,
+    extrasAtualizadosEm:creator.extrasAtualizadosEm||{},
     produtosOrigem: productsSource,
     atualizadoEm: Math.max(live.heartbeatAt || 0, creator.heartbeatAt || 0),
     origem: 'Shopee Live + Centro de Criação',
@@ -314,6 +395,13 @@ export default async function handler(req, res) {
     }
     const produtos = cleanProducts(body.produtos);
     if (produtos) { next.produtos = produtos;next.produtoEm = now; }
+    const incomingExtras=source==='creator'?cleanExtras(body.extras):{};
+    const extrasAceitos=Object.keys(incomingExtras);
+    if(extrasAceitos.length){
+     next.extras={...(previous.extras||{}),...incomingExtras};
+     next.extrasAtualizadosEm={...(previous.extrasAtualizadosEm||{}),
+      ...Object.fromEntries(extrasAceitos.map(x=>[x,now]))};
+    }
     await cache.set(sourceKey(source, generation), next, { ttl: TTL, name: 'V2J Shopee ' + source });
 
     let fresh = [], confirmadosIds = [];
@@ -337,7 +425,27 @@ export default async function handler(req, res) {
         }, { ttl: TTL, name: 'Chat Shopee V2J' });
       }
     }
-    return res.status(200).json({ ok: true, versaoRetorno: '0.8.12', novaLive, sessaoIdentificada: !!active, camposAceitos,
+    if(source==='creator'&&incomingExtras.comments?.comentarios?.length){
+     const current=normalizeChat(await cache.get(chatKey(generation)),generation?{}:legacy);
+     const ids=new Set(current.idsRecentes),items=[...current.comentariosLive];
+     let added=0;
+     for(const e of incomingExtras.comments.comentarios){
+      const norm=x=>String(x||'').trim().toLowerCase().replace(/\s+/g,' ');
+      const signature=norm(e.autor)+'|'+norm(e.texto);
+      if(items.some(item=>norm(item.autor)+'|'+norm(item.texto)===signature))continue;
+      const stableId='shopee-'+parseInt(createHash('sha256').update('creator:'+signature).digest('hex').slice(0,9),16);
+      if(ids.has(stableId))continue;
+      ids.add(stableId);
+      items.push({id:stableId,tipo:'comentario',autor:e.autor,texto:e.texto,
+       hora:new Date(now).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),recebidoEm:now});
+      added++;
+     }
+     if(added)await cache.set(chatKey(generation),{
+      comentariosLive:items.slice(-100),idsRecentes:[...ids].slice(-2000),
+      ultimoComentarioEm:now,totalNovosComentarios:current.totalNovosComentarios+added
+     },{ttl:TTL,name:'Chat Shopee V2J'});
+    }
+    return res.status(200).json({ ok: true, versaoRetorno: '0.8.16', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos,
       confirmadosIds, novosComentarios: fresh.length, leituraSuspeita: suspicious,
       produtosAceitos: produtos?.length ?? null, ultimaConfirmacaoEm: now });
   } catch (error) {

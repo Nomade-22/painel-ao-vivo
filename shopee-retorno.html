@@ -34,6 +34,13 @@ section{margin-top:20px}.muted{color:#a9c0d6;font-size:13px}.sub{font-size:12px;
 .section-tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0}
 .small-btn{background:#263d58;color:#e1edfa;border:1px solid #42617d;padding:7px 11px;font-size:12px}
 .small-btn.selected{background:#b95b33;border-color:#ee946e;color:#fff}
+.extra-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.extra-head .tag{margin-left:auto}.trend-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:12px}
+.trend-mini{border:1px solid #3a5168;border-radius:10px;padding:10px;background:#1a324e}
+.trend-mini strong{font-size:12px;color:#f3f7ff}.trend-mini small{font-size:11px;color:#a9c3d8}
+.spark{height:48px;display:flex;align-items:end;gap:2px;margin:8px 0;background:#12243b;padding:4px;border-radius:6px}
+.spark i{display:block;flex:1;min-width:2px;background:#70b9e0;border-radius:2px 2px 0 0}
+.alert-red{background:#472329;border:1px solid #ba5a65;color:#ffd7dc;border-radius:10px;padding:12px;margin:10px 0}
 table{border-collapse:collapse;width:100%;min-width:670px}th,td{padding:12px;border-bottom:1px solid #33485e;text-align:left}
 th{color:#b7d0e5;font-size:12px}td{font-size:14px}.scroll{overflow:auto}
 .empty{padding:20px;color:#acbdd1;border:1px dashed #405571;border-radius:10px}
@@ -78,6 +85,15 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
  <h2 style="margin-top:18px">📊 Produtos do Centro de Criação</h2>
  <p id="creatorProductsInfo" class="muted">Aguardando resultados individuais. Os valores pertencem ao período selecionado na Shopee.</p>
  <div id="creatorProducts" class="scroll"><div class="empty">Nenhum resultado individual recebido.</div></div>
+</section>
+<section class="panel">
+ <h2>🧭 Novas respostas do Centro de Criação</h2>
+ <p class="muted">As quatro rotas são observadas passivamente, sem novas requisições. A captura registra apenas campos necessários; respostas não reconhecidas permanecem indisponíveis.</p>
+ <div id="creatorExtraStatus" class="health"><div>Aguardando as novas fontes do Creator…</div></div>
+ <h2 style="margin-top:20px">📈 Tendências da LIVE</h2>
+ <p class="muted">Gráficos relativos dos valores numéricos recebidos, sem conversão de unidade ou moeda. Não são totais de vendas confirmadas.</p>
+ <div id="creatorTrends" class="trend-grid"><div class="empty">Aguardando séries da rota trends.</div></div>
+ <div id="creatorViolation" style="margin-top:16px" class="muted">Verificação de avisos: aguardando resposta da Shopee.</div>
 </section>
 <section class="panel">
  <h2>📡 Integridade do retorno</h2>
@@ -238,6 +254,44 @@ function show(data){
     ['cliques','ctr','pedidos','itensVendidos','vendas','comissao'].map(k=>'<td>'+esc(p[k]??'—')+'</td>').join('')+'</tr>').join('')+
   '</tbody></table>':
   '<div class="empty">O Centro de Criação ainda não enviou resultados individuais.</div>';
+ const extraTimes=data.extrasAtualizadosEm||{};
+ const productApi=data.produtosApi,commentApi=data.comentariosApiDiagnostico;
+ const trends=data.tendenciasCreator,violations=data.alertaCreator;
+ const statuses=[
+  ['productList',productApi,'Produtos',productApi?
+    (productApi.linhasInterpretadas??0)+' itens interpretados / '+(productApi.linhasRecebidas??'—')+' linhas recebidas':'aguardando'],
+  ['comments',commentApi,'Comentários da API',commentApi?
+    (commentApi.mensagensValidas??0)+' mensagens com autor e texto de '+(commentApi.linhasRecebidas??'—')+' linhas':'aguardando'],
+  ['trends',trends,'Tendências',trends?
+    Object.keys(trends.series||{}).length+' séries reconhecidas':'aguardando'],
+  ['violations',violations,'Segurança',violations?'resposta recebida':'aguardando']
+ ];
+ el('creatorExtraStatus').innerHTML=statuses.map(([key,dataValue,label,summary])=>{
+  const at=Number(extraTimes[key])||0,stale=at&&Date.now()-at>120000;
+  return '<div>'+esc(label)+'<strong style="font-size:15px">'+esc(summary)+
+   '</strong><small class="muted">'+(at?(stale?'⚠ Histórico · ':'● Atualizado · ')+esc(age(at)):'Sem coleta')+
+   '</small></div>';
+ }).join('');
+ const series=Object.entries(trends?.series||{}).filter(([,value])=>
+  Array.isArray(value?.pontos)&&value.pontos.filter(x=>typeof x==='number'&&Number.isFinite(x)).length>=2);
+ const alias={gmv:'GMV bruto',paidGmv:'GMV pago bruto',confirmedOrder:'Pedidos confirmados',
+  paidOrder:'Pedidos pagos',confirmedGmv:'GMV confirmado bruto',order:'Pedidos',entering:'Entradas',
+  ccu:'Espectadores',engagedCcu:'Engajados',addToCart:'Carrinho',comment:'Comentários'};
+ el('creatorTrends').innerHTML=series.length?series.map(([key,v])=>{
+  const points=v.pontos.slice(-30),valid=points.filter(n=>typeof n==='number'&&Number.isFinite(n));
+  const low=Math.min(...valid),high=Math.max(...valid),delta=high-low;
+  const heights=points.map(n=>n===null?0:delta?(5+(n-low)/delta*95):45);
+  return '<div class="trend-mini"><strong>'+esc(alias[key]||key)+'</strong><div class="spark" aria-label="Gráfico relativo">'+
+   heights.map(h=>'<i style="height:'+Math.max(0,Math.min(100,h)).toFixed(1)+'%"></i>').join('')+
+   '</div><small>'+esc(v.totalPontos??points.length)+' pontos informados (unidade não confirmada)</small></div>';
+ }).join(''):'<div class="empty">Aguardando séries numéricas interpretáveis da Shopee.</div>';
+ const warn=violations&&(violations.isWarned===true||violations.isTerminated===true);
+ el('creatorViolation').className=warn?'alert-red':'muted';
+ el('creatorViolation').textContent=!violations?
+  'Verificação de avisos: aguardando resposta da Shopee.':
+  warn?'⚠ Aviso oficial identificado no Centro de Criação. '+(violations.titulo||'Verifique sua LIVE')+
+   (violations.descricao?' · '+violations.descricao:'')+' · confira as informações no site da Shopee.':
+  'Consulta de avisos recebida; não foi sinalizado aviso nessa resposta. Isso não garante ausência de penalidades.';
  const meta=data.fontesMeta||{},live=meta.live||{},creator=meta.creator||{};
  const info=(name,item)=>{
   const connected=Date.now()-Number(item.ultimoSinalEm||0)<60000;

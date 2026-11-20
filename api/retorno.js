@@ -3,6 +3,30 @@ const validMode = mode => ['texto','tela','central'].includes(mode) ? mode : 'te
 
 const defaultCentral={liveMetricas:{cliques:null,vendas:null,visualizacoes:null,carrinhos:null,curtidas:null,compartilhamentos:null,exibicoesRegistradas:null,gmv:'',atualizadoEm:0},produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,liveEventos:[],versao:0};
 const trim=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
+// Os sinais TikTok ficam em cache separado para não disputar gravações com
+// comentários, ficha, seleção de produto e métricas da transmissão.
+const TIKTOK_SIGNAL_TYPES=['pin','coupon','trends','governance','relation'];
+const TIKTOK_SERIES=['gmv','paidGmv','order','orders','comment','comments','ccu','watch_pv','atc','addToCart','click','clicks'];
+function cleanTikTokSignal(raw){
+ if(!raw||typeof raw!=='object'||!TIKTOK_SIGNAL_TYPES.includes(raw.kind)||raw.httpOk!==true)return null;
+ const signal={kind:raw.kind,httpOk:true,at:Date.now()};
+ if(typeof raw.apiOk==='boolean')signal.apiOk=raw.apiOk;
+ signal.campos=(Array.isArray(raw.campos)?raw.campos:[]).filter(k=>
+  typeof k==='string'&&/^[A-Za-z][A-Za-z0-9_]{1,40}$/.test(k)&&
+  !/token|cookie|auth|secret|uuid|session|userid|device|sign|password/i.test(k)).slice(0,20);
+ if(raw.kind==='coupon'&&Number.isInteger(raw.linhas)&&raw.linhas>=0&&raw.linhas<=1000)signal.linhas=raw.linhas;
+ if(raw.kind==='trends'&&raw.series&&typeof raw.series==='object'){
+  signal.series=Object.fromEntries(TIKTOK_SERIES.filter(k=>
+   Number.isInteger(raw.series[k])&&raw.series[k]>=0&&raw.series[k]<=1000).map(k=>[k,raw.series[k]]));
+ }
+ if(raw.kind==='pin'&&/^[0-9]{3,24}$/.test(String(raw.possibleProductId||'')))
+  signal.possibleProductId=String(raw.possibleProductId);
+ if(raw.kind==='governance'){
+  if(typeof raw.isWarned==='boolean')signal.isWarned=raw.isWarned;
+  if(typeof raw.isTerminated==='boolean')signal.isTerminated=raw.isTerminated;
+ }
+ return signal;
+}
 function cleanCentral(input){
  const p=input?.produto||{};
  return {liveMetricas:{
@@ -57,6 +81,19 @@ export default async function handler(req,res){
   res.setHeader('Allow','GET, PUT'); return res.status(405).json({erro:'Método inválido'});
  }
  try{
+  if(req.query?.tiktok_sinais==='1'){
+   if(req.method!=='PUT')return res.status(405).json({erro:'Método inválido'});
+   const payload=typeof req.body==='string'?JSON.parse(req.body):req.body;
+   const sinal=cleanTikTokSignal(payload?.sinal);
+   if(!sinal)return res.status(400).json({erro:'Sinal TikTok inválido'});
+   const cache=getCache({namespace:'central-retorno-v1'});
+   const previous=await cache.get('tiktok-sinais-v16')||{};
+   const current=previous[sinal.kind];
+   // Leituras repetidas da mesma resposta apenas renovam o horário da rota.
+   const next={...previous,[sinal.kind]:sinal};
+   await cache.set('tiktok-sinais-v16',next,{ttl:2592000,name:'Diagnóstico das rotas TikTok V2J'});
+   return res.status(200).json({ok:true,kind:sinal.kind,campos:sinal.campos.length});
+  }
   if(req.query?.live==='1'){
    if(req.method!=='PUT')return res.status(405).json({erro:'Método inválido'});
    const payload=typeof req.body==='string'?JSON.parse(req.body):req.body;
@@ -174,7 +211,10 @@ export default async function handler(req,res){
   }
   if(req.query?.central==='1'){
    const centralCache=getCache({namespace:'central-retorno-v1'});
-   if(req.method==='GET')return res.status(200).json(cleanCentral(await centralCache.get('estado')||defaultCentral));
+   if(req.method==='GET'){
+    const [state,signals]=await Promise.all([centralCache.get('estado'),centralCache.get('tiktok-sinais-v16')]);
+    return res.status(200).json({...cleanCentral(state||defaultCentral),sinaisTikTok:signals||{}});
+   }
    const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
    if(!body||typeof body!=='object'||Array.isArray(body))return res.status(400).json({erro:'Dados inválidos'});
    const data=cleanCentral({...body,versao:Date.now()});
