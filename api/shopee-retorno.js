@@ -12,7 +12,10 @@ const FIELDS = [
   'tempoMedio', 'conversoes', 'gpm', 'pedidos', 'ads', 'abs', 'ccu', 'pcu',
   'ctr', 'taxaCliquePedidos', 'compradores', 'itensVendidos',
   'comentariosMinuto', 'atcMinuto', 'usuariosEngajadosMinuto',
-  'cliques', 'curtidas', 'compartilhamentos', 'totalEspectadores', 'taxaComentarios'
+  'cliques', 'curtidas', 'compartilhamentos', 'totalEspectadores', 'taxaComentarios',
+  'pedidosConfirmados', 'pedidosPagos', 'itensConfirmados', 'itensPagos',
+  'gmvBrutoApi', 'gmvConfirmadoBrutoApi', 'gmvPagoBrutoApi',
+  'ctrBrutoApi', 'taxaCliquesPedidosBrutaApi', 'tempoMedioBrutoApi', 'engajadosSimultaneosApi'
 ];
 const cleanText = (value, limit = 100) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 const cleanValue = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value :
@@ -181,7 +184,7 @@ function buildResponse(live, creator, chat, legacy, active) {
     creatorProducts.length ? 'creator' : liveProducts.length ? 'live' : 'indisponivel';
   const mergedProducts = mergeProducts(liveProducts, creatorProducts);
   return {
-    versaoRetorno: '0.8.15', ...merged,
+    versaoRetorno: '0.8.16', ...merged,
     sessao: active ? { identificada: true, referencia: sessionLabel(active.id), iniciadaEm: active.createdAt, atualizadaEm: active.lastSeenAt } :
       { identificada: false, referencia: null, iniciadaEm: 0 },
     fontes: { live: live.metricas || {}, creator: creator.metricas || {} },
@@ -191,7 +194,8 @@ function buildResponse(live, creator, chat, legacy, active) {
         camposIdentificados: live.camposIdentificados || 0, diagnosticoChat: live.diagnosticoChat || null },
       creator: { ultimoSinalEm: creator.heartbeatAt || 0, ultimasMetricasEm: creator.lastValidAt || 0,
         camposIdentificados: creator.camposIdentificados || 0,
-        diagnosticoCreator: creator.diagnosticoCreator || null, versaoLeitor: creator.versaoLeitor || '' }
+        diagnosticoCreator: creator.diagnosticoCreator || null, versaoLeitor: creator.versaoLeitor || '',
+        origemLeitura: creator.origemLeitura || 'não informada' }
     },
     comentariosLive: chat.comentariosLive,
     saudeChat: { ultimoComentarioEm: chat.ultimoComentarioEm, totalNovosComentarios: chat.totalNovosComentarios },
@@ -279,7 +283,11 @@ export default async function handler(req, res) {
     const submitted = Object.fromEntries(FIELDS.map(field => [field, cleanValue(body.metricas[field])])
       .filter(([, value]) => value !== null));
     const values = Object.values(submitted);
-    const suspicious = values.length >= 8 && values.every(value =>
+    // Contador DOM pode mostrar zeros transitórios. A rota overview
+    // fornece dados numéricos da resposta, não os algarismos animados.
+    const trustedOverview = source === 'creator' && body.origemLeitura === 'overview_api' &&
+      body.versaoLeitor === '0.8.16';
+    const suspicious = !trustedOverview && values.length >= 8 && values.every(value =>
       Number(String(value).replace('R$', '').replace(',', '.').trim()) === 0);
     const camposAceitos = suspicious ? [] : Object.keys(submitted);
     const next = {
@@ -298,6 +306,7 @@ export default async function handler(req, res) {
       const diagnostico = parseDiagnostics(body.diagnostico);
       if (diagnostico) next.diagnosticoChat = diagnostico;
     } else {
+      if (camposAceitos.length) next.origemLeitura = trustedOverview ? 'overview_api' : 'dom';
       const diagnostico = cleanCreatorDiagnostics(body.diagnosticoCreator);
       if (diagnostico) next.diagnosticoCreator = diagnostico;
       if (typeof body.versaoLeitor === 'string' && /^0\.8\.\d{1,3}$/.test(body.versaoLeitor))
