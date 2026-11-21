@@ -257,7 +257,20 @@ function buildResponse(live, creator, chat, legacy, active) {
     creatorProducts.length ? 'creator' : liveProducts.length ? 'live' : 'indisponivel';
   const mergedProducts = mergeProducts(liveProducts, creatorProducts);
   return {
-    versaoRetorno: '0.8.16', ...merged,
+    versaoRetorno: '0.8.24', ...merged,
+    // Subtotal verificavel das linhas comerciais recebidas; NAO total da LIVE.
+    metricas: {...merged.metricas,
+      ...(creatorProducts.some(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques))
+        ? {cliquesProdutosVisiveis:creatorProducts.reduce((sum,p)=>sum+
+          (typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques)&&p.cliques>=0?p.cliques:0),0)} : {})},
+    metricaOrigem: {...merged.metricaOrigem,
+      ...(creatorProducts.some(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques))
+        ? {cliquesProdutosVisiveis:{fonte:'creator',atualizadoEm:creator.extrasAtualizadosEm?.products||creator.produtoEm||creator.lastValidAt||0}}:{})},
+    cliquesProdutosCobertura:{
+      linhas:creatorProducts.filter(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques)).length,
+      total:extra.products?.total??creatorProducts.length,
+      limitacao:'Subtotal das linhas comerciais recebidas; nao representa o total da LIVE.'
+    },
     sessao: active ? { identificada: true, referencia: sessionLabel(active.id), iniciadaEm: active.createdAt, atualizadaEm: active.lastSeenAt } :
       { identificada: false, referencia: null, iniciadaEm: 0 },
     fontes: { live: live.metricas || {}, creator: creator.metricas || {} },
@@ -367,7 +380,7 @@ export default async function handler(req, res) {
     // Contador DOM pode mostrar zeros transitórios. A rota overview
     // fornece dados numéricos da resposta, não os algarismos animados.
     const trustedOverview = source === 'creator' && body.origemLeitura === 'overview_api' &&
-      body.versaoLeitor === '0.8.16';
+      /^0\.8\.(?:16|2[4-9]|[3-9]\d)$/.test(body.versaoLeitor || '');
     const suspicious = !trustedOverview && values.length >= 8 && values.every(value =>
       Number(String(value).replace('R$', '').replace(',', '.').trim()) === 0);
     const camposAceitos = suspicious ? [] : Object.keys(submitted);
@@ -445,7 +458,7 @@ export default async function handler(req, res) {
       ultimoComentarioEm:now,totalNovosComentarios:current.totalNovosComentarios+added
      },{ttl:TTL,name:'Chat Shopee V2J'});
     }
-    return res.status(200).json({ ok: true, versaoRetorno: '0.8.16', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos,
+    return res.status(200).json({ ok: true, versaoRetorno: '0.8.24', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos,
       confirmadosIds, novosComentarios: fresh.length, leituraSuspeita: suspicious,
       produtosAceitos: produtos?.length ?? null, ultimaConfirmacaoEm: now });
   } catch (error) {
