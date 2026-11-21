@@ -48,7 +48,12 @@ function cleanProducts(items) {
     cliques: cleanValue(item?.cliques), ctr: cleanValue(item?.ctr),
     pedidos: cleanValue(item?.pedidos), itensVendidos: cleanValue(item?.itensVendidos),
     vendas: cleanValue(item?.vendas), atc: cleanValue(item?.atc),
-    comissao: cleanValue(item?.comissao), vendasBrutoApi: cleanValue(item?.vendasBrutoApi),
+    comissao: cleanValue(item?.comissao),
+    pedidosConfirmados:cleanValue(item?.pedidosConfirmados),
+    pedidosPagos:cleanValue(item?.pedidosPagos),
+    itensConfirmados:cleanValue(item?.itensConfirmados),
+    itensPagos:cleanValue(item?.itensPagos),
+    vendasBrutoApi: cleanValue(item?.vendasBrutoApi),
     comissaoBrutoApi: cleanValue(item?.comissaoBrutoApi),
     origem: item?.origem === 'creator' ? 'creator' : 'live',
     periodo: item?.periodo === 'visivel' ? 'visivel' : null
@@ -110,6 +115,7 @@ function cleanExtras(input) {
   extras.products={
    total:safeNonnegative(p.total,1e6),linhasRecebidas:safeNonnegative(p.linhasRecebidas,1e6),
    linhasInterpretadas:safeNonnegative(p.linhasInterpretadas,100),
+    paginasObservadas:(Array.isArray(p.paginasObservadas)?p.paginasObservadas:[]).filter(v=>Number.isInteger(v)&&v>=1&&v<=100).slice(0,30),
    chavesExemplo:(Array.isArray(p.chavesExemplo)?p.chavesExemplo:[])
     .filter(x=>typeof x==='string'&&/^[A-Za-z][A-Za-z0-9_]{1,35}$/.test(x))
     .slice(0,30),
@@ -176,10 +182,14 @@ function legacySource(legacy, source) {
 function consolidate(live, creator) {
   const metricas = {}, conflitos = {}, metricaOrigem = {};
   for (const field of FIELDS) {
-    const available = ['live', 'creator'].filter(source =>
-      (source === 'live' ? live : creator).metricas?.[field] !== undefined);
+    const available = ['live', 'creator'].filter(source => {
+      const value=(source === 'live' ? live : creator).metricas?.[field];
+      if(source==='live' && field==='curtidas' && value!==undefined &&
+         String(value)===String(live.metricas?.compartilhamentos))return false;
+      return value!==undefined;
+    });
     if (!available.length) continue;
-    const preferred = field === 'ccu' ? 'live' : 'creator';
+    const preferred = 'creator'; // Priorizar metricas oficiais; DOM LIVE pode capturar valor de cartao adjacente.
     let selected = available.includes(preferred) ? preferred : available[0];
     if (available.length === 2) {
       const preferredTime = Number((selected === 'live' ? live : creator).campoEm?.[field]) || 0;
@@ -257,7 +267,7 @@ function buildResponse(live, creator, chat, legacy, active) {
     creatorProducts.length ? 'creator' : liveProducts.length ? 'live' : 'indisponivel';
   const mergedProducts = mergeProducts(liveProducts, creatorProducts);
   return {
-    versaoRetorno: '0.8.24', ...merged,
+    versaoRetorno: '0.8.25', ...merged,
     // Subtotal verificavel das linhas comerciais recebidas; NAO total da LIVE.
     metricas: {...merged.metricas,
       ...(creatorProducts.some(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques))
@@ -267,6 +277,7 @@ function buildResponse(live, creator, chat, legacy, active) {
       ...(creatorProducts.some(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques))
         ? {cliquesProdutosVisiveis:{fonte:'creator',atualizadoEm:creator.extrasAtualizadosEm?.products||creator.produtoEm||creator.lastValidAt||0}}:{})},
     cliquesProdutosCobertura:{
+      paginasObservadas:extra.products?.paginasObservadas||[],
       linhas:creatorProducts.filter(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques)).length,
       total:extra.products?.total??creatorProducts.length,
       limitacao:'Subtotal das linhas comerciais recebidas; nao representa o total da LIVE.'
@@ -458,7 +469,7 @@ export default async function handler(req, res) {
       ultimoComentarioEm:now,totalNovosComentarios:current.totalNovosComentarios+added
      },{ttl:TTL,name:'Chat Shopee V2J'});
     }
-    return res.status(200).json({ ok: true, versaoRetorno: '0.8.24', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos,
+    return res.status(200).json({ ok: true, versaoRetorno: '0.8.25', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos,
       confirmadosIds, novosComentarios: fresh.length, leituraSuspeita: suspicious,
       produtosAceitos: produtos?.length ?? null, ultimaConfirmacaoEm: now });
   } catch (error) {
