@@ -188,8 +188,9 @@ function consolidate(live, creator) {
   for (const field of FIELDS) {
     const available = ['live', 'creator'].filter(source => {
       const value=(source === 'live' ? live : creator).metricas?.[field];
-      if(source==='live' && field==='curtidas' && value!==undefined &&
-         String(value)===String(live.metricas?.compartilhamentos))return false;
+      // The LIVE DOM has adjacent CCU/likes/shares cards; never publish these
+      // two potentially misassigned values as official metrics.
+      if(source==='live' && (field==='curtidas'||field==='ccu'))return false;
       return value!==undefined;
     });
     if (!available.length) continue;
