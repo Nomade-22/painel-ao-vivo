@@ -60,12 +60,12 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
 <div id="kpis" class="grid"></div>
 <section class="panel">
  <h2>📋 Resumo da transmissão atual</h2>
- <p class="muted">Indicadores oficiais são recebidos do Centro de Criação. A versão 0.8.16 lê diretamente os campos numéricos da rota <code>overview</code>. Pedidos feitos, confirmados e pagos são etapas diferentes. Os cartões “último minuto” não representam totais da transmissão.</p>
+ <p class="muted">Indicadores oficiais são recebidos do Centro de Criação. A versão 0.8.24 lê diretamente os campos numéricos da rota <code>overview</code>. Pedidos feitos, confirmados e pagos são etapas diferentes. Os cartões “último minuto” não representam totais da transmissão.</p>
  <p class="muted">Campos marcados como <strong>bruto API</strong> exibem o número exatamente na escala recebida, sem presumir reais, centavos, percentual ou segundos; até a conversão ser validada, não devem ser usados como valor financeiro final.</p>
  <div class="pills">
   <div class="stat-pill">Comentários registrados<b id="summaryComments">—</b></div>
   <div class="stat-pill">Avisos de entrada<b id="summaryEntries">—</b></div>
-  <div class="stat-pill">Intenção de compra<b id="summaryIntent">—</b></div>
+  <div class="stat-pill">Avisos de interesse (não são compras)<b id="summaryIntent">—</b></div>
   <div class="stat-pill">Produtos identificados<b id="summaryProducts">—</b></div>
  </div>
  <p class="muted">Os contadores de avisos são observações técnicas; não representam pessoas únicas nem vendas confirmadas. O histórico muda somente quando a extensão identifica outro ID de LIVE.</p>
@@ -120,7 +120,7 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
  <div class="health">
   <div>Comentários identificados<strong id="domComments">—</strong></div>
   <div>Avisos de entrada observados<strong id="domEntries">—</strong></div>
-  <div>Avisos de intenção de compra<strong id="domPurchaseIntent">—</strong></div>
+  <div>Avisos comerciais (não são pedidos)<strong id="domPurchaseIntent">—</strong></div>
   <div>Linhas diferentes observadas<strong id="domRows">—</strong></div>
   <div>Textos sem autor identificado<strong id="domNoAuthor">—</strong></div>
   <div>Última leitura da tela<strong id="domLastScan">—</strong></div>
@@ -160,7 +160,7 @@ const labels=[
  ['taxaCliquesPedidosBrutaApi','📈 CO bruto da API',''],
  ['tempoMedioBrutoApi','⏱️ Tempo médio bruto API',''],
  ['engajadosSimultaneosApi','👥 Engajados simultâneos API',''],
- ['cliques','🖱️ Cliques no produto',''],['curtidas','❤️ Curtidas',''],['compartilhamentos','🔗 Compartilhamentos','']
+ ['cliques','🖱️ Cliques totais (quando disponíveis)',''],['cliquesProdutosVisiveis','🖱️ Cliques dos produtos recebidos (subtotal)',''],['curtidas','❤️ Curtidas',''],['compartilhamentos','🔗 Compartilhamentos','']
 ];
 const el=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -235,6 +235,12 @@ function show(data){
   ' · Origem: '+(data.produtosOrigem==='creator'?'Centro de Criação':data.produtosOrigem==='live+creator'?'LIVE + Centro de Criação':data.produtosOrigem==='live'?'Sacolinha Shopee LIVE':'Indisponível')+
   '. Indicadores sem confirmação aparecem como “—”.':
   'Aguardando os dados de itens da sacolinha ou do Centro de Criação.';
+ const coverage=data.cliquesProdutosCobertura||{};
+ if(coverage.linhas>0){
+   el('productsInfo').textContent+=' Cliques: subtotal de '+coverage.linhas+
+     ' linhas comerciais com dados, em '+(coverage.total??'—')+
+     ' produtos informados na tabela. Não representa necessariamente todos os cliques da transmissão.';
+ }
  el('productList').innerHTML=products.length?'<table><thead><tr><th>Produto</th><th>Preço recebido</th><th>Antes</th><th>Desconto</th><th>Cliques</th><th>CTR</th><th>Pedidos</th><th>Itens vendidos</th><th>Vendas</th><th>ATC</th><th>Comissão</th></tr></thead><tbody>'+
   products.map(product=>{
    const img=safeImage(product.imagem);
@@ -314,7 +320,7 @@ function show(data){
    'Leitor V2J '+creator.versaoLeitor+' · '+(creatorDiag.campos?.length||0)+' campos estáveis · '+(creatorDiag.linhasProdutos||0)+' linhas de produto. '+
    (data.ultimaLeituraSuspeita==='creator'?'A Shopee retornou uma leitura suspeita de zeros; os números foram bloqueados para evitar vendas falsas. ':'')+
    'Se os valores oficiais não aparecerem, exporte o diagnóstico Creator para investigar as chamadas de rede.':
-   'Leitor ainda não identificado. Instale a extensão V2J LIVE v0.8.16 e abra o Centro de Criação com a transmissão ativa.';
+   'Leitor ainda não identificado. Instale a extensão V2J LIVE v0.8.24 e abra o Centro de Criação com a transmissão ativa.';
  el('summaryComments').textContent=data.saudeChat?.totalNovosComentarios??'—';
  el('summaryEntries').textContent=parser.domEntradas??'—';
  el('summaryIntent').textContent=parser.domIntencoesCompra??'—';
