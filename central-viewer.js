@@ -266,12 +266,12 @@ function safeCell(v){
  return '"'+safe.replace(/"/g,'""')+'"';
 }
 const makeCsv=rows=>'\uFEFF'+rows.map(row=>row.map(safeCell).join(';')).join('\r\n');
-function ready(){if(snapshot)return true;alert('Aguarde a conexão com a Central antes de exportar.');return false;}
+function ready(){if(snapshot){const m=snapshot.liveMetricas||{};const has=Object.entries(m).some(([k,v])=>k!=='atualizadoEm'&&v!==null&&v!==undefined&&v!=='')||(snapshot.catalogo||[]).length||(snapshot.liveEventos||[]).length;if(!has)return confirm('Nenhuma métrica, produto ou evento recebido pelo servidor. Exportar relatório vazio mesmo assim? A extensão 0.8.29 também oferece exportação local.');return true;}alert('Aguarde a conexão com a Central antes de exportar.');return false;}
 $('exportSummary').onclick=()=>{
  if(!ready())return;
  const m=snapshot.liveMetricas||{},events=snapshot.liveEventos||[];
  const fields=[
-  ['Data da exportação',new Date().toLocaleString('pt-BR')],
+  ['Data da exportação',new Date().toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'})],['Sessão TikTok',snapshot.liveSessaoId||'Não identificada'],['Novos seguidores (contador)',m.seguidoresNovos],
   ['Atualização das métricas',m.atualizadoEm?new Date(m.atualizadoEm).toLocaleString('pt-BR'):''],
   ['Valor vendido (GMV)',m.gmv||''],['Vendas / pedidos',m.vendas],
   ['Adições ao carrinho',m.carrinhos],['Curtidas',m.curtidas],
@@ -303,7 +303,7 @@ $('exportFull').onclick=()=>{
  if(!ready())return;
  const data={exportadoEm:new Date().toISOString(),tipo:'Retrato atual da Central V2J — não é histórico de toda a LIVE',
   observacao:'Avisos de produto visto e de carrinho não comprovam compra. A fila é exibida individualmente e contém somente eventos novos após abrir o retorno. Eventos são apenas os recentes retidos pelo V2J.',
-  metricas:snapshot.liveMetricas||{},sinaisDaRedeTikTok:snapshot.sinaisTikTok||{},itemAtivo:snapshot.itemAtivo,
+  sessaoId:snapshot.liveSessaoId||null,metricas:snapshot.liveMetricas||{},sinaisDaRedeTikTok:snapshot.sinaisTikTok||{},itemAtivo:snapshot.itemAtivo,
   produtos:snapshot.catalogo||[],eventosRecentes:snapshot.liveEventos||[],chatManual:snapshot.chat||[]};
  exportDownload('v2j-relatorio-live-'+reportDate()+'.json',JSON.stringify(data,null,2),'application/json;charset=utf-8');
 };
