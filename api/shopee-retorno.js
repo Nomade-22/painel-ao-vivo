@@ -289,7 +289,7 @@ function buildResponse(live, creator, chat, legacy, active) {
     creatorProducts.length ? 'creator' : liveProducts.length ? 'live' : 'indisponivel';
   const mergedProducts = mergeProducts(liveProducts, creatorProducts);
   return {
-    versaoRetorno: '0.8.27', ...merged,
+    versaoRetorno: '0.8.29', ...merged,
     // Subtotal verificavel das linhas comerciais recebidas; NAO total da LIVE.
     metricas: {...merged.metricas,
       ...(creatorProducts.some(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques))
@@ -445,7 +445,7 @@ export default async function handler(req, res) {
         next.versaoLeitor = body.versaoLeitor;
     }
     const produtos = cleanProducts(body.produtos);
-    if (produtos) { next.produtos = produtos;next.produtoEm = now; }
+    if (produtos && (produtos.length || !previous.produtos?.length)) { next.produtos = produtos;next.produtoEm = now; }
     const incomingExtras=source==='creator'?cleanExtras(body.extras):{};
     const extrasAceitos=Object.keys(incomingExtras);
     if(extrasAceitos.length){
