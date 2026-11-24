@@ -15,11 +15,18 @@ const FIELDS = [
   'cliques', 'curtidas', 'compartilhamentos', 'totalEspectadores', 'taxaComentarios',
   'pedidosConfirmados', 'pedidosPagos', 'itensConfirmados', 'itensPagos',
   'gmvBrutoApi', 'gmvConfirmadoBrutoApi', 'gmvPagoBrutoApi',
-  'ctrBrutoApi', 'taxaCliquesPedidosBrutaApi', 'tempoMedioBrutoApi', 'engajadosSimultaneosApi'
+  'ctrBrutoApi', 'taxaCliquesPedidosBrutaApi', 'tempoMedioBrutoApi', 'engajadosSimultaneosApi',
+  'compradoresConfirmados','compradoresPagos','mediaEngajadosApi','gpmBrutoApi','gpmConfirmadoBrutoApi','gpmPagoBrutoApi','absBrutoApi','absConfirmadoBrutoApi','absPagoBrutoApi','taxaComentariosBrutaApi'
 ];
 const cleanText = (value, limit = 100) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 const cleanValue = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value :
   typeof value === 'string' && /^(?:(?:R\$\s*)?[\d.,]+\s*%?|\d{1,2}:\d{2}(?::\d{2})?)$/.test(value.trim()) ? value.trim().slice(0, 40) : null;
+const epoch = v => typeof v==='number' && Number.isFinite(v) && v>=1e9 && v<4.2e12 ? (v<1e11?v*1000:v) : null;
+const brl = v => typeof v==='number' && Number.isFinite(v) && v>=0 ? new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v) : null;
+const countNumber = v => typeof v==='number'?v:typeof v==='string'&&/^(?:\d+|\d{1,3}(?:\.\d{3})+)$/.test(v.trim())?Number(v.replace(/\./g,'')):null;
+const clock = v => new Date(v).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',timeZone:'America/Sao_Paulo'});
+const normalized = v=>String(v||'').normalize('NFC').trim().toLocaleLowerCase('pt-BR').replace(/\s+/g,' ');
+const sameComment=(a,b)=>normalized(a.texto)===normalized(b.texto)&&((normalized(a.autor)===normalized(b.autor)&&Math.abs(Number(a.recebidoEm)-Number(b.recebidoEm))<=45000)||(a.hora&&b.hora&&a.hora!==b.hora&&Math.abs(Number(a.recebidoEm)-Number(b.recebidoEm))<=15000&&/^\d{2}:\d{2}$/.test(a.hora)&&/^\d{2}:\d{2}$/.test(b.hora)&&((Number(a.hora.slice(0,2))-Number(b.hora.slice(0,2))+24)%24===3||(Number(b.hora.slice(0,2))-Number(a.hora.slice(0,2))+24)%24===3)&&a.hora.slice(3)===b.hora.slice(3)));
 const sourceKey = (source, generation) => generation ? 'fonte-086-' + generation + '-' + source : 'fonte-081-' + source;
 
 function cleanProducts(items) {
@@ -54,6 +61,8 @@ function cleanProducts(items) {
     itensConfirmados:cleanValue(item?.itensConfirmados),
     itensPagos:cleanValue(item?.itensPagos),
     vendasBrutoApi: cleanValue(item?.vendasBrutoApi),
+    vendasConfirmadasBrutoApi:cleanValue(item?.vendasConfirmadasBrutoApi),vendasPagasBrutoApi:cleanValue(item?.vendasPagasBrutoApi),
+    precoMinimoBrutoApi:cleanValue(item?.precoMinimoBrutoApi),precoMaximoBrutoApi:cleanValue(item?.precoMaximoBrutoApi),
     comissaoBrutoApi: cleanValue(item?.comissaoBrutoApi),
     origem: item?.origem === 'creator' ? 'creator' : 'live',
     periodo: item?.periodo === 'visivel' ? 'visivel' : null
@@ -93,6 +102,7 @@ function mergeProducts(liveItems, creatorItems) {
         itensPagos:item.itensPagos ?? p.itensPagos,
         vendas:item.vendas ?? p.vendas, comissao:item.comissao ?? p.comissao,
         vendasBrutoApi:item.vendasBrutoApi ?? p.vendasBrutoApi,
+        vendasConfirmadasBrutoApi:item.vendasConfirmadasBrutoApi??p.vendasConfirmadasBrutoApi,vendasPagasBrutoApi:item.vendasPagasBrutoApi??p.vendasPagasBrutoApi,
         comissaoBrutoApi:item.comissaoBrutoApi ?? p.comissaoBrutoApi,
         atc:item.atc ?? p.atc,
         origem:'live+creator'};
@@ -118,7 +128,7 @@ function cleanExtras(input) {
   const p=input.products;
   extras.products={
    total:safeNonnegative(p.total,1e6),linhasRecebidas:safeNonnegative(p.linhasRecebidas,1e6),
-   linhasInterpretadas:safeNonnegative(p.linhasInterpretadas,100),
+   linhasInterpretadas:safeNonnegative(p.linhasInterpretadas,100),totalPaginas:safeNonnegative(p.totalPaginas,100),
     paginasObservadas:(Array.isArray(p.paginasObservadas)?p.paginasObservadas:[]).filter(v=>Number.isInteger(v)&&v>=1&&v<=100).slice(0,30),
    chavesExemplo:(Array.isArray(p.chavesExemplo)?p.chavesExemplo:[])
     .filter(x=>typeof x==='string'&&/^[A-Za-z][A-Za-z0-9_]{1,35}$/.test(x))
@@ -132,7 +142,7 @@ function cleanExtras(input) {
    linhasRecebidas:safeNonnegative(c.linhasRecebidas,1e6),
    mensagensValidas:safeNonnegative(c.mensagensValidas,1e6),
    comentarios:(Array.isArray(c.comentarios)?c.comentarios:[]).slice(-60).map(x=>({
-    autor:cleanText(x?.autor,70),texto:cleanText(x?.texto,320)
+    autor:cleanText(x?.autor,70),texto:cleanText(x?.texto,320),at:epoch(x?.at)
    })).filter(x=>x.autor&&x.texto)
   };
  }
@@ -142,19 +152,24 @@ function cleanExtras(input) {
    const src=input.trends.series?.[key];
    if(!src||typeof src!=='object')continue;
    series[key]={totalPontos:safeNonnegative(src.totalPontos,1e6),
-    pontos:(Array.isArray(src.pontos)?src.pontos:[]).slice(-80).map(x=>safeNonnegative(x))
+    pontos:(Array.isArray(src.pontos)?src.pontos:[]).slice(-80).map(x=>safeNonnegative(x)),
+     horarios:(Array.isArray(src.horarios)?src.horarios:[]).slice(-80).map(epoch)
    };
   }
   extras.trends={series};
  }
  if(input.violations&&typeof input.violations==='object'){
-  const v=input.violations,alert= v.isWarned===true||v.isTerminated===true;
+  const v=input.violations,records=(Array.isArray(v.records)?v.records:[]).slice(0,50).filter(x=>x&&typeof x==='object').map(x=>({
+     id:createHash('sha256').update(String(x.id||[x.titulo,x.horario].join('|'))).digest('hex').slice(0,16),titulo:cleanText(x.titulo,180),descricao:cleanText(x.descricao,800),gravidade:cleanText(x.gravidade,60),penalidade:cleanText(x.penalidade,300),horario:epoch(x.horario),recursoDisponivel:x.recursoDisponivel===true,apelacaoStatus:safeNonnegative(x.apelacaoStatus,1000)
+    })).filter(x=>x.titulo),alert=v.isWarned===true||v.isTerminated===true||records.length>0||Number(v.contador)>0;
   extras.violations={
    isWarned:v.isWarned===true,isTerminated:v.isTerminated===true,
    titulo:alert?cleanText(v.titulo,160):'',descricao:alert?cleanText(v.descricao,340):'',
-   gravidade:alert?cleanText(v.gravidade,60):'',recursoDisponivel:alert&&v.recursoDisponivel===true
+   gravidade:alert?cleanText(v.gravidade,60):'',recursoDisponivel:alert&&v.recursoDisponivel===true,records,contador:safeNonnegative(v.contador,10000)
   };
  }
+ for(const k of ['viewerSource','viewerProfile','buyerProfile'])if(input[k]&&Array.isArray(input[k].grupos))extras[k]={grupos:input[k].grupos.slice(0,12).map(g=>({tipo:cleanText(g?.tipo,60),distribuicao:(Array.isArray(g?.distribuicao)?g.distribuicao:[]).slice(0,30).map(x=>({nome:cleanText(x?.nome,100),valor:safeNonnegative(x?.valor)})).filter(x=>x.nome&&x.valor!==null)}))};
+ if(input.sessionInfo&&typeof input.sessionInfo==='object')extras.sessionInfo={inicio:epoch(input.sessionInfo.inicio),fim:epoch(input.sessionInfo.fim)};
  return extras;
 }
 function creatorProductUnion(domProducts, apiProducts){
@@ -210,6 +225,8 @@ function consolidate(live, creator) {
     metricas[field] = source.metricas[field];
     metricaOrigem[field] = { fonte: selected, atualizadoEm: Number(source.campoEm?.[field]) || 0 };
   }
+  // GMV em BRL conciliado com o Excel de 23/11/2026; não confundir com GMV pago.
+  for(const [to,from] of [['vendas','gmvBrutoApi'],['vendasConfirmadas','gmvConfirmadoBrutoApi'],['vendasPagas','gmvPagoBrutoApi']]){const v=brl(metricas[from]);if(v!==null){metricas[to]=v;metricaOrigem[to]=metricaOrigem[from];}}
   return { metricas, conflitos, metricaOrigem };
 }
 
@@ -217,7 +234,7 @@ function normalizeChat(stored, legacy) {
   const fallback = Array.isArray(legacy?.comentariosLive) ? legacy.comentariosLive.slice(-100) : [];
   const comments = Array.isArray(stored?.comentariosLive) ? stored.comentariosLive : fallback;
   return {
-    comentariosLive: comments.slice(-100),
+    comentariosLive: comments.filter((x,i,a)=>!a.slice(0,i).some(y=>sameComment(x,y))).slice(-100),
     idsRecentes: Array.isArray(stored?.idsRecentes) ? stored.idsRecentes.slice(-2000) : comments.map(item => item.id),
     ultimoComentarioEm: stored?.ultimoComentarioEm || comments.at(-1)?.recebidoEm || 0,
     totalNovosComentarios: Number(stored?.totalNovosComentarios) || 0
@@ -236,7 +253,7 @@ function parseDiagnostics(input) {
   const result = Object.fromEntries(['respostas', 'mensagensValidas', 'respostasSemMensagens', 'falhasJson',
     'respostasComItens', 'produtosReconhecidos', 'ultimaRespostaEm',
     'domLinhasObservadas', 'domEntradas', 'domIntencoesCompra', 'domComentarios',
-    'domSemAutor', 'domUltimaLeituraEm']
+    'domSemAutor', 'domUltimaLeituraEm','domSeguidores']
     .map(field => [field, counter(input[field], field)]));
   // Somente caminhos técnicos fixos e tipos: sem conteúdo, valores ou identificadores.
   for (const field of ['estruturaExemplo', 'estruturaItensExemplo']) {
@@ -272,7 +289,7 @@ function buildResponse(live, creator, chat, legacy, active) {
     creatorProducts.length ? 'creator' : liveProducts.length ? 'live' : 'indisponivel';
   const mergedProducts = mergeProducts(liveProducts, creatorProducts);
   return {
-    versaoRetorno: '0.8.25', ...merged,
+    versaoRetorno: '0.8.27', ...merged,
     // Subtotal verificavel das linhas comerciais recebidas; NAO total da LIVE.
     metricas: {...merged.metricas,
       ...(creatorProducts.some(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques))
@@ -282,12 +299,12 @@ function buildResponse(live, creator, chat, legacy, active) {
       ...(creatorProducts.some(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques))
         ? {cliquesProdutosVisiveis:{fonte:'creator',atualizadoEm:creator.extrasAtualizadosEm?.products||creator.produtoEm||creator.lastValidAt||0}}:{})},
     cliquesProdutosCobertura:{
-      paginasObservadas:extra.products?.paginasObservadas||[],
+      paginasObservadas:extra.products?.paginasObservadas||[],totalPaginas:extra.products?.totalPaginas??null,
       linhas:creatorProducts.filter(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques)).length,
       total:extra.products?.total??creatorProducts.length,
       limitacao:'Subtotal das linhas comerciais recebidas; nao representa o total da LIVE.'
     },
-    sessao: active ? { identificada: true, referencia: sessionLabel(active.id), iniciadaEm: active.createdAt, atualizadaEm: active.lastSeenAt } :
+    sessao: active ? { identificada: true, referencia: sessionLabel(active.id), iniciadaEm: active.createdAt, inicioOficial:extra.sessionInfo?.inicio??null, fimOficial:extra.sessionInfo?.fim??null, atualizadaEm: active.lastSeenAt } :
       { identificada: false, referencia: null, iniciadaEm: 0 },
     fontes: { live: live.metricas || {}, creator: creator.metricas || {} },
     fontesConectadas: { live: live.heartbeatAt || 0, creator: creator.heartbeatAt || 0 },
@@ -310,6 +327,7 @@ function buildResponse(live, creator, chat, legacy, active) {
      mensagensValidas:extra.comments.mensagensValidas
     }:null,
     alertaCreator:extra.violations||null,
+    publicoCreator:{origem:extra.viewerSource||null,perfil:extra.viewerProfile||null,compradores:extra.buyerProfile||null},
     extrasAtualizadosEm:creator.extrasAtualizadosEm||{},
     produtosOrigem: productsSource,
     atualizadoEm: Math.max(live.heartbeatAt || 0, creator.heartbeatAt || 0),
@@ -407,6 +425,10 @@ export default async function handler(req, res) {
     };
     if (camposAceitos.length) {
       for (const field of camposAceitos) {
+        // Não apagar acumulados por zero de DOM nem diminuir pico observado.
+        const old=countNumber(next.metricas[field]),value=countNumber(submitted[field]);
+        if(['pcu','curtidas','compartilhamentos'].includes(field)&&old!==null&&value!==null&&((field==='pcu'&&value<old)||(!trustedOverview&&old>0&&value===0)))continue;
+        if(source==='creator'&&!trustedOverview&&previous.origemLeitura==='overview_api'&&['vendas','ccu','pcu','visualizacoes','totalEspectadores','compradores','atc','pedidos','itensVendidos','pedidosConfirmados','pedidosPagos','tempoMedio','ctr','taxaCliquePedidos'].includes(field)&&previous.metricas?.[field]!==undefined)continue;
         next.metricas[field] = submitted[field];
         next.campoEm[field] = now;
       }
@@ -416,7 +438,7 @@ export default async function handler(req, res) {
       const diagnostico = parseDiagnostics(body.diagnostico);
       if (diagnostico) next.diagnosticoChat = diagnostico;
     } else {
-      if (camposAceitos.length) next.origemLeitura = trustedOverview ? 'overview_api' : 'dom';
+      if (camposAceitos.length) next.origemLeitura = trustedOverview||previous.origemLeitura==='overview_api' ? 'overview_api' : 'dom';
       const diagnostico = cleanCreatorDiagnostics(body.diagnosticoCreator);
       if (diagnostico) next.diagnosticoCreator = diagnostico;
       if (typeof body.versaoLeitor === 'string' && /^0\.8\.\d{1,3}$/.test(body.versaoLeitor))
@@ -428,6 +450,8 @@ export default async function handler(req, res) {
     const extrasAceitos=Object.keys(incomingExtras);
     if(extrasAceitos.length){
      next.extras={...(previous.extras||{}),...incomingExtras};
+      if(incomingExtras.violations){const old=previous.extras?.violations||{},v=incomingExtras.violations;next.extras.violations={...v,records:[...new Map([...(old.records||[]),...(v.records||[])].map(x=>[x.id,x])).values()].slice(-100),historicoAdvertencia:old.historicoAdvertencia===true||old.isWarned===true||v.isWarned===true||v.records.length>0,historicoEncerramento:old.historicoEncerramento===true||old.isTerminated===true||v.isTerminated===true};}
+      if(incomingExtras.sessionInfo){const old=previous.extras?.sessionInfo||{},v=incomingExtras.sessionInfo;next.extras.sessionInfo={inicio:v.inicio||old.inicio||null,fim:v.fim||old.fim||null};}
      next.extrasAtualizadosEm={...(previous.extrasAtualizadosEm||{}),
       ...Object.fromEntries(extrasAceitos.map(x=>[x,now]))};
     }
@@ -443,8 +467,10 @@ export default async function handler(req, res) {
         confirmadosIds.push(id);
         if (ids.has(id)) continue;
         ids.add(id);
-        fresh.push({ id, tipo: 'comentario', autor, texto,
-          hora: cleanText(event?.hora, 12), recebidoEm: now });
+        const at=epoch(event?.recebidoEm);const eventTime=at&&at<=now+60000&&at>=now-86400000?at:now;
+        const e={id,tipo:'comentario',autor,texto,hora:clock(eventTime),recebidoEm:eventTime};
+        if([...current.comentariosLive,...fresh].some(x=>sameComment(x,e)))continue;
+        fresh.push(e);
       }
       if (fresh.length) {
         await cache.set(chatKey(generation), {
@@ -461,12 +487,13 @@ export default async function handler(req, res) {
      for(const e of incomingExtras.comments.comentarios){
       const norm=x=>String(x||'').trim().toLowerCase().replace(/\s+/g,' ');
       const signature=norm(e.autor)+'|'+norm(e.texto);
-      if(items.some(item=>norm(item.autor)+'|'+norm(item.texto)===signature))continue;
-      const stableId='shopee-'+parseInt(createHash('sha256').update('creator:'+signature).digest('hex').slice(0,9),16);
+      const t=epoch(e.at)||now;const candidate={autor:e.autor,texto:e.texto,hora:clock(t),recebidoEm:t};
+       if(items.some(item=>sameComment(item,candidate)))continue;
+      const stableId='shopee-'+parseInt(createHash('sha256').update('creator:'+signature+':'+Math.floor(t/30000)).digest('hex').slice(0,9),16);
       if(ids.has(stableId))continue;
       ids.add(stableId);
       items.push({id:stableId,tipo:'comentario',autor:e.autor,texto:e.texto,
-       hora:new Date(now).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}),recebidoEm:now});
+       hora:clock(t),recebidoEm:t});
       added++;
      }
      if(added)await cache.set(chatKey(generation),{
@@ -474,7 +501,7 @@ export default async function handler(req, res) {
       ultimoComentarioEm:now,totalNovosComentarios:current.totalNovosComentarios+added
      },{ttl:TTL,name:'Chat Shopee V2J'});
     }
-    return res.status(200).json({ ok: true, versaoRetorno: '0.8.25', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos,
+    return res.status(200).json({ ok: true, versaoRetorno: '0.8.27', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos,
       confirmadosIds, novosComentarios: fresh.length, leituraSuspeita: suspicious,
       produtosAceitos: produtos?.length ?? null, ultimaConfirmacaoEm: now });
   } catch (error) {
