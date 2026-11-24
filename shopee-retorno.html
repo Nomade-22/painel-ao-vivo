@@ -57,16 +57,17 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
   <div id="sessionInfo" class="session-line unverified"><strong>● Identificação da LIVE pendente</strong></div></div>
  <div><button id="export">⬇ Exportar relatório JSON</button> <a href="/console.html">Console V2J</a> <a href="/shopee-afiliados.html">Afiliados · API oficial</a></div>
 </header>
+<section class="panel" id="securityPanel" style="margin:0 0 18px"><div class="extra-head"><h2>🛡️ V2J Guardian · Segurança</h2><span id="securityState" class="tag off">Aguardando dados</span></div><div id="securityRecords" class="detail muted">A extensão Guardian emite avisos locais. O retorno mostra apenas ocorrências recebidas.</div><p class="muted" id="securityChecked"></p></section>
 <div id="kpis" class="grid"></div>
 <section class="panel">
  <h2>📋 Resumo da transmissão atual</h2>
- <p class="muted">Indicadores oficiais são recebidos do Centro de Criação. A versão 0.8.25 lê diretamente os campos numéricos da rota <code>overview</code>. Pedidos feitos, confirmados e pagos são etapas diferentes. Os cartões “último minuto” não representam totais da transmissão.</p>
+ <p class="muted">Indicadores oficiais são recebidos do Centro de Criação. A versão 0.8.27 lê diretamente os campos numéricos da rota <code>overview</code>. Pedidos feitos, confirmados e pagos são etapas diferentes. Os cartões “último minuto” não representam totais da transmissão.</p>
  <p class="muted">Campos marcados como <strong>bruto API</strong> exibem o número exatamente na escala recebida, sem presumir reais, centavos, percentual ou segundos; até a conversão ser validada, não devem ser usados como valor financeiro final.</p>
  <div class="pills">
   <div class="stat-pill">Comentários registrados<b id="summaryComments">—</b></div>
   <div class="stat-pill">Avisos de entrada<b id="summaryEntries">—</b></div>
   <div class="stat-pill">Avisos de interesse (não são compras)<b id="summaryIntent">—</b></div>
-  <div class="stat-pill">Produtos identificados<b id="summaryProducts">—</b></div>
+  <div class="stat-pill">Produtos identificados<b id="summaryProducts">—</b></div><div class="stat-pill">Avisos de novos seguidores<b id="summaryFollowers">—</b></div>
  </div>
  <p class="muted">Os contadores de avisos são observações técnicas; não representam pessoas únicas nem vendas confirmadas. O histórico muda somente quando a extensão identifica outro ID de LIVE.</p>
 </section>
@@ -84,16 +85,17 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
  <div id="productList" class="scroll"><div class="empty">Nenhum produto recebido ainda.</div></div>
  <h2 style="margin-top:18px">📊 Produtos do Centro de Criação</h2>
  <p id="creatorProductsInfo" class="muted">Aguardando resultados individuais. Os valores pertencem ao período selecionado na Shopee.</p>
- <div id="creatorProducts" class="scroll"><div class="empty">Nenhum resultado individual recebido.</div></div>
+ <div class="section-tools"><label for="productSort">Ranking:</label><select id="productSort" style="background:#17283d;color:#fff;padding:8px;border:1px solid #42617d;border-radius:8px"><option value="cliques">Mais cliques</option><option value="atc">Mais carrinhos</option><option value="pedidos">Mais pedidos</option><option value="vendasBrutoApi">Maior GMV realizado</option><option value="pedidosConfirmados">Mais pedidos confirmados</option></select></div><div id="creatorProducts" class="scroll"><div class="empty">Nenhum resultado individual recebido.</div></div>
 </section>
 <section class="panel">
  <h2>🧭 Novas respostas do Centro de Criação</h2>
- <p class="muted">As quatro rotas são observadas passivamente, sem novas requisições. A captura registra apenas campos necessários; respostas não reconhecidas permanecem indisponíveis.</p>
+ <p class="muted">As rotas são observadas passivamente, sem novas requisições à Shopee. A captura registra apenas campos necessários; respostas não reconhecidas permanecem indisponíveis.</p>
  <div id="creatorExtraStatus" class="health"><div>Aguardando as novas fontes do Creator…</div></div>
  <h2 style="margin-top:20px">📈 Tendências da LIVE</h2>
  <p class="muted">Gráficos relativos dos valores numéricos recebidos, sem conversão de unidade ou moeda. Não são totais de vendas confirmadas.</p>
  <div id="creatorTrends" class="trend-grid"><div class="empty">Aguardando séries da rota trends.</div></div>
  <div id="creatorViolation" style="margin-top:16px" class="muted">Verificação de avisos: aguardando resposta da Shopee.</div>
+<h2 style="margin-top:22px">👥 Origem e perfil do público</h2><div id="audience" class="trend-grid"><div class="empty">Aguardando dados do Creator.</div></div>
 </section>
 <section class="panel">
  <h2>📡 Integridade do retorno</h2>
@@ -125,7 +127,7 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
   <div>Textos sem autor identificado<strong id="domNoAuthor">—</strong></div>
   <div>Última leitura da tela<strong id="domLastScan">—</strong></div>
  </div>
- <div class="dom-note"><strong>Importante:</strong> avisos como “está comprando produtos” não comprovam pedidos ou pagamentos. Avisos de entrada não são o total de espectadores únicos. Curtidas e novos seguidores permanecem indisponíveis enquanto não houver evento ou contador confiável; nenhuma animação deve ser acionada por aproximação.</div>
+ <div class="dom-note"><strong>Importante:</strong> avisos como “está comprando produtos” não comprovam pedidos ou pagamentos. Avisos de entrada não são o total de espectadores únicos. Curtidas são exibidas quando identificadas pelo Creator. Avisos de novos seguidores são observações, não um total oficial. Nenhuma animação deve ser acionada por aproximação.</div>
  <div id="schemaInfo" class="muted detail" style="margin-top:12px"></div>
  <h2 style="margin-top:20px">🔎 Verificação das métricas por origem</h2>
  <p class="muted">Campos equivalentes encontrados no painel: <strong>Gostei / Likes → Curtidas</strong>, <strong>Shares → Compartilhamentos</strong>, <strong>Viewers / CCU → Espectadores</strong>. A correspondência só conta quando a extensão recebe um valor válido.</p>
@@ -133,10 +135,11 @@ footer{margin-top:18px;color:#99abc2;font-size:12px}#status[data-live="1"]{color
  <h2 style="margin-top:20px">📊 Origem, atualização e divergências</h2>
  <div id="details" class="muted detail">Abra a Shopee LIVE e o Centro de Criação no Chrome com a extensão V2J ativa.</div>
 </section>
-<footer>“—” significa indisponível, nunca zero. Comissão é diferente de vendas. Métricas “último minuto” não são totais da LIVE. Gráficos de tendências, origem dos espectadores e perfil do comprador ainda dependem de respostas estruturadas da Shopee. Dados comerciais seguem a fonte oficial.</footer>
+<section class="panel"><h2>🗂️ Histórico e conciliação Shopee</h2><p class="muted">Importe o Excel oficial da Shopee. O arquivo é processado neste navegador, sem upload. A comparação não altera as métricas da LIVE.</p><div class="section-tools"><input type="file" id="officialExcel" accept=".xlsx"><button id="saveHistory" type="button" class="small-btn">Guardar relatório atual</button><button id="downloadHistory" type="button" class="small-btn">Exportar histórico JSON</button></div><label for="officialRow">Linha do relatório oficial</label><select id="officialRow" disabled style="max-width:100%;padding:8px;background:#17283d;color:#fff;border:1px solid #42617d"><option>Importe um Excel</option></select><div id="reconcile" class="scroll" style="margin-top:12px"></div><h3>Histórico deste navegador</h3><div id="localHistory" class="scroll muted"></div></section>
+<footer>“—” significa indisponível, nunca zero. Comissão é diferente de vendas. Métricas “último minuto” não são totais da LIVE. Tendências e perfis são exibidos quando as respostas estruturadas forem recebidas. Dados comerciais seguem a fonte oficial.</footer>
 <script>
 const labels=[
- ['vendas','💰 Vendas (R$)','primary'],['pedidos','🛒 Pedidos',''],['itensVendidos','📦 Itens vendidos',''],
+ ['vendas','💰 Vendas realizadas (R$)','primary'],['vendasConfirmadas','✅ Vendas confirmadas (R$)',''],['vendasPagas','💳 Vendas pagas (R$)',''],['pedidos','🛒 Pedidos',''],['itensVendidos','📦 Itens vendidos',''],
  ['visualizacoes','👀 Visualizações totais',''],['totalEspectadores','👤 Total de espectadores',''],['comentarios','💬 Comentários totais',''],['taxaComentarios','💬 Taxa de comentários',''],
  ['ccu','📺 Espectadores atuais (CCU)',''],['pcu','📈 Pico de espectadores (PCU)',''],
  ['compradores','👤 Compradores',''],['gpm','📊 GPM (R$)',''],['abs','💵 ABS / valor médio (R$)',''],
@@ -145,8 +148,8 @@ const labels=[
  ['usuariosEngajadosMinuto','👥 Engajados · último minuto',''],
  ['comentariosMinuto','💬 Comentários · último minuto',''],
  ['atcMinuto','🛍️ ATC · último minuto',''],
- ['usuariosEngajados','👥 Usuários engajados (outra fonte)',''],
- ['atc','🛍️ ATC (outra fonte)',''],
+ ['usuariosEngajados','👥 Espectadores engajados',''],['compradoresConfirmados','Compradores confirmados',''],['compradoresPagos','Compradores pagos',''],['mediaEngajadosApi','Média de engajados simultâneos (API)',''],['gpmBrutoApi','GPM bruto API',''],['absBrutoApi','ABS bruto API',''],['taxaComentariosBrutaApi','Taxa de comentários bruta API',''],
+ ['atc','🛍️ Adições ao carrinho',''],
  ['conversoes','✅ Conversões',''],['ads','📣 ADS',''],
  ['comissaoNaoInformada','💸 Comissão de afiliado',''],
  ['pedidosConfirmados','✅ Pedidos confirmados (API)',''],
@@ -164,7 +167,7 @@ const labels=[
 ];
 const el=id=>document.getElementById(id);
 const esc=value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-const prettyTime=stamp=>Number(stamp)?new Date(stamp).toLocaleTimeString('pt-BR'):'—';
+const prettyTime=stamp=>Number(stamp)?new Date(stamp).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo'}):'—';
 const age=stamp=>Number(stamp)?Math.max(0,Math.floor((Date.now()-Number(stamp))/1000))+'s atrás':'não recebido';
 const STALE_METRIC_MS=120000;
 const priceLabel=(value,currency)=>{
@@ -183,7 +186,7 @@ const discountLabel=product=>{
    return 'A conferir';
  return String(product.desconto)+'%';
 };
-let snapshot=null,requesting=false,questionOnly=false;
+let snapshot=null,requesting=false,questionOnly=false;const money=v=>typeof v==='number'&&Number.isFinite(v)?new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(v):'—';
 const isQuestion=c=>/\?|\b(?:mostra|mostrar|tem|tamanho|qual|quanto|pode|dispon[ií]vel|pre[çc]o|quero|me mostra|op[çc][oõ]es|salto)\b/i.test(String(c?.texto||''));
 const safeImage=value=>{
  try{
@@ -211,10 +214,10 @@ function show(data){
   const hasValue=value!==undefined&&value!==null&&value!=='';
   const stale=hasValue&&source&&Date.now()-Number(source.atualizadoEm||0)>STALE_METRIC_MS;
   const rawApiField=/^(?:gmvBrutoApi|gmvConfirmadoBrutoApi|gmvPagoBrutoApi|ctrBrutoApi|taxaCliquesPedidosBrutaApi|tempoMedioBrutoApi)$/.test(key);
-  el('k-'+key).textContent=!hasValue||stale?'—':
+  el('k-'+key).textContent=!hasValue?'—':
     typeof value==='number'?value.toLocaleString('pt-BR',rawApiField?{maximumFractionDigits:10}:undefined):value;
   el('o-'+key).textContent=stale?
-    '⚠️ Último registro: '+value+' · '+age(source.atualizadoEm)+' · desatualizado':
+    'Histórico · '+age(source.atualizadoEm)+' · sem atualização recente':
     source?(source.fonte==='creator'?'Centro de Criação':'Shopee LIVE')+
     ' · '+age(source.atualizadoEm)+(data.conflitos?.[key]?' · ⚠️ Divergência':''):'Fonte não identificada';
  }
@@ -223,10 +226,10 @@ function show(data){
  el('sessionInfo').className='session-line'+(sessao.identificada?'':' unverified');
  el('sessionInfo').innerHTML=sessao.identificada?
   '<strong>● LIVE identificada</strong> · ref. '+esc(sessao.referencia||'')+
-  ' · início do registro: '+esc(prettyTime(sessao.iniciadaEm))+' · comentários e métricas exclusivos desta LIVE':
+  ' · início '+(sessao.inicioOficial?'oficial: '+esc(prettyTime(sessao.inicioOficial)):'do registro: '+esc(prettyTime(sessao.iniciadaEm)))+(sessao.fimOficial?' · encerrada às '+esc(prettyTime(sessao.fimOficial)):'')+' · dados desta sessão':
   '<strong>● Identificação da LIVE pendente</strong> · atualize a extensão para a versão 0.8.6 e abra a transmissão para ativar a limpeza automática.';
  const products=Array.isArray(data.produtos)?data.produtos:[];
- const creatorItems=Array.isArray(data.produtosCreator)?data.produtosCreator:[];
+ const sort=el('productSort').value;const creatorItems=(Array.isArray(data.produtosCreator)?[...data.produtosCreator]:[]).sort((a,b)=>(typeof b[sort]==='number'?b[sort]:-1)-(typeof a[sort]==='number'?a[sort]:-1));
  const withImage=products.filter(p=>safeImage(p.imagem)).length;
  const inconsistent=products.filter(p=>discountLabel(p)==='A conferir').length;
  el('productsInfo').textContent=products.length?
@@ -246,10 +249,10 @@ function show(data){
   products.map(product=>{
    const img=safeImage(product.imagem);
    const title=(img?'<img class="product-photo" loading="lazy" referrerpolicy="no-referrer" src="'+esc(img)+'" alt="">':'')+
-     '<span class="product-title">'+esc(product.nome||'')+'</span>';
+     '<span class="product-title">'+(Number.isInteger(product.numero)?'Nº '+esc(product.numero)+' · ':'')+esc(product.nome||'')+'</span>';
    const discount=discountLabel(product);
    return '<tr><td>'+title+'</td><td>'+esc(priceLabel(product.preco,product.moeda))+'</td><td>'+esc(priceLabel(product.precoAnterior,product.moeda))+
-    '</td><td>'+esc(discount)+'</td>'+['cliques','ctr','atc','pedidos','pedidosConfirmados','pedidosPagos','itensVendidos','vendas','comissao'].map(key=>'<td>'+esc(product[key]??'—')+'</td>').join('')+'</tr>';
+    '</td><td>'+esc(discount)+'</td>'+['cliques','ctr','atc','pedidos','pedidosConfirmados','pedidosPagos','itensVendidos','vendas','comissao'].map(key=>'<td>'+esc(key==='vendas'&&typeof product.vendasBrutoApi==='number'?money(product.vendasBrutoApi):product[key]??'—')+'</td>').join('')+'</tr>';
   }).join('')+'</tbody></table>':
   '<div class="empty">Nenhum produto recebido nesta LIVE.</div>';
  el('creatorProductsInfo').textContent=creatorItems.length?
@@ -258,7 +261,7 @@ function show(data){
  el('creatorProducts').innerHTML=creatorItems.length?
   '<table><thead><tr><th>Produto</th><th>Cliques</th><th>CTR</th><th>ATC</th><th>Pedidos feitos</th><th>Confirmados</th><th>Pagos</th><th>Itens vendidos</th><th>Vendas</th><th>Comissão</th></tr></thead><tbody>'+
   creatorItems.map(p=>'<tr><td>'+esc(p.nome||'—')+'</td>'+
-    ['cliques','ctr','atc','pedidos','pedidosConfirmados','pedidosPagos','itensVendidos','vendas','comissao'].map(k=>'<td>'+esc(p[k]??'—')+'</td>').join('')+'</tr>').join('')+
+    ['cliques','ctr','atc','pedidos','pedidosConfirmados','pedidosPagos','itensVendidos','vendas','comissao'].map(k=>'<td>'+esc(k==='vendas'&&typeof p.vendasBrutoApi==='number'?money(p.vendasBrutoApi):p[k]??'—')+'</td>').join('')+'</tr>').join('')+
   '</tbody></table>':
   '<div class="empty">O Centro de Criação ainda não enviou resultados individuais.</div>';
  const extraTimes=data.extrasAtualizadosEm||{};
@@ -271,7 +274,7 @@ function show(data){
     (commentApi.mensagensValidas??0)+' mensagens com autor e texto de '+(commentApi.linhasRecebidas??'—')+' linhas':'aguardando'],
   ['trends',trends,'Tendências',trends?
     Object.keys(trends.series||{}).length+' séries reconhecidas':'aguardando'],
-  ['violations',violations,'Segurança',violations?'resposta recebida':'aguardando']
+  ['violations',violations,'Segurança',violations?'resposta recebida':'aguardando'],['viewerSource',data.publicoCreator?.origem,'Origem do público','distribuição'],['viewerProfile',data.publicoCreator?.perfil,'Perfil do público','distribuição'],['buyerProfile',data.publicoCreator?.compradores,'Perfil de compradores','distribuição']
  ];
  el('creatorExtraStatus').innerHTML=statuses.map(([key,dataValue,label,summary])=>{
   const at=Number(extraTimes[key])||0,stale=at&&Date.now()-at>120000;
@@ -292,7 +295,13 @@ function show(data){
    heights.map(h=>'<i style="height:'+Math.max(0,Math.min(100,h)).toFixed(1)+'%"></i>').join('')+
    '</div><small>'+esc(v.totalPontos??points.length)+' pontos informados (unidade não confirmada)</small></div>';
  }).join(''):'<div class="empty">Aguardando séries numéricas interpretáveis da Shopee.</div>';
- const warn=violations&&(violations.isWarned===true||violations.isTerminated===true);
+ const warn=violations&&(violations.isWarned===true||violations.isTerminated===true||violations.historicoAdvertencia===true||violations.historicoEncerramento===true||violations.records?.length>0);
+ const records=Array.isArray(violations?.records)?violations.records:[];
+ el('securityState').className='tag '+(warn?'warn':violations?'good':'off');el('securityState').textContent=warn?'⚠ Ocorrência oficial registrada':violations?'Consulta recebida · sem ocorrência nesta resposta':'Sem coleta';
+ el('securityRecords').innerHTML=records.length?records.map(x=>'<div class="alert-red"><strong>'+esc(x.titulo)+'</strong> · '+esc(x.gravidade||'Gravidade não informada')+' · '+esc(prettyTime(x.horario))+'<p>'+esc(x.descricao||'')+'</p><p>'+esc(x.penalidade||'')+(x.recursoDisponivel?' · Recurso indicado pela Shopee':'')+'</p></div>').join(''):warn?'<div class="alert-red">'+esc(violations.titulo||'Aviso registrado anteriormente')+'<p>'+esc(violations.descricao||'')+'</p></div>':'Nenhuma ocorrência recebida. Isso não garante ausência de penalidades.';
+ el('securityChecked').textContent='Última consulta recebida: '+(extraTimes.violations?prettyTime(extraTimes.violations)+' · '+age(extraTimes.violations):'—')+'. O Guardian local é independente do painel.';
+ const audience=[['Origem dos espectadores',data.publicoCreator?.origem],['Perfil dos espectadores',data.publicoCreator?.perfil],['Perfil dos compradores',data.publicoCreator?.compradores]];
+ el('audience').innerHTML=audience.map(([name,group])=>'<div class="trend-mini"><strong>'+esc(name)+'</strong>'+((group?.grupos||[]).length?group.grupos.map(g=>'<p>'+esc(g.tipo||'Distribuição')+'</p>'+g.distribuicao.map(x=>'<div style="display:flex;justify-content:space-between;gap:8px;padding:4px 0"><span>'+esc(x.nome)+'</span><b>'+esc(x.valor.toLocaleString('pt-BR',{maximumFractionDigits:4}))+'</b></div>').join('')).join(''):'<p class="muted">Aguardando informação</p>')+'<small>Valores na escala recebida da Shopee.</small></div>').join('');
  el('creatorViolation').className=warn?'alert-red':'muted';
  el('creatorViolation').textContent=!violations?
   'Verificação de avisos: aguardando resposta da Shopee.':
@@ -321,8 +330,8 @@ function show(data){
    'Leitor V2J '+creator.versaoLeitor+' · '+(creatorDiag.campos?.length||0)+' campos estáveis · '+(creatorDiag.linhasProdutos||0)+' linhas de produto. '+
    (data.ultimaLeituraSuspeita==='creator'?'A Shopee retornou uma leitura suspeita de zeros; os números foram bloqueados para evitar vendas falsas. ':'')+
    'Se os valores oficiais não aparecerem, exporte o diagnóstico Creator para investigar as chamadas de rede.':
-   'Leitor ainda não identificado. Instale a extensão V2J LIVE v0.8.25 e abra o Centro de Criação com a transmissão ativa.';
- el('summaryComments').textContent=data.saudeChat?.totalNovosComentarios??'—';
+   'Leitor ainda não identificado. Instale a extensão V2J LIVE v0.8.27 e abra o Centro de Criação com a transmissão ativa.';
+ el('summaryComments').textContent=data.comentariosLive?.length??'—';el('summaryFollowers').textContent=parser.domSeguidores??'—';
  el('summaryEntries').textContent=parser.domEntradas??'—';
  el('summaryIntent').textContent=parser.domIntencoesCompra??'—';
  el('summaryProducts').textContent=products.length;
@@ -388,7 +397,9 @@ el('export').onclick=()=>{
  const a=document.createElement('a');a.href=url;a.download='v2j-retorno-shopee-'+new Date().toISOString().slice(0,10)+'.json';a.click();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
 };
+el('productSort').onchange=()=>{if(snapshot)show(snapshot);};
 refresh();
 </script>
+<script src="/shopee-auditoria.js" defer></script>
 </body>
 </html>
