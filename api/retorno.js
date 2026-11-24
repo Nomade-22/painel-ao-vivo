@@ -1,7 +1,7 @@
 import {getCache} from '@vercel/functions';
 const validMode = mode => ['texto','tela','central'].includes(mode) ? mode : 'texto';
 
-const defaultCentral={liveMetricas:{cliques:null,vendas:null,visualizacoes:null,carrinhos:null,curtidas:null,compartilhamentos:null,exibicoesRegistradas:null,gmv:'',atualizadoEm:0},produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,liveEventos:[],versao:0};
+const defaultCentral={liveMetricas:{cliques:null,vendas:null,visualizacoes:null,carrinhos:null,curtidas:null,compartilhamentos:null,exibicoesRegistradas:null,seguidoresNovos:null,gmv:'',atualizadoEm:0},produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,liveEventos:[],versao:0};
 const trim=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
 // Os sinais TikTok ficam em cache separado para não disputar gravações com
 // comentários, ficha, seleção de produto e métricas da transmissão.
@@ -27,18 +27,19 @@ function cleanTikTokSignal(raw){
  }
  return signal;
 }
+const safeCount=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0?Math.floor(v):null;
 function cleanCentral(input){
  const p=input?.produto||{};
  return {liveMetricas:{
-  cliques:input?.liveMetricas?.cliques==null||input.liveMetricas.cliques===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.cliques)||0)),
-  vendas:input?.liveMetricas?.vendas==null||input.liveMetricas.vendas===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.vendas)||0)),
-  visualizacoes:input?.liveMetricas?.visualizacoes==null||input.liveMetricas.visualizacoes===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.visualizacoes)||0)),
-  carrinhos:input?.liveMetricas?.carrinhos==null||input.liveMetricas.carrinhos===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.carrinhos)||0)),
-  curtidas:input?.liveMetricas?.curtidas==null||input.liveMetricas.curtidas===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.curtidas)||0)),
-  compartilhamentos:input?.liveMetricas?.compartilhamentos==null||input.liveMetricas.compartilhamentos===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.compartilhamentos)||0)),
-  exibicoesRegistradas:input?.liveMetricas?.exibicoesRegistradas==null||input.liveMetricas.exibicoesRegistradas===''?null:Math.max(0,Math.floor(Number(input.liveMetricas.exibicoesRegistradas)||0)),
-  gmv:trim(input?.liveMetricas?.gmv,80),atualizadoEm:Number(input?.liveMetricas?.atualizadoEm)||0
- },produto:{nome:trim(p.nome,160),descricao:trim(p.descricao,5000),preco:trim(p.preco,80),link:typeof p.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
+  cliques:safeCount(input?.liveMetricas?.cliques),
+  vendas:safeCount(input?.liveMetricas?.vendas),
+  visualizacoes:safeCount(input?.liveMetricas?.visualizacoes),
+  carrinhos:safeCount(input?.liveMetricas?.carrinhos),
+  curtidas:safeCount(input?.liveMetricas?.curtidas),
+  compartilhamentos:safeCount(input?.liveMetricas?.compartilhamentos),
+  exibicoesRegistradas:safeCount(input?.liveMetricas?.exibicoesRegistradas),
+  seguidoresNovos:safeCount(input?.liveMetricas?.seguidoresNovos),gmv:trim(input?.liveMetricas?.gmv,80),atualizadoEm:Number(input?.liveMetricas?.atualizadoEm)||0
+ },liveSessaoId:/^\d{4,24}$/.test(String(input?.liveSessaoId||''))?String(input.liveSessaoId):null,liveSessaoAt:Number(input?.liveSessaoAt)||0,produto:{nome:trim(p.nome,160),descricao:trim(p.descricao,5000),preco:trim(p.preco,80),link:typeof p.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
  imagens:(Array.isArray(p.imagens)?p.imagens:[]).slice(0,6).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000)},
  recado:trim(input?.recado,1200),
  liveEventos:(Array.isArray(input?.liveEventos)?input.liveEventos:[]).slice(-160).map(e=>({
@@ -101,18 +102,24 @@ export default async function handler(req,res){
    const cacheLive=getCache({namespace:'central-retorno-v1'});
    const current=cleanCentral(await cacheLive.get('estado')||defaultCentral);
    const incoming=Array.isArray(payload.eventos)?payload.eventos.slice(-40):[];
-   const ids=new Set(current.liveEventos.map(e=>e.id));
-   const fresh=incoming.filter(e=>typeof e?.id==='string'&&!ids.has(e.id));
+   const room=/^\d{4,24}$/.test(String(payload.sessaoId||''))?String(payload.sessaoId):null;
+   const observed=Number(payload.observadoEm)||Date.now();
+   const changed=room&&current.liveSessaoId&&room!==current.liveSessaoId;
+   if(changed&&observed<current.liveSessaoAt)return res.status(409).json({erro:'Sessão anterior ignorada'});
+   if(changed)await cacheLive.set('historico-live-'+current.liveSessaoId,{metricas:current.liveMetricas,eventos:current.liveEventos,encerramentoObservadoEm:Date.now()},{ttl:2592000});
+   const baseEvents=changed?[]:current.liveEventos;
+   const ids=new Set(baseEvents.map(e=>e.id));
+   const fresh=incoming.filter(e=>{if(typeof e?.id!=='string'||ids.has(e.id))return false;ids.add(e.id);return true;});
    const metrics=payload.metricas||{};
-   const updatedMetrics={...current.liveMetricas};
+   const updatedMetrics={...(changed?defaultCentral.liveMetricas:current.liveMetricas)};
    if(Number.isFinite(metrics.cliques)&&metrics.cliques>=0)updatedMetrics.cliques=Math.floor(metrics.cliques);
    if(Number.isFinite(metrics.vendas)&&metrics.vendas>=0)updatedMetrics.vendas=Math.floor(metrics.vendas);
    if(Number.isFinite(metrics.visualizacoes)&&metrics.visualizacoes>=0)updatedMetrics.visualizacoes=Math.floor(metrics.visualizacoes);
-   for(const field of ['carrinhos','curtidas','compartilhamentos','exibicoesRegistradas'])if(Number.isFinite(metrics[field])&&metrics[field]>=0)updatedMetrics[field]=Math.floor(metrics[field]);
+   for(const field of ['carrinhos','curtidas','compartilhamentos','exibicoesRegistradas','seguidoresNovos'])if(Number.isFinite(metrics[field])&&metrics[field]>=0)updatedMetrics[field]=Math.floor(metrics[field]);
    if(typeof metrics.gmv==='string'&&/^R\$\s*[\d.,]+$/.test(metrics.gmv.trim()))updatedMetrics.gmv=metrics.gmv.trim().slice(0,80);
    if(updatedMetrics.cliques!==current.liveMetricas.cliques||updatedMetrics.vendas!==current.liveMetricas.vendas||updatedMetrics.visualizacoes!==current.liveMetricas.visualizacoes||updatedMetrics.carrinhos!==current.liveMetricas.carrinhos||updatedMetrics.curtidas!==current.liveMetricas.curtidas||updatedMetrics.compartilhamentos!==current.liveMetricas.compartilhamentos||updatedMetrics.exibicoesRegistradas!==current.liveMetricas.exibicoesRegistradas||updatedMetrics.gmv!==current.liveMetricas.gmv)updatedMetrics.atualizadoEm=Date.now();
-   if(!fresh.length&&updatedMetrics.atualizadoEm===current.liveMetricas.atualizadoEm)return res.status(200).json({ok:true,novos:0});
-   const next=cleanCentral({...current,liveMetricas:updatedMetrics,liveEventos:[...current.liveEventos,...fresh].slice(-160),versao:Date.now()});
+   if(!fresh.length&&!changed&&(!room||room===current.liveSessaoId)&&updatedMetrics.seguidoresNovos===current.liveMetricas.seguidoresNovos&&updatedMetrics.atualizadoEm===current.liveMetricas.atualizadoEm)return res.status(200).json({ok:true,novos:0});
+   const next=cleanCentral({...current,liveMetricas:updatedMetrics,liveSessaoId:room||current.liveSessaoId,liveSessaoAt:room?Math.max(observed,current.liveSessaoAt):current.liveSessaoAt,liveEventos:[...baseEvents,...fresh].slice(-160),versao:Date.now()});
    await cacheLive.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
    return res.status(200).json({ok:true,novos:fresh.length});
   }
