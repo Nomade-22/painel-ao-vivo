@@ -27,6 +27,7 @@ function cleanTikTokSignal(raw){
  }
  if(['activity','vouchers','diagnosis','suggestion'].includes(raw.kind)&&Number.isInteger(raw.linhas)&&raw.linhas>=0&&raw.linhas<=1000)signal.linhas=raw.linhas;
  if(raw.kind==='room'&&/^\d{4,24}$/.test(String(raw.roomId||'')))signal.roomId=String(raw.roomId);
+ if(raw.kind==='room'&&['brl_explicito','string_sem_moeda_confirmada','ausente'].includes(raw.gmvFormat))signal.gmvFormat=raw.gmvFormat;
  if(raw.kind==='room'&&typeof raw.gmv==='string'&&/^R\$\s*\d[\d.,]*$/.test(raw.gmv))signal.gmv=raw.gmv.slice(0,80);
  return signal;
 }
@@ -117,7 +118,7 @@ async function handle(req,res){
    const next={sessaoId:id,points:[...points.values()].sort((a,b)=>a.minute-b.minute).slice(-1440),updatedAt:Date.now()};
    await cache.set(key,next,{ttl:2592000});
    let applied=false;
-   if(current.liveSessaoId===id&&observed>=Number(current.liveSessaoAt||0)&&Date.now()-observed<180000){
+   if(current.liveSessaoId===id&&Date.now()-observed<180000){
     const m={...current.liveMetricas};
     for(const [k,v] of Object.entries(metrics)){if(k==='gmv'){if(!m.gmv)m.gmv=v;}else if(m[k]==null||v>=m[k])m[k]=v;}
     if(fields.some(k=>m[k]!==current.liveMetricas[k])){
@@ -142,6 +143,10 @@ async function handle(req,res){
     const state=cleanCentral(await cache.get('estado')||defaultCentral);
     const matches=state.catalogo.filter(p=>p.link.match(/\/view\/product\/(\d+)(?:[/?#]|$)/)?.[1]===sinal.possibleProductId);
     if(matches.length===1&&state.itemAtivo!==matches[0].numero)await cache.set('estado',{...state,itemAtivo:matches[0].numero,versao:Math.max(Date.now(),state.versao+1)},{ttl:2592000});
+   }
+   if(sinal.kind==='room'&&sinal.apiOk===true&&sinal.roomId&&sinal.gmv){
+    const state=cleanCentral(await cache.get('estado')||defaultCentral);
+    if(state.liveSessaoId===sinal.roomId&&state.liveMetricas.gmv!==sinal.gmv)await cache.set('estado',{...state,liveMetricas:{...state.liveMetricas,gmv:sinal.gmv,atualizadoEm:Date.now()},versao:Math.max(Date.now(),state.versao+1)},{ttl:2592000});
    }
    await cache.set('tiktok-sinais-v16',next,{ttl:2592000,name:'Diagnóstico das rotas TikTok V2J'});
    return res.status(200).json({ok:true,kind:sinal.kind,campos:sinal.campos.length});

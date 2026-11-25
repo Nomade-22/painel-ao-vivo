@@ -61,7 +61,7 @@ async function updateSharedSelection(){
   syncInfo(fresh);
   const oldSignature=(data.catalogo||[]).map(p=>p.numero+'|'+p.nome+'|'+p.atualizadoEm).join(';');
   const newSignature=(fresh.catalogo||[]).map(p=>p.numero+'|'+p.nome+'|'+p.atualizadoEm).join(';');
-  if(fresh.itemAtivo===data.itemAtivo&&oldSignature===newSignature){data={...data,versao:fresh.versao,syncSacola:fresh.syncSacola,storage:fresh.storage,sinaisTikTok:fresh.sinaisTikTok};return;}
+  if(fresh.itemAtivo===data.itemAtivo&&oldSignature===newSignature){const changed=JSON.stringify(data.sinaisTikTok)!==JSON.stringify(fresh.sinaisTikTok);data={...data,versao:fresh.versao,syncSacola:fresh.syncSacola,storage:fresh.storage,sinaisTikTok:fresh.sinaisTikTok};if(changed)renderAnalytics();return;}
   data={...data,itemAtivo:fresh.itemAtivo,catalogo:fresh.catalogo,versao:fresh.versao,syncSacola:fresh.syncSacola,storage:fresh.storage,sinaisTikTok:fresh.sinaisTikTok};
   if(document.activeElement!==$('bagNumber')&&$('bagEditPanel').hidden){
    $('bagNumber').value=fresh.itemAtivo||'';
