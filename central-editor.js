@@ -1,6 +1,7 @@
 const $=id=>document.getElementById(id);
 let data={produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],versao:0};
-let busy=false;
+let busy=false,reading=false;
+function syncInfo(state){const el=$('bagSyncStatus');if(!el)return;const m=state.syncSacola;el.textContent=(state.storage==='neon'?'Banco permanente':'Armazenamento não confirmado')+' · '+(state.catalogo||[]).length+' produtos'+(m?' · Último envio: '+new Date(m.at).toLocaleString('pt-BR')+' · '+m.aceitos+'/'+m.recebidos+' aceitos':' · Aguardando envio da extensão');}
 const status=m=>{$('status').textContent=m;};
 function renderChat(){
  const box=$('chatList');box.replaceChildren();
@@ -16,6 +17,7 @@ function renderChat(){
 }
 function show(state){
  data=state;
+ syncInfo(data);
  $('notice').value=data.recado||'';
  $('metricClicks').value=data.liveMetricas?.cliques??'';
  $('metricSales').value=data.liveMetricas?.vendas??'';
@@ -29,10 +31,10 @@ async function load(){
 async function save(patch,success){
  if(busy)return;busy=true;status('Publicando no retorno…');
  try{
-  const r=await fetch('/api/retorno?patch=1',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)});
+  const r=await fetch('/api/retorno?patch=1',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...patch,...(patch.catalogo!==undefined?{baseVersion:data.versao}:{})})});
   const response=await r.json().catch(()=>({}));
   if(!r.ok||!response.ok)throw Error(response.erro||'HTTP '+r.status);
-  show(response.estado);status('✅ '+success);
+  show({...response.estado,storage:data.storage});status('✅ '+success);
  }catch(e){status('Erro ao publicar: '+e.message);}
  finally{busy=false;}
 }
@@ -49,24 +51,30 @@ load();
 // Mantenha visível no painel a mesma seleção que pode ser feita diretamente
 // no retorno. Não altere campos que o operador esteja editando.
 async function updateSharedSelection(){
- if(busy||document.hidden)return;
+ if(busy||reading||document.hidden)return;
+ reading=true;
  try{
   const r=await fetch('/api/retorno?central=1',{cache:'no-store'});
-  if(!r.ok)return;
+  if(!r.ok)throw Error('HTTP '+r.status);
   const fresh=await r.json();
+  if(busy||Number(fresh.versao)<Number(data.versao||0))return;
+  syncInfo(fresh);
   const oldSignature=(data.catalogo||[]).map(p=>p.numero+'|'+p.nome+'|'+p.atualizadoEm).join(';');
   const newSignature=(fresh.catalogo||[]).map(p=>p.numero+'|'+p.nome+'|'+p.atualizadoEm).join(';');
   if(fresh.itemAtivo===data.itemAtivo&&oldSignature===newSignature)return;
-  data={...data,itemAtivo:fresh.itemAtivo,catalogo:fresh.catalogo,versao:fresh.versao};
+  data={...data,itemAtivo:fresh.itemAtivo,catalogo:fresh.catalogo,versao:fresh.versao,syncSacola:fresh.syncSacola,storage:fresh.storage};
   if(document.activeElement!==$('bagNumber')&&$('bagEditPanel').hidden){
    $('bagNumber').value=fresh.itemAtivo||'';
    fillBag();
   }
   renderBag();
   status('✅ Sacolinha e item ativo sincronizados com o retorno V2J.');
- }catch(_error){}
+ }catch(e){status('Falha ao consultar sacolinha: '+e.message);}
+ finally{reading=false;}
 }
 setInterval(updateSharedSelection,4000);
+$('bagRefresh')?.addEventListener('click',updateSharedSelection);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)updateSharedSelection()});
 
 function bagItem(num){return (data.catalogo||[]).find(p=>p.numero===Number(num));}
 function closeBagEdit(){$('bagEditPanel').hidden=true;}

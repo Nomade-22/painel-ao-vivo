@@ -1,4 +1,4 @@
-import {getCache} from '../lib/state-store.js';
+import {getCache,usesDatabase} from '../lib/state-store.js';
 const validMode = mode => ['texto','tela','central','video'].includes(mode) ? mode : 'texto';
 
 const defaultCentral={liveMetricas:{cliques:null,vendas:null,visualizacoes:null,carrinhos:null,curtidas:null,compartilhamentos:null,exibicoesRegistradas:null,seguidoresNovos:null,gmv:'',atualizadoEm:0},produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,liveEventos:[],versao:0};
@@ -74,9 +74,18 @@ function cleanCentral(input){
  link:typeof input.fichaCapturada.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(input.fichaCapturada.link)?input.fichaCapturada.link.slice(0,500):'',
  capturadoEm:Number(input.fichaCapturada.capturadoEm)||0
  }:null,
+ syncSacola:input?.syncSacola&&typeof input.syncSacola==='object'?{at:Number(input.syncSacola.at)||0,recebidos:Math.max(0,Number(input.syncSacola.recebidos)||0),aceitos:Math.max(0,Number(input.syncSacola.aceitos)||0)}:null,
  versao:Number(input?.versao)||0};
 }
 export default async function handler(req,res){
+ const retryable=['sync','capture','live','select','tiktok_sinais'].some(k=>req.query?.[k]==='1');
+ for(let attempt=0;attempt<3;attempt++){
+  try{return await handle(req,res);}catch(e){
+   if(e?.code!=='V2J_CONFLICT'||!retryable||attempt===2)return res.status(e?.code==='V2J_CONFLICT'?409:503).json({erro:e?.code==='V2J_CONFLICT'?'Estado atualizado por outro dispositivo; sincronize e tente novamente.':'Controle de retorno indisponível'});
+  }
+ }
+}
+async function handle(req,res){
  res.setHeader('Cache-Control','no-store');
  if(req.method!=='GET' && req.method!=='PUT'){
   res.setHeader('Allow','GET, PUT'); return res.status(405).json({erro:'Método inválido'});
@@ -119,7 +128,7 @@ export default async function handler(req,res){
    if(typeof metrics.gmv==='string'&&/^R\$\s*[\d.,]+$/.test(metrics.gmv.trim()))updatedMetrics.gmv=metrics.gmv.trim().slice(0,80);
    if(updatedMetrics.cliques!==current.liveMetricas.cliques||updatedMetrics.vendas!==current.liveMetricas.vendas||updatedMetrics.visualizacoes!==current.liveMetricas.visualizacoes||updatedMetrics.carrinhos!==current.liveMetricas.carrinhos||updatedMetrics.curtidas!==current.liveMetricas.curtidas||updatedMetrics.compartilhamentos!==current.liveMetricas.compartilhamentos||updatedMetrics.exibicoesRegistradas!==current.liveMetricas.exibicoesRegistradas||updatedMetrics.gmv!==current.liveMetricas.gmv)updatedMetrics.atualizadoEm=Date.now();
    if(!fresh.length&&!changed&&(!room||room===current.liveSessaoId)&&updatedMetrics.seguidoresNovos===current.liveMetricas.seguidoresNovos&&updatedMetrics.atualizadoEm===current.liveMetricas.atualizadoEm)return res.status(200).json({ok:true,novos:0});
-   const next=cleanCentral({...current,liveMetricas:updatedMetrics,liveSessaoId:room||current.liveSessaoId,liveSessaoAt:room?Math.max(observed,current.liveSessaoAt):current.liveSessaoAt,liveEventos:[...baseEvents,...fresh].slice(-160),versao:Date.now()});
+   const next=cleanCentral({...current,liveMetricas:updatedMetrics,liveSessaoId:room||current.liveSessaoId,liveSessaoAt:room?Math.max(observed,current.liveSessaoAt):current.liveSessaoAt,liveEventos:[...baseEvents,...fresh].slice(-160),versao:Math.max(Date.now(),Number(current.versao||0)+1)});
    await cacheLive.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
    return res.status(200).json({ok:true,novos:fresh.length});
   }
@@ -146,19 +155,21 @@ export default async function handler(req,res){
       cores:item.origem==='manual'&&item.cores?.length?item.cores:[...new Set([...(item.cores||[]),...colors])].slice(0,20),
       imagem:item.imagem||fichaCapturada.imagem};
    });
-   const next={...current,catalogo,fichaCapturada,versao:Date.now()};
+   const next={...current,catalogo,fichaCapturada,versao:Math.max(Date.now(),Number(current.versao||0)+1)};
    await cacheCapture.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
    return res.status(200).json({ok:true,id:match[1]});
   }
   if(req.query?.sync==='1'){
    if(req.method!=='PUT')return res.status(405).json({erro:'Método inválido'});
    const payload=typeof req.body==='string'?JSON.parse(req.body):req.body;
-   const incoming=Array.isArray(payload?.items)?payload.items:[];
+   if(!Array.isArray(payload?.items))return res.status(400).json({erro:'A extensão não enviou uma lista items válida'});
+   const incoming=payload.items;
    if(incoming.length>200)return res.status(400).json({erro:'Muitos itens'});
    const cacheSync=getCache({namespace:'central-retorno-v1'});
    const current=cleanCentral(await cacheSync.get('estado')||defaultCentral);
    const manual=new Map(current.catalogo.filter(p=>p.origem==='manual').map(p=>[p.numero,p]));
-   const imported=cleanCentral({catalogo:incoming.map(p=>({...p,origem:'tiktok'}))}).catalogo;
+   const imported=cleanCentral({catalogo:incoming.filter(p=>p&&Number.isInteger(Number(p.numero))&&Number(p.numero)>0&&Number(p.numero)<=999&&typeof p.nome==='string'&&p.nome.trim()).map(p=>({...p,origem:'tiktok'}))}).catalogo;
+   if(incoming.length&&!imported.length)return res.status(400).json({erro:'Nenhum produto válido recebido: confira número e nome na extensão',recebidos:incoming.length,armazenados:current.catalogo.length});
    const mergedMap=new Map(current.catalogo.map(p=>[p.numero,p]));
    for(const p of imported)if(!manual.has(p.numero)){
     const previous=mergedMap.get(p.numero);
@@ -179,9 +190,9 @@ export default async function handler(req,res){
       imagens:override.imagens?.length?override.imagens:p.imagens});
    }
    const merged=[...mergedMap.values()].sort((a,b)=>a.numero-b.numero);
-   const next={...current,catalogo:merged.slice(0,200),versao:Date.now()};
+   const next={...current,catalogo:merged.slice(0,200),syncSacola:{at:Date.now(),recebidos:incoming.length,aceitos:imported.length},versao:Math.max(Date.now(),current.versao+1)};
    await cacheSync.set('estado',next,{ttl:2592000,name:'Central de retorno da live'});
-   return res.status(200).json({ok:true,recebidos:imported.length,armazenados:next.catalogo.length});
+   return res.status(200).json({ok:true,recebidos:imported.length,armazenados:next.catalogo.length,storage:usesDatabase('central-retorno-v1')?'neon':'runtime-cache',versao:next.versao});
   }
   // Seleção compartilhada: o retorno altera APENAS o número ativo, sem
   // substituir métricas, comentários, recados ou a sacolinha sincronizada.
@@ -209,6 +220,7 @@ export default async function handler(req,res){
    if(!Object.keys(patch).length)return res.status(400).json({erro:'Nenhum campo editável informado'});
    const centralCache=getCache({namespace:'central-retorno-v1'});
    const current=cleanCentral(await centralCache.get('estado')||defaultCentral);
+   if(patch.catalogo!==undefined&&body.baseVersion!==undefined&&Number(body.baseVersion)!==current.versao)return res.status(409).json({erro:'A sacolinha mudou durante a edição. Atualize e tente novamente.'});
    const next=cleanCentral({...current,...patch,
     ...(patch.liveMetricas&&typeof patch.liveMetricas==='object'?
       {liveMetricas:{...current.liveMetricas,...patch.liveMetricas}}:{}),
@@ -220,11 +232,12 @@ export default async function handler(req,res){
    const centralCache=getCache({namespace:'central-retorno-v1'});
    if(req.method==='GET'){
     const [state,signals]=await Promise.all([centralCache.get('estado'),centralCache.get('tiktok-sinais-v16')]);
-    return res.status(200).json({...cleanCentral(state||defaultCentral),sinaisTikTok:signals||{}});
+    return res.status(200).json({...cleanCentral(state||defaultCentral),sinaisTikTok:signals||{},storage:usesDatabase('central-retorno-v1')?'neon':'runtime-cache'});
    }
    const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
    if(!body||typeof body!=='object'||Array.isArray(body))return res.status(400).json({erro:'Dados inválidos'});
-   const data=cleanCentral({...body,versao:Date.now()});
+   const current=cleanCentral(await centralCache.get('estado')||defaultCentral);
+   const data=cleanCentral({...current,...body,versao:Math.max(Date.now(),Number(current.versao||0)+1)});
    await centralCache.set('estado',data,{ttl:2592000,name:'Central de retorno da live'});
    return res.status(200).json({ok:true,versao:data.versao});
   }
@@ -239,5 +252,5 @@ export default async function handler(req,res){
   const state={modo:body.modo,versao:Math.max(Date.now(),Number(previous?.versao||0)+1)};
   await cache.set('modo',state,{ttl:2592000,name:'Modo do retorno OBS'});
   return res.status(200).json({ok:true,...state});
- }catch(e){console.error('Retorno OBS',e);return res.status(503).json({erro:'Controle de retorno indisponível'});}
+ }catch(e){if(e?.code==='V2J_CONFLICT')throw e;console.error('Retorno OBS',e);return res.status(503).json({erro:'Controle de retorno indisponível'});}
 }

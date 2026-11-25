@@ -190,7 +190,7 @@ function show(data){
  refreshCaptureHealth(data);
  refreshTikTokSignals(data);
  updateProductActivity(data);
- if(data.versao===version)return;version=data.versao;
+ if(Number(data.versao)<=Number(version)&&version!==null&&version!==undefined)return;version=data.versao;
  const list=$('messages');list.replaceChildren();
  const manual=Array.isArray(data.chat)?data.chat:[];
  const live=(Array.isArray(data.liveEventos)?data.liveEventos:[]).filter(e=>e.tipo!=='produto_visto'&&e.tipo!=='carrinho');
