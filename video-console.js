@@ -9,6 +9,9 @@ const names={tiktok:'TikTok',youtube:'YouTube'};
 let state={...initial},library=[],selected='tiktok',loading=false,requests=Promise.resolve(),writes=0;
 try{selected=localStorage.getItem('painel-video-canal-v1')==='youtube'?'youtube':'tiktok';}catch{}
 const endpoint='/api/video';
+const recoveryKey='v2j-upload-recovery-v1';
+function remembered(){try{const a=JSON.parse(localStorage.getItem(recoveryKey)||'[]');return Array.isArray(a)?a.filter(x=>x&&validURL(x.url)):[]}catch{return []}}
+function rememberUpload(item){try{const a=remembered().filter(x=>x.url!==item.url);localStorage.setItem(recoveryKey,JSON.stringify([...a,item].slice(-100)));}catch{} }
 const status=message=>{$('videoStatus').textContent=message;};
 const group=item=>item.channel==='youtube'?'youtube':'tiktok';
 const playlist=channel=>library.filter(item=>group(item)===channel);
@@ -114,8 +117,9 @@ function update(modify,message){
  writes++;
  requests=requests.catch(()=>{}).then(async()=>{
   const next=modify(state);
-  const r=await fetch(endpoint,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});
+  const r=await fetch(endpoint,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...next,baseCommand:state.command})});
   const data=await r.json().catch(()=>({}));
+  if(r.status===409){const latest=await fetch(endpoint,{cache:'no-store'});if(latest.ok)sync(await latest.json());throw Error('Outro comando foi recebido. Lista atualizada; tente novamente.');}
   if(!r.ok)throw Error(data.erro||'HTTP '+r.status);
   sync(data);
   if(message)status(message);
@@ -248,8 +252,15 @@ async function poll(){
 }
 $('videoTarget').value=selected;
 $('videoAddTarget').value=selected;
+$('videoRecoverLocal')?.addEventListener('click',async()=>{
+ const items=remembered().filter(x=>!library.some(y=>y.url===x.url));
+ if(!items.length){status('Nenhum upload local ausente encontrado neste navegador.');return;}
+ if(!confirm('Reinserir até '+items.length+' uploads locais ausentes? Inclui vídeos que você pode ter removido antes.'))return;
+ try{await updateLibrary(old=>[...old,...items.filter(x=>!old.some(y=>y.url===x.url))].slice(0,40),'Uploads locais reinseridos até o limite de 40 vídeos.');}catch{}
+});
 render();poll();
-setInterval(()=>{if(!document.hidden)poll();},3500);
+setInterval(()=>{if(!document.hidden&&!$('painel-videos')?.hidden)poll();},5000);
+ document.querySelector('[data-tab="videos"]')?.addEventListener('click',poll);
 $('videoUpload').addEventListener('click',async()=>{
  const f=$('videoFile').files?.[0];
  if(!f){status('Escolha um arquivo MP4 ou WebM.');return;}
@@ -266,6 +277,7 @@ $('videoUpload').addEventListener('click',async()=>{
   });
   const channel=$('videoAddTarget').value;
   $('videoUrl').value=blob.url;
+  rememberUpload({url:blob.url,name:f.name.replace(/\.(mp4|webm)$/i,'').slice(0,90),channel});
   await addVideo(blob.url,f.name.replace(/\.(mp4|webm)$/i,''),channel);
   status('Upload concluído e salvo na lista '+names[channel]+'.');
  }catch(e){status('Falha no upload ou salvamento: '+e.message);}

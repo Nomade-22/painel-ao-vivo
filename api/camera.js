@@ -1,4 +1,4 @@
-import {getCache} from '@vercel/functions';
+import {getCache} from '../lib/state-store.js';
 
 const initial={cameraId:'',enabled:false,audio:false,command:0,preset:'balanced',transport:'relay'};
 const valid=id=>typeof id==='string'&&(!id||/^[a-zA-Z0-9_-]{16,64}$/.test(id));

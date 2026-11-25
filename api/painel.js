@@ -1,4 +1,4 @@
-import { getCache } from '@vercel/functions';
+import {getCache} from '../lib/state-store.js';
 
 const defaultPanel = {
  texto:'', fonte:'Arial, sans-serif',tamanho:64,cor:'#ffffff',fundo:'#0e1628',

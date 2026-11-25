@@ -1,4 +1,4 @@
-import {getCache} from '@vercel/functions';
+import {getCache} from '../lib/state-store.js';
 const validMode = mode => ['texto','tela','central'].includes(mode) ? mode : 'texto';
 
 const defaultCentral={liveMetricas:{cliques:null,vendas:null,visualizacoes:null,carrinhos:null,curtidas:null,compartilhamentos:null,exibicoesRegistradas:null,seguidoresNovos:null,gmv:'',atualizadoEm:0},produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,liveEventos:[],versao:0};

@@ -1,4 +1,4 @@
-import {getCache} from '@vercel/functions';
+import {getCache} from '../lib/state-store.js';
 
 const initial={url:'',show:false,library:[],transition:'fade',duration:800,size:85,position:'center',command:0};
 const allowedTransitions=new Set(['fade','slide','zoom','cut']);

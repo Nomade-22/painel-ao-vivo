@@ -335,4 +335,5 @@ function triggerThankYou(action){
  }},'Agradecimento enviado ao OBS: '+action.name);
 }
 showLabels();load();
-setInterval(()=>{if(!document.hidden)load()},4500);
+setInterval(()=>{if(!document.hidden&&!$('painel-animacoes')?.hidden)load()},6000);
+ document.querySelector('[data-tab="animacoes"]')?.addEventListener('click',load);

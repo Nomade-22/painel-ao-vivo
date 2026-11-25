@@ -1,10 +1,10 @@
-import {getCache} from '@vercel/functions';
+import {getCache} from '../lib/state-store.js';
 
 // Uma única saída de vídeo, preservada no endereço original /video-obs.html.
 // Duas playlists são apenas pastas de organização, não transmissores separados.
-const cache=getCache({namespace:'painel-video-v1'});
+
 // V2J Studio usa chave/namespace próprios: não altera o reprodutor legado.
-const studioCache=getCache({namespace:'painel-studio-v1'});
+
 const studioDefault={activeScene:'cena-1',playing:true,seek:null,updatedAt:0,scenes:[{id:'cena-1',name:'Cena principal',sources:[]}]};
 function studioNormalize(input){
  const scenes=Array.isArray(input?.scenes)?input.scenes.slice(0,8).map((scene,index)=>({
@@ -81,6 +81,8 @@ function normalize(value){
 const nextCommand=state=>Math.max(Date.now(),Number(state.command||0)+1);
 const parse=req=>typeof req.body==='string'?JSON.parse(req.body):req.body||{};
 export default async function handler(req,res){
+ const cache=getCache({namespace:'painel-video-v1'});
+ const studioCache=getCache({namespace:'painel-studio-v1'});
  res.setHeader('Cache-Control','no-store');
  if(!['GET','PUT','POST'].includes(req.method))return res.status(405).json({erro:'Método não permitido'});
  if(req.query?.studio==='1'){
@@ -122,6 +124,7 @@ export default async function handler(req,res){
    await cache.set('video',result,{ttl:2592000,name:'Biblioteca e playlist única da LIVE'});
    return res.status(200).json({ok:true,...result});
   }
+  if(b.baseCommand!==undefined&&Number(b.baseCommand)!==current.command)return res.status(409).json({erro:'Estado desatualizado; sincronize novamente.',...current});
   const url=b.url===undefined?current.url:b.url;
   if(typeof url!=='string'||url.length>2000||(url&&!isHttps(url)))return res.status(400).json({erro:'Use um endereço HTTPS de MP4/WebM'});
   if(b.library!==undefined&&!Array.isArray(b.library))return res.status(400).json({erro:'Lista de vídeos inválida'});
@@ -177,6 +180,7 @@ export default async function handler(req,res){
   await cache.set('video',result,{ttl:2592000,name:'Biblioteca e playlist única da LIVE'});
   return res.status(200).json({ok:true,...result});
  }catch(error){
+  if(error?.code==='V2J_CONFLICT')return res.status(409).json({erro:'Conflito de sincronização. Tente novamente.'});
   console.error('Falha no vídeo único',error);
   return res.status(503).json({erro:'Controle de vídeo temporariamente indisponível'});
  }

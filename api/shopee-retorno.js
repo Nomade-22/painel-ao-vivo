@@ -1,4 +1,4 @@
-import { getCache } from '@vercel/functions';
+import {getCache} from '../lib/state-store.js';
 import { randomUUID, createHash } from 'node:crypto';
 
 // Versão 0.8.6: dados isolados por sessão da LIVE; reconexões não apagam histórico.
