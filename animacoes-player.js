@@ -389,7 +389,7 @@ async function poll(){
    // Ao abrir fonte durante animação ativa, restaurar somente se ainda estiver no prazo.
    if(data.lastEvent?.loop || (data.lastEvent?.startedAt &&
       Date.now()-data.lastEvent.startedAt<data.lastEvent.duration))play(data.lastEvent);
-  }else if(data.command!==revision){revision=data.command;play(data.lastEvent)}
+  }else if(Number(data.command)>Number(revision||0)){revision=data.command;play(data.lastEvent)}
  }catch(e){label('Falha de sincronização: '+e.message)}
  finally{polling=false}
 }
