@@ -29,6 +29,19 @@ function cleanTikTokSignal(raw){
  if(raw.kind==='room'&&/^\d{4,24}$/.test(String(raw.roomId||'')))signal.roomId=String(raw.roomId);
  if(raw.kind==='room'&&['brl_explicito','string_sem_moeda_confirmada','ausente'].includes(raw.gmvFormat))signal.gmvFormat=raw.gmvFormat;
  if(raw.kind==='room'&&typeof raw.gmv==='string'&&/^R\$\s*\d[\d.,]*$/.test(raw.gmv))signal.gmv=raw.gmv.slice(0,80);
+ // V0.8.34 — bounded schema and explicit fields, never raw messages.
+ const count=v=>Number.isSafeInteger(v)&&v>=0&&v<=1e12?v:null;
+ if(['activity','vouchers','diagnosis','suggestion','trends'].includes(raw.kind)){
+  if(count(raw.linhas)!==null&&raw.linhas<=1000)signal.linhas=raw.linhas;
+  signal.itemFields=(Array.isArray(raw.itemFields)?raw.itemFields:[]).filter(x=>typeof x==='string'&&/^[A-Za-z][A-Za-z0-9_]{0,40}:(string|number|object|boolean|array|null|undefined)$/.test(x)&&!/token|cookie|auth|secret|uuid|session|user|device|sign|password|nonce|csrf|identifier|email|phone|address/i.test(x)).slice(0,30);
+ }
+ if(raw.kind==='activity'&&raw.typeCounts&&typeof raw.typeCounts==='object')signal.typeCounts=Object.fromEntries(Object.entries(raw.typeCounts).filter(([k,v])=>/^(?:\d{1,4}|comment|follow|join|enter|order|purchase|cart|product_view|like|share|system|notice)$/.test(k)&&count(v)!==null&&v<=1000).slice(0,20));
+ if(raw.kind==='vouchers'&&Array.isArray(raw.voucherDetails))signal.voucherDetails=raw.voucherDetails.slice(0,12).map(x=>{const o={};for(const k of ['discount_amount','min_spend','face_value','discount_amount_formatted','min_spend_formatted'])if(typeof x?.[k]==='string'&&/^R\$\s*\d[\d.,]*$/.test(x[k]))o[k]=x[k].slice(0,40);for(const k of ['start_time','end_time','valid_start_time','valid_end_time','remaining_count','available_count','total_count'])if(count(x?.[k])!==null)o[k]=x[k];return o});
+ if(raw.kind==='diagnosis'&&Array.isArray(raw.diagnosisCodes))signal.diagnosisCodes=raw.diagnosisCodes.slice(0,15).map(x=>Object.fromEntries(['code','diagnosis_type','severity','level','status'].filter(k=>count(x?.[k])!==null&&x[k]<100000||typeof x?.[k]==='string'&&/^(info|warning|error|critical|low|medium|high|normal|success|failed)$/.test(x[k])).map(k=>[k,x[k]])));
+ if(raw.kind==='room'){
+  for(const k of ['userCountRaw','bagCount'])if(count(raw[k])!==null)signal[k]=raw[k];
+  if(typeof raw.gmvRaw==='string'&&/^\d{1,18}(?:[.,]\d{1,6})?$/.test(raw.gmvRaw))signal.gmvRaw=raw.gmvRaw;
+ }
  return signal;
 }
 const safeCount=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0?Math.floor(v):null;
@@ -42,7 +55,7 @@ function cleanCentral(input){
   curtidas:safeCount(input?.liveMetricas?.curtidas),
   compartilhamentos:safeCount(input?.liveMetricas?.compartilhamentos),
   exibicoesRegistradas:safeCount(input?.liveMetricas?.exibicoesRegistradas),
-  seguidoresNovos:safeCount(input?.liveMetricas?.seguidoresNovos),gmv:trim(input?.liveMetricas?.gmv,80),atualizadoEm:Number(input?.liveMetricas?.atualizadoEm)||0
+  seguidoresNovos:safeCount(input?.liveMetricas?.seguidoresNovos),espectadoresSimultaneos:safeCount(input?.liveMetricas?.espectadoresSimultaneos),duracaoMediaSegundos:safeCount(input?.liveMetricas?.duracaoMediaSegundos),gmv:trim(input?.liveMetricas?.gmv,80),atualizadoEm:Number(input?.liveMetricas?.atualizadoEm)||0
  },liveSessaoId:/^\d{4,24}$/.test(String(input?.liveSessaoId||''))?String(input.liveSessaoId):null,liveSessaoAt:Number(input?.liveSessaoAt)||0,produto:{nome:trim(p.nome,160),descricao:trim(p.descricao,5000),preco:trim(p.preco,80),link:typeof p.link==='string'&&/^https:\/\/shop\.tiktok\.com\/view\/product\/\d+/i.test(p.link)?p.link.slice(0,500):'',
  imagens:(Array.isArray(p.imagens)?p.imagens:[]).slice(0,6).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000)},
  recado:trim(input?.recado,1200),
@@ -104,7 +117,7 @@ async function handle(req,res){
    const old=await cache.get(key)||{sessaoId:id,points:[]};
    if(req.method==='GET')return res.status(200).json(old);
    const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
-   const fields=['visualizacoes','cliques','vendas','carrinhos','curtidas','compartilhamentos','seguidoresNovos','gmv'];
+   const fields=['visualizacoes','cliques','vendas','carrinhos','curtidas','compartilhamentos','seguidoresNovos','espectadoresSimultaneos','duracaoMediaSegundos','gmv'];
    function cleanMetrics(m){const out={};for(const k of fields){const v=m?.[k];if(k==='gmv'){if(typeof v==='string'&&/^R\$\s*\d[\d.,]*$/.test(v))out[k]=v.slice(0,80)}else if(Number.isSafeInteger(v)&&v>=0)out[k]=v;}return out}
    const observed=Number(body.observadoEm);
    if(!Number.isFinite(observed)||observed<=0||observed>Date.now()+60000)return res.status(400).json({erro:'Horário inválido'});
@@ -115,12 +128,17 @@ async function handle(req,res){
     const minute=Math.floor(at/60000)*60000,prev=points.get(minute)||{};
     if(at>=Number(prev.at||0))points.set(minute,{minute,at,metrics:{...prev.metrics,...m},source:body.linkage==='inferida_mesma_janela'?'inferida_mesma_janela':'sessao_identificada'});
    }
-   const next={sessaoId:id,points:[...points.values()].sort((a,b)=>a.minute-b.minute).slice(-1440),updatedAt:Date.now()};
+   const productMap=new Map((old.productMetrics||[]).map(p=>[p.id,p]));
+   const productAt=Number(body.productMetricsAt)||0;
+   if(productAt>=Number(old.productMetricsAt||0)&&productAt<=observed+1000){for(const p of (Array.isArray(body.productMetrics)?body.productMetrics:[]).slice(0,200)){if(!/^\d{3,24}$/.test(String(p?.id||'')))continue;const row={...productMap.get(p.id),id:String(p.id)};for(const k of ['cliques','impressoes','carrinhos','pedidos','vendas'])if(Number.isSafeInteger(p[k])&&p[k]>=0)row[k]=p[k];if(typeof p.gmv==='string'&&/^R\$\s*\d[\d.,]*$/.test(p.gmv))row.gmv=p.gmv.slice(0,80);productMap.set(row.id,row);}}
+   const noticeCounts={...(old.noticeCounts||{})};for(const k of ['produto_visto','carrinho','seguidor','comentario'])if(Number.isSafeInteger(body.noticeCounts?.[k])&&body.noticeCounts[k]>=0)noticeCounts[k]=Math.max(noticeCounts[k]||0,body.noticeCounts[k]);
+   const noticeProductCounts={...(old.noticeProductCounts||{})};for(const [n,p] of Object.entries(body.noticeProductCounts||{}).slice(0,200)){if(!/^\d{1,3}$/.test(n)||Number(n)<1)continue;const row={...(noticeProductCounts[n]||{})};for(const k of ['produto_visto','carrinho'])if(Number.isSafeInteger(p?.[k])&&p[k]>=0)row[k]=Math.max(row[k]||0,p[k]);noticeProductCounts[n]=row;}
+   const next={sessaoId:id,productMetrics:[...productMap.values()].slice(0,200),productMetricsAt:Math.max(productAt<=observed+1000?productAt:0,Number(old.productMetricsAt)||0),noticeCounts,noticeProductCounts,lastGaugeAt:fields.some(k=>['espectadoresSimultaneos','duracaoMediaSegundos'].includes(k)&&metrics[k]!==undefined)?Math.max(observed,Number(old.lastGaugeAt)||0):Number(old.lastGaugeAt)||0,points:[...points.values()].sort((a,b)=>a.minute-b.minute).slice(-1440),updatedAt:Date.now()};
    await cache.set(key,next,{ttl:2592000});
    let applied=false;
    if(current.liveSessaoId===id&&Date.now()-observed<180000){
     const m={...current.liveMetricas};
-    for(const [k,v] of Object.entries(metrics)){if(k==='gmv'){if(!m.gmv)m.gmv=v;}else if(m[k]==null||v>=m[k])m[k]=v;}
+    for(const [k,v] of Object.entries(metrics)){if(k==='gmv'){if(!m.gmv)m.gmv=v;}else if(['espectadoresSimultaneos','duracaoMediaSegundos'].includes(k)){if(observed>=Number(old.lastGaugeAt||0))m[k]=v;}else if(m[k]==null||v>=m[k])m[k]=v;}
     if(fields.some(k=>m[k]!==current.liveMetricas[k])){
      m.atualizadoEm=Math.max(observed,m.atualizadoEm||0);
      await cache.set('estado',{...current,liveMetricas:m,versao:Math.max(Date.now(),current.versao+1)},{ttl:2592000});
@@ -279,7 +297,7 @@ async function handle(req,res){
    const centralCache=getCache({namespace:'central-retorno-v1'});
    if(req.method==='GET'){
     const [state,signals]=await Promise.all([centralCache.get('estado'),centralCache.get('tiktok-sinais-v16')]);
-    return res.status(200).json({...cleanCentral(state||defaultCentral),sinaisTikTok:signals||{},storage:usesDatabase('central-retorno-v1')?'neon':'runtime-cache'});
+    const normalized=cleanCentral(state||defaultCentral);return res.status(200).json({...normalized,sinaisTikTok:signals||{},storage:usesDatabase('central-retorno-v1')?'neon':'runtime-cache'});
    }
    const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
    if(!body||typeof body!=='object'||Array.isArray(body))return res.status(400).json({erro:'Dados inválidos'});

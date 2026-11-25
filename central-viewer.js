@@ -187,6 +187,8 @@ $('descriptionSelect').addEventListener('submit',async event=>{
 });
 function show(data){
  snapshot=data;
+ $('liveConcurrent').textContent=data.liveMetricas?.espectadoresSimultaneos??'—';
+ $('liveWatchAverage').textContent=data.liveMetricas?.duracaoMediaSegundos==null?'—':data.liveMetricas.duracaoMediaSegundos+' s';
  updateOfferCountdown();
  refreshCaptureHealth(data);
  refreshTikTokSignals(data);
