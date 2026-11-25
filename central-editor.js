@@ -61,8 +61,8 @@ async function updateSharedSelection(){
   syncInfo(fresh);
   const oldSignature=(data.catalogo||[]).map(p=>p.numero+'|'+p.nome+'|'+p.atualizadoEm).join(';');
   const newSignature=(fresh.catalogo||[]).map(p=>p.numero+'|'+p.nome+'|'+p.atualizadoEm).join(';');
-  if(fresh.itemAtivo===data.itemAtivo&&oldSignature===newSignature){data={...data,versao:fresh.versao,syncSacola:fresh.syncSacola,storage:fresh.storage};return;}
-  data={...data,itemAtivo:fresh.itemAtivo,catalogo:fresh.catalogo,versao:fresh.versao,syncSacola:fresh.syncSacola,storage:fresh.storage};
+  if(fresh.itemAtivo===data.itemAtivo&&oldSignature===newSignature){data={...data,versao:fresh.versao,syncSacola:fresh.syncSacola,storage:fresh.storage,sinaisTikTok:fresh.sinaisTikTok};return;}
+  data={...data,itemAtivo:fresh.itemAtivo,catalogo:fresh.catalogo,versao:fresh.versao,syncSacola:fresh.syncSacola,storage:fresh.storage,sinaisTikTok:fresh.sinaisTikTok};
   if(document.activeElement!==$('bagNumber')&&$('bagEditPanel').hidden){
    $('bagNumber').value=fresh.itemAtivo||'';
    fillBag();
@@ -101,6 +101,7 @@ function fillBag(){
 }
 function renderBag(){
  const box=$('bagList');box.replaceChildren();
+ renderAnalytics();
  const cat=[...(data.catalogo||[])].sort((a,b)=>a.numero-b.numero);
  $('bagSelected').textContent=data.itemAtivo?'No retorno: item '+data.itemAtivo+(bagItem(data.itemAtivo)?' — '+bagItem(data.itemAtivo).nome:' (sem cadastro)'):'Nenhum item em destaque.';
  for(const p of cat){
@@ -190,3 +191,16 @@ $('bagClearAll').addEventListener('click',async()=>{
  if(typeof closeBagEdit==='function')closeBagEdit();
  if(typeof fillBag==='function')fillBag();
 });
+
+function renderAnalytics(){
+ const el=$('bagAnalytics');if(!el)return;el.replaceChildren();
+ const items=data.catalogo||[],money=v=>{const t=String(v||'').replace(/R\$\s*/,'').replace(/\./g,'').replace(',','.');return t&&Number.isFinite(Number(t))?Number(t):0};
+ const discount=p=>{const old=money(p.precoOriginal),offer=money(p.precoOferta);return old>offer&&offer>0?100*(old-offer)/old:0};
+ const section=(title,rows,format)=>{const h=document.createElement('h4');h.textContent=title;el.append(h);for(const p of rows){const line=document.createElement('p');line.style.margin='4px 0';line.textContent='#'+p.numero+' '+p.nome.slice(0,95)+' — '+format(p);el.append(line)}};
+ const inStock=items.filter(p=>p.estoque!==0);
+ section('Maiores comissões por unidade',inStock.slice().sort((a,b)=>money(b.comissao)-money(a.comissao)).filter(p=>money(p.comissao)>0).slice(0,5),p=>p.comissao);
+ section('Maiores descontos registrados',inStock.filter(p=>discount(p)>0&&Number(p.ofertaFim)>Date.now()).sort((a,b)=>discount(b)-discount(a)).slice(0,5),p=>discount(p).toFixed(1)+'%');
+ section('Estoque baixo ou esgotado',items.filter(p=>p.estoque!=null&&p.estoque<=10).sort((a,b)=>a.estoque-b.estoque),p=>p.estoque===0?'ESGOTADO':p.estoque+' unidades');
+ const signals=data.sinaisTikTok||{};const info=document.createElement('p');info.textContent='Rotas observadas: '+['vouchers','diagnosis','activity','suggestion'].map(k=>k+': '+(signals[k]?.linhas??'não confirmado')).join(' · ');el.append(info);
+}
+$('bagHistory')?.addEventListener('click',async()=>{const el=$('bagHistoryStatus');try{const r=await fetch('/api/retorno?prioridade=1',{cache:'no-store'});if(!r.ok)throw Error('Histórico ainda indisponível');const d=await r.json();const url=URL.createObjectURL(new Blob([JSON.stringify(d,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='v2j-historico-'+d.sessaoId+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);el.textContent=d.points.length+' minutos registrados';}catch(e){el.textContent=e.message}});

@@ -5,7 +5,7 @@ const defaultCentral={liveMetricas:{cliques:null,vendas:null,visualizacoes:null,
 const trim=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
 // Os sinais TikTok ficam em cache separado para não disputar gravações com
 // comentários, ficha, seleção de produto e métricas da transmissão.
-const TIKTOK_SIGNAL_TYPES=['pin','coupon','trends','governance','relation'];
+const TIKTOK_SIGNAL_TYPES=['pin','coupon','trends','governance','relation','room','activity','vouchers','diagnosis','suggestion'];
 const TIKTOK_SERIES=['gmv','paidGmv','order','orders','comment','comments','ccu','watch_pv','atc','addToCart','click','clicks'];
 function cleanTikTokSignal(raw){
  if(!raw||typeof raw!=='object'||!TIKTOK_SIGNAL_TYPES.includes(raw.kind)||raw.httpOk!==true)return null;
@@ -25,6 +25,9 @@ function cleanTikTokSignal(raw){
   if(typeof raw.isWarned==='boolean')signal.isWarned=raw.isWarned;
   if(typeof raw.isTerminated==='boolean')signal.isTerminated=raw.isTerminated;
  }
+ if(['activity','vouchers','diagnosis','suggestion'].includes(raw.kind)&&Number.isInteger(raw.linhas)&&raw.linhas>=0&&raw.linhas<=1000)signal.linhas=raw.linhas;
+ if(raw.kind==='room'&&/^\d{4,24}$/.test(String(raw.roomId||'')))signal.roomId=String(raw.roomId);
+ if(raw.kind==='room'&&typeof raw.gmv==='string'&&/^R\$\s*\d[\d.,]*$/.test(raw.gmv))signal.gmv=raw.gmv.slice(0,80);
  return signal;
 }
 const safeCount=v=>typeof v==='number'&&Number.isFinite(v)&&v>=0?Math.floor(v):null;
@@ -78,7 +81,7 @@ function cleanCentral(input){
  versao:Number(input?.versao)||0};
 }
 export default async function handler(req,res){
- const retryable=['sync','capture','live','select','tiktok_sinais'].some(k=>req.query?.[k]==='1');
+ const retryable=['sync','capture','live','select','tiktok_sinais','prioridade'].some(k=>req.query?.[k]==='1');
  for(let attempt=0;attempt<3;attempt++){
   try{return await handle(req,res);}catch(e){
    if(e?.code!=='V2J_CONFLICT'||!retryable||attempt===2)return res.status(e?.code==='V2J_CONFLICT'?409:503).json({erro:e?.code==='V2J_CONFLICT'?'Estado atualizado por outro dispositivo; sincronize e tente novamente.':'Controle de retorno indisponível'});
@@ -91,6 +94,40 @@ async function handle(req,res){
   res.setHeader('Allow','GET, PUT'); return res.status(405).json({erro:'Método inválido'});
  }
  try{
+  if(req.query?.prioridade==='1'){
+   const cache=getCache({namespace:'central-retorno-v1'});
+   const current=cleanCentral(await cache.get('estado')||defaultCentral);
+   const id=String(req.method==='GET'?req.query?.sessaoId||current.liveSessaoId||'':req.body?.sessaoId||(typeof req.body==='string'?JSON.parse(req.body).sessaoId:''));
+   if(!/^\d{4,24}$/.test(id))return res.status(400).json({erro:'Sessão não identificada'});
+   const key='timeline-'+id;
+   const old=await cache.get(key)||{sessaoId:id,points:[]};
+   if(req.method==='GET')return res.status(200).json(old);
+   const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
+   const fields=['visualizacoes','cliques','vendas','carrinhos','curtidas','compartilhamentos','seguidoresNovos','gmv'];
+   function cleanMetrics(m){const out={};for(const k of fields){const v=m?.[k];if(k==='gmv'){if(typeof v==='string'&&/^R\$\s*\d[\d.,]*$/.test(v))out[k]=v.slice(0,80)}else if(Number.isSafeInteger(v)&&v>=0)out[k]=v;}return out}
+   const observed=Number(body.observadoEm);
+   if(!Number.isFinite(observed)||observed<=0||observed>Date.now()+60000)return res.status(400).json({erro:'Horário inválido'});
+   const metrics=cleanMetrics(body.metricas);
+   const points=new Map((old.points||[]).map(p=>[p.minute,p]));
+   const rows=[...(Array.isArray(body.points)?body.points.slice(-360):[]),{at:observed,metrics}];
+   for(const p of rows){const at=Number(p.at),m=cleanMetrics(p.metrics);if(!Number.isFinite(at)||at<=0||at>observed+1000||!Object.keys(m).length)continue;
+    const minute=Math.floor(at/60000)*60000,prev=points.get(minute)||{};
+    if(at>=Number(prev.at||0))points.set(minute,{minute,at,metrics:{...prev.metrics,...m},source:body.linkage==='inferida_mesma_janela'?'inferida_mesma_janela':'sessao_identificada'});
+   }
+   const next={sessaoId:id,points:[...points.values()].sort((a,b)=>a.minute-b.minute).slice(-1440),updatedAt:Date.now()};
+   await cache.set(key,next,{ttl:2592000});
+   let applied=false;
+   if(current.liveSessaoId===id&&observed>=Number(current.liveSessaoAt||0)&&Date.now()-observed<180000){
+    const m={...current.liveMetricas};
+    for(const [k,v] of Object.entries(metrics)){if(k==='gmv'){if(!m.gmv)m.gmv=v;}else if(m[k]==null||v>=m[k])m[k]=v;}
+    if(fields.some(k=>m[k]!==current.liveMetricas[k])){
+     m.atualizadoEm=Math.max(observed,m.atualizadoEm||0);
+     await cache.set('estado',{...current,liveMetricas:m,versao:Math.max(Date.now(),current.versao+1)},{ttl:2592000});
+     applied=true;
+    }
+   }
+   return res.status(200).json({ok:true,applied,points:next.points.length});
+  }
   if(req.query?.tiktok_sinais==='1'){
    if(req.method!=='PUT')return res.status(405).json({erro:'Método inválido'});
    const payload=typeof req.body==='string'?JSON.parse(req.body):req.body;
@@ -101,6 +138,11 @@ async function handle(req,res){
    const current=previous[sinal.kind];
    // Leituras repetidas da mesma resposta apenas renovam o horário da rota.
    const next={...previous,[sinal.kind]:sinal};
+   if(sinal.kind==='pin'&&sinal.apiOk===true&&sinal.possibleProductId&&current?.possibleProductId!==sinal.possibleProductId){
+    const state=cleanCentral(await cache.get('estado')||defaultCentral);
+    const matches=state.catalogo.filter(p=>p.link.match(/\/view\/product\/(\d+)(?:[/?#]|$)/)?.[1]===sinal.possibleProductId);
+    if(matches.length===1&&state.itemAtivo!==matches[0].numero)await cache.set('estado',{...state,itemAtivo:matches[0].numero,versao:Math.max(Date.now(),state.versao+1)},{ttl:2592000});
+   }
    await cache.set('tiktok-sinais-v16',next,{ttl:2592000,name:'Diagnóstico das rotas TikTok V2J'});
    return res.status(200).json({ok:true,kind:sinal.kind,campos:sinal.campos.length});
   }
@@ -146,11 +188,11 @@ async function handle(req,res){
    const colors=(Array.isArray(payload?.cores)?payload.cores:[]).slice(0,20).map(v=>trim(v,45)).filter(Boolean);
    const images=(Array.isArray(payload?.imagens)?payload.imagens:[]).slice(0,12).filter(u=>typeof u==='string'&&/^https:\/\//i.test(u)&&u.length<=2000);
    const catalogo=current.catalogo.map(item=>{
-    if(!item.link.includes('/view/product/'+match[1]))return item;
+    if(item.link.match(/\/view\/product\/(\d+)(?:[/?#]|$)/)?.[1]!==match[1])return item;
     const currentImages=Array.isArray(item.imagens)?item.imagens:[];
     const mergedImages=item.origem==='manual'&&currentImages.length?currentImages:[...new Set([...currentImages,...images])].slice(0,12);
     const description=item.origem==='manual'&&item.descricao?item.descricao:
-      (fichaCapturada.descricao.length>=75?fichaCapturada.descricao:item.descricao);
+      (fichaCapturada.descricao.length>=75&&fichaCapturada.descricao.length>=item.descricao.length?fichaCapturada.descricao:item.descricao);
     return {...item,descricao:description,imagens:mergedImages,
       cores:item.origem==='manual'&&item.cores?.length?item.cores:[...new Set([...(item.cores||[]),...colors])].slice(0,20),
       imagem:item.imagem||fichaCapturada.imagem};
