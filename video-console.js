@@ -6,7 +6,7 @@ const initial={url:'',playing:false,loop:true,muted:true,library:[],transition:'
  playlistStartedAt:0,command:0};
 const channels=['tiktok','youtube'];
 const names={tiktok:'TikTok',youtube:'YouTube'};
-let state={...initial},library=[],selected='tiktok',loading=false,requests=Promise.resolve();
+let state={...initial},library=[],selected='tiktok',loading=false,requests=Promise.resolve(),writes=0;
 try{selected=localStorage.getItem('painel-video-canal-v1')==='youtube'?'youtube':'tiktok';}catch{}
 const endpoint='/api/video';
 const status=message=>{$('videoStatus').textContent=message;};
@@ -111,6 +111,7 @@ function choose(channel){
  renderControls();
 }
 function update(modify,message){
+ writes++;
  requests=requests.catch(()=>{}).then(async()=>{
   const next=modify(state);
   const r=await fetch(endpoint,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(next)});
@@ -120,7 +121,7 @@ function update(modify,message){
   if(message)status(message);
   return data;
  });
- return requests.catch(e=>{status('Falha: '+e.message);throw e;});
+ return requests.catch(e=>{status('Falha: '+e.message);throw e;}).finally(()=>{writes--;});
 }
 function updateLibrary(modify,message){
  return update(old=>({...old,library:modify(old.library||[])}),message);
@@ -234,12 +235,13 @@ $('videoDuration').oninput=()=>{
 };
 $('videoDuration').onchange=()=>update(old=>({...old,...readSettings()})).catch(()=>{});
 async function poll(){
- if(loading)return;loading=true;
+ if(loading||writes)return;loading=true;
  try{
   // Não substituir os valores que o usuário digitou no campo de nova URL.
   const r=await fetch(endpoint,{cache:'no-store'});
   if(!r.ok)throw Error('HTTP '+r.status);
   const data=await r.json();
+  if(writes||Number(data.command||0)<Number(state.command||0))return;
   if(data.command!==state.command||JSON.stringify(data.library)!==JSON.stringify(library))sync(data);
  }catch(e){status('Não foi possível sincronizar o painel: '+e.message);}
  finally{loading=false;}
