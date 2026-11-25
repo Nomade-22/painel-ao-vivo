@@ -9,6 +9,16 @@
       "regions": [
         "gru1"
       ]
+    },
+    "api/video.js": {
+      "regions": [
+        "gru1"
+      ]
+    },
+    "api/animacoes.js": {
+      "regions": [
+        "gru1"
+      ]
     }
   },
   "headers": [
