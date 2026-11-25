@@ -58,7 +58,8 @@ export default async function handler(req,res){
   const data=typeof req.body==='string'?JSON.parse(req.body):req.body;
   if(!data||typeof data.texto!=='string'||data.texto.length>10000||typeof data.tamanho!=='number'||data.tamanho<16||data.tamanho>180) return res.status(400).json({erro:'Dados inválidos'});
   const painel=clean(data);
-  const estado={painel,versao:Date.now()};
+  const previous=await cache.get('atual');
+  const estado={painel,versao:Math.max(Date.now(),Number(previous?.versao||0)+1)};
   await cache.set('atual',estado,{ttl:86400,name:'Painel exibido'});
   return res.status(200).json({ok:true,versao:estado.versao});
  }catch(e){

@@ -1,11 +1,12 @@
 const visor=document.getElementById('conteudo');
-let versao=-1;
+let versao=-1,reading=false;
 async function atualizar(){
+ if(reading)return;reading=true;
  try{
   const r=await fetch('/api/painel',{cache:'no-store'});
   if(!r.ok)throw Error('Painel indisponível: HTTP '+r.status);
   const d=await r.json();
-  if(d.versao===versao)return;
+  if(!Number.isFinite(d.versao)||d.versao<=versao)return;
   versao=d.versao;
   const v=d.painel||{};
   // A página usada pelo OBS não recebe cor de fundo nem mensagens de status.
@@ -16,6 +17,7 @@ async function atualizar(){
   visor.style.color=/^#[0-9a-f]{6}$/i.test(v.cor)?v.cor:'#ffffff';
   visor.style.textAlign=['left','center','right'].includes(v.alinhamento)?v.alinhamento:'center';
  }catch(e){console.warn('Falha ao atualizar o texto no OBS:',e);}
+ finally{reading=false;}
 }
 atualizar();
 setInterval(atualizar,1200);

@@ -3,7 +3,7 @@ const $=id=>document.getElementById(id);
 const effectLegacy={banner:'Faixa animada',burst:'Destaque com impacto',stars:'Estrelas brilhantes'};
 let state={actions:[],command:0,catalogue:[]},pending=Promise.resolve();
 let editingId=null,selectedEffect='confetti',category='Todas',awaitingPreview=null;
-let catalogue=[],loading=false;
+let catalogue=[],loading=false,writes=0,previewReady=false,previewId=0;
 const notify=message=>{$('animacoesStatus').textContent=message};
 const actionName=id=>catalogue.find(x=>x.id===id)?.name||effectLegacy[id]||id;
 const safeColor=color=>/^#[\da-f]{6}$/i.test(color||'')?color:'#647cff';
@@ -40,6 +40,7 @@ function sync(data){
  if(!findSelected()&&catalogue.length)selectEffect(catalogue[0].id,true);
 }
 function send(payload,message){
+ writes++;
  pending=pending.catch(()=>false).then(async()=>{
   const res=await fetch('/api/animacoes',{
    method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)
@@ -49,7 +50,7 @@ function send(payload,message){
   sync(data);
   if(message)notify(message);
   return true;
- }).catch(e=>{notify('Falha: '+e.message);return false});
+ }).catch(e=>{notify('Falha: '+e.message);return false}).finally(()=>{writes--;});
  return pending;
 }
 function button(title,onClick,cls='secondary'){
@@ -178,13 +179,16 @@ function postPreview(effect){
  const frame=$('animacoesPreviewFrame');
  if(!frame?.contentWindow)return false;
  try{frame.contentWindow.postMessage({
-  channel:'painel-animacoes-preview',action:effect?'play':'stop',effect
+  channel:'painel-animacoes-preview',action:effect?'play':'stop',effect,id:previewId
  },location.origin);return true}catch{return false}
 }
 function localPreview(action){
- awaitingPreview=action;
+ awaitingPreview=action;previewId++;
  postPreview(action);
- notify('Prévia local: '+action.name+'. Ela não aparece na transmissão.');
+ notify('Aguardando confirmação da prévia: '+action.name+'…');
+ const id=previewId;
+ setTimeout(()=>{if(id===previewId&&awaitingPreview)postPreview(awaitingPreview)},350);
+ setTimeout(()=>{if(id===previewId&&awaitingPreview)notify('Prévia não confirmou o efeito. Verifique o reprodutor.');},2500);
 }
 function previewSelected(){
  const a=selectedAction();
@@ -246,19 +250,27 @@ $('animacoesQuickPlay').onclick=triggerSelected;
 $('animacoesQuickPreview').onclick=previewSelected;
 $('animacoesQuickSave').onclick=copyToEditor;
 $('animacoesPreviewStop').onclick=()=>{
- awaitingPreview=null;postPreview(null);notify('Prévia interrompida.');
+ awaitingPreview=null;previewId++;postPreview(null);notify('Prévia interrompida.');
 };
 $('animacoesIntensityOut').textContent='65%';
 for(const id of ['animacoesQuickIntensity','animacoesQuickSpeed'])$(id).oninput=showLabels;
+window.addEventListener('message',event=>{
+ const frame=$('animacoesPreviewFrame');
+ if(event.origin!==location.origin||event.source!==frame?.contentWindow||event.data?.channel!=='painel-animacoes-preview')return;
+ if(event.data.action==='ready'){previewReady=true;if(awaitingPreview)postPreview(awaitingPreview);}
+ if(event.data.action==='played'&&event.data.id===previewId&&awaitingPreview){const a=awaitingPreview;awaitingPreview=null;notify('Prévia local confirmada: '+a.name+'. Não aparece na transmissão.');}
+ if(event.data.action==='error'&&event.data.id===previewId){awaitingPreview=null;notify('Erro na prévia: '+event.data.message);}
+});
 $('animacoesPreviewFrame').addEventListener('load',()=>{
- if(awaitingPreview)postPreview(awaitingPreview);
+ previewReady=false;if(awaitingPreview)postPreview(awaitingPreview);
 });
 async function load(){
- if(loading)return;loading=true;
+ if(loading||writes)return;loading=true;
  try{
   const response=await fetch('/api/animacoes',{cache:'no-store'});
   if(!response.ok)throw Error('HTTP '+response.status);
   const data=await response.json();
+  if(writes||Number(data.command||0)<Number(state.command||0))return;
   if(!catalogue.length||data.command!==state.command||
     JSON.stringify(data.actions)!==JSON.stringify(state.actions)||
      JSON.stringify(data.thanksTexts)!==JSON.stringify(state.thanksTexts))sync(data);

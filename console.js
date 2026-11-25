@@ -12,7 +12,7 @@ const padrao={
 };
 const numericos=['tamanho','imagemLargura','contorno','sombra','brilho','espacamento','entrelinhas','rotacao'];
 const booleanos=['italico','sublinhado','maiusculas','gradiente'];
-let alterado=false,timer,versao=-1;
+let alterado=false,timer,versao=-1,editRevision=0,writing=0,reading=false,queue=Promise.resolve();
 
 function valores(){
  const v={...padrao};
@@ -75,34 +75,43 @@ function preencher(v){
  atualizarValoresControles();
  pintar({...padrao,...v});
 }
-async function enviar(){
+function enviar(){
+ const snapshot=valores(),revision=editRevision;
+ writing++;
+ queue=queue.catch(()=>{}).then(async()=>{
  try{
   const r=await fetch(API_URL+'/api/painel',{
-   method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(valores())
+   method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(snapshot)
   });
   const data=await r.json().catch(()=>({}));
   if(!r.ok)throw Error(data.erro||'Falha '+r.status);
   $('status').textContent='Sincronizado ✓';
   $('erro').textContent='';
-  versao=data.versao||versao;
-  alterado=false;
+  versao=Math.max(versao,Number(data.versao)||0);
+  if(revision===editRevision){alterado=false;}else{$('status').textContent='Editando…';}
  }catch(e){
   $('status').textContent='Erro de envio';
   $('erro').textContent=e.message;
- }
+ }finally{writing--;}
+ });
+ return queue;
 }
 async function carregar(){
+ if(writing||reading||alterado)return;
+ reading=true;
  try{
   const r=await fetch(API_URL+'/api/painel',{cache:'no-store'});
   if(!r.ok)throw Error('Falha de conexão');
   const dados=await r.json();
-  if(!alterado&&dados.versao!==versao){
+  if(!alterado&&!writing&&Number.isFinite(dados.versao)&&dados.versao>versao){
    versao=dados.versao;
    preencher({...padrao,...dados.painel});
   }
  }catch(e){$('status').textContent='Sem conexão';}
+ finally{reading=false;}
 }
 function mudou(){
+ editRevision++;
  alterado=true;
  atualizarValoresControles();
  pintar(valores());
@@ -225,7 +234,7 @@ $('resetarEstilo').addEventListener('click',()=>{
 preencher(padrao);
 $('status').textContent='Console público';
 carregar();
-setInterval(carregar,2000);
+setInterval(()=>{if(!document.hidden)carregar();},3500);
 
 
 // Preferência local do perfil da LIVE (não inicia conexão com TikTok).

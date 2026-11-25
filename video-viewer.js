@@ -493,7 +493,7 @@ async function poll(){
   // Não reverter a imagem ao vídeo terminado enquanto o avanço local
   // aguarda resposta da função serverless.
   if(autoAdvancing && s.command===Number(advanceGuard?.split('|')[0]))return;
-  if(s.command!==revision){revision=s.command;schedule(s);}
+  if(revision===null||revision===undefined||Number(s.command)>Number(revision)){revision=s.command;schedule(s);}
  }catch(e){show('Falha de sincronização: '+e.message,true);}
  finally{polling=false;}
 }

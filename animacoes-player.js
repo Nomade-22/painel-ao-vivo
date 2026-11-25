@@ -389,16 +389,20 @@ async function poll(){
    // Ao abrir fonte durante animação ativa, restaurar somente se ainda estiver no prazo.
    if(data.lastEvent?.loop || (data.lastEvent?.startedAt &&
       Date.now()-data.lastEvent.startedAt<data.lastEvent.duration))play(data.lastEvent);
-  }else if(Number(data.command)>Number(revision||0)){revision=data.command;play(data.lastEvent)}
+  }else if(Number(data.command)>Number(revision||0)){revision=data.command;if(!data.lastEvent||data.lastEvent.loop||Date.now()-data.lastEvent.startedAt<data.lastEvent.duration)play(data.lastEvent)}
  }catch(e){label('Falha de sincronização: '+e.message)}
  finally{polling=false}
 }
 if(preview){
  window.addEventListener('message',event=>{
-  if(event.origin!==location.origin||!event.data||event.data.channel!=='painel-animacoes-preview')return;
-  if(event.data.action==='stop')stop();
-  else if(event.data.action==='play'&&event.data.effect)play(event.data.effect);
+  if(event.origin!==location.origin||event.source!==window.parent||!event.data||event.data.channel!=='painel-animacoes-preview')return;
+  const id=event.data.id;
+  try{
+   if(event.data.action==='stop')stop();
+   else if(event.data.action==='play'&&event.data.effect){play(event.data.effect);window.parent.postMessage({channel:'painel-animacoes-preview',action:'played',id},location.origin);}
+  }catch(e){label('Erro na prévia: '+e.message);window.parent.postMessage({channel:'painel-animacoes-preview',action:'error',id,message:e.message},location.origin);}
  });
  label('Selecione uma animação no painel e clique em Prévia.');
+ if(window.parent!==window)window.parent.postMessage({channel:'painel-animacoes-preview',action:'ready'},location.origin);
 }else{poll();setInterval(poll,750)}
 })();
