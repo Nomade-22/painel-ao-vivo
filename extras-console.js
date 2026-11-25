@@ -1,6 +1,6 @@
 // Expansão isolada: nenhuma das abas existentes precisa ser substituída.
 const stylesheet=document.createElement('link');
-stylesheet.rel='stylesheet';stylesheet.href='extras-console.css?v=recovery-v12-20261124';document.head.append(stylesheet);
+stylesheet.rel='stylesheet';stylesheet.href='extras-console.css?v=premium-v20-20261125';document.head.append(stylesheet);
 
 const nav=document.querySelector('nav.tabs');
 const tabs=[
@@ -61,7 +61,7 @@ animations.innerHTML=`
   <div class="extra-warning">⚠️ Ações manuais: ainda não há leitura automática de curtidas, comentários, presentes ou compras da Shopee ou do TikTok.</div>
   <div class="extra-panel animation-gallery-panel">
    <div class="animation-gallery-top">
-    <div><h2>🎆 Coleção de animações de tela inteira <span class="video-count" id="animacoesCatalogCount">28</span></h2>
+    <div><h2>🎆 Coleção de animações de tela inteira <span class="video-count" id="animacoesCatalogCount">29</span></h2>
      <p class="hint">Escolha um efeito, faça uma prévia e envie ao mesmo reprodutor de animações do OBS. Corações e confetes continuam disponíveis.</p></div>
     <div class="animation-tag">28 EFEITOS</div>
    </div>
@@ -89,7 +89,7 @@ animations.innerHTML=`
     </div>
     <div class="animation-preview-panel">
      <div class="animation-preview-head"><strong>👀 Prévia particular</strong><small>Não aparece na LIVE</small></div>
-     <iframe id="animacoesPreviewFrame" title="Prévia local das animações, separada do OBS" src="/animacoes.html?preview=1&v=recovery-v12-20261124" loading="eager"></iframe>
+     <iframe id="animacoesPreviewFrame" title="Prévia local das animações, separada do OBS" src="/animacoes.html?preview=1&v=premium-v20-20261125" loading="eager"></iframe>
     </div>
    </div>
   </div>
@@ -120,8 +120,8 @@ animations.innerHTML=`
   <h2>🎇 Reprodutor de animações separado</h2>
   <p class="hint"><strong>OBS atualizado:</strong> copie este link com o sufixo de versão para atualizar uma fonte Navegador antiga sem perder a mesma fonte no OBS.</p>
   <p>Adicione a URL abaixo como outra <strong>fonte Navegador</strong> no OBS. O fundo é transparente; os efeitos aparecem apenas quando você aciona um botão.</p>
-  <label>Link da fonte OBS<input id="animacoesObsUrl" readonly value="${location.origin}/animacoes-obs.html?v=recovery-v12-20261124"></label>
-  <div class="video-actions"><button id="animacoesCopy" type="button">📋 Copiar link do OBS</button><a class="extra-link" href="animacoes-obs.html?v=recovery-v12-20261124" target="_blank" rel="noopener">Abrir fonte transparente ↗</a><a class="extra-link" href="animacoes.html" target="_blank" rel="noopener">Abrir reprodutor de teste ↗</a></div>
+  <label>Link da fonte OBS<input id="animacoesObsUrl" readonly value="${location.origin}/animacoes-obs.html?v=premium-v20-20261125"></label>
+  <div class="video-actions"><button id="animacoesCopy" type="button">📋 Copiar link do OBS</button><a class="extra-link" href="animacoes-obs.html?v=premium-v20-20261125" target="_blank" rel="noopener">Abrir fonte transparente ↗</a><a class="extra-link" href="animacoes.html" target="_blank" rel="noopener">Abrir reprodutor de teste ↗</a></div>
   <div class="extra-instructions"><strong>Como testar:</strong><ol><li>Abra o reprodutor ou adicione a fonte no OBS.</li><li>Volte à aba Animações.</li><li>Clique em <strong>Acionar</strong> em uma ação salva.</li><li>A animação aparecerá na outra tela e sumirá automaticamente.</li></ol></div>
   <p class="hint"><strong>Para LIVE vertical:</strong> configure a fonte Navegador no OBS com largura 720 e altura 1280, sem cortes nem esticamento. A prévia acima usa a mesma proporção 9:16.</p><p class="hint">Efeitos gerados com CSS, sem música ou vídeo pesado. São independentes dos vídeos, textos e câmera do nosso console.</p>
  </section>`;
@@ -146,4 +146,4 @@ for(const [button,url,statusId] of [
   catch{document.getElementById(statusId).textContent='Selecione e copie manualmente o endereço exibido.';}
  };
 }
-Promise.all([import('./cartas-console.js'),import('./animacoes-console.js?v=recovery-v13-20261124')]).catch(error=>console.error('Falha ao abrir abas de mídia:',error));
+Promise.all([import('./cartas-console.js'),import('./animacoes-console.js?v=premium-v20-20261125')]).catch(error=>console.error('Falha ao abrir abas de mídia:',error));

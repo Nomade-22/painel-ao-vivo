@@ -45,16 +45,21 @@ function pickedY(i,a){
  return y;
 }
 function caption(a){
- const legacy=/^OBRIGADO (PELAS CURTIDAS|POR SEGUIR|PELA COMPRA)!/.exec(a.message||'');
- const type=['likes','follow','purchase'].includes(a.thankYouType)?a.thankYouType:
-  legacy?(legacy[1]==='POR SEGUIR'?'follow':legacy[1]==='PELA COMPRA'?'purchase':'likes'):null;
+ const legacy=/^OBRIGADO (PELAS CURTIDAS|POR SEGUIR|PELA COMPRA|POR COMPARTILHAR)!/.exec(a.message||'');
+ const type=['likes','follow','purchase','share'].includes(a.thankYouType)?a.thankYouType:
+  legacy?(legacy[1]==='POR SEGUIR'?'follow':legacy[1]==='PELA COMPRA'?'purchase':legacy[1]==='POR COMPARTILHAR'?'share':'likes'):null;
  if(type){
-  const defaults={likes:'OBRIGADO PELAS CURTIDAS!',follow:'OBRIGADO POR SEGUIR!',purchase:'OBRIGADO PELA COMPRA!'};
+  const defaults={likes:'OBRIGADO PELAS CURTIDAS!',follow:'OBRIGADO POR SEGUIR!',purchase:'OBRIGADO PELA COMPRA!',share:'OBRIGADO POR COMPARTILHAR!'};
   const card=make('div','effect-thanks '+type);
   card.style.setProperty('--accent',a.color);
   card.append(make('span','effect-thanks-glow'));
   card.append(make('span','effect-thanks-kicker','✦ V2J LIVE • GRATIDÃO ✦'));
-  card.append(make('span','effect-thanks-icon',type==='purchase'?'🛍️':type==='follow'?'🎉':'💖'));
+  const medallion=make('span','effect-thanks-icon');
+  const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');
+  svg.setAttribute('viewBox','0 0 100 100');svg.setAttribute('aria-hidden','true');
+  const paths={likes:'M50 86C35 72 8 54 8 32C8 9 35 5 50 27C65 5 92 9 92 32C92 54 65 72 50 86Z',follow:'M50 6L64 34L95 39L73 61L78 92L50 77L22 92L27 61L5 39L36 34Z',purchase:'M18 34H82L88 90H12Z M35 35V25C35 5 65 5 65 25V35',share:'M57 9L92 40L57 71V52C30 52 19 64 8 83C9 50 23 28 57 28Z'};
+  const p=document.createElementNS(ns,'path');p.setAttribute('d',paths[type]);p.setAttribute('fill','currentColor');p.setAttribute('stroke','#fff');p.setAttribute('stroke-width','2');p.setAttribute('stroke-linejoin','round');svg.append(p);medallion.append(svg);card.append(medallion);
+  if(a.loop)card.classList.add('effect-thanks-loop');
   card.append(make('span','effect-thanks-rule'));
   card.append(make('strong','effect-thanks-title',a.headline||defaults[type]));
   const subtitle=legacy&&!a.thankYouType?(a.message||'').slice(legacy[0].length).trim():String(a.message||'').trim();
@@ -329,6 +334,31 @@ function scene(ctx,a,t,w,h){
   ctx.restore();
  }
 }
+function premiumPlay(a,run){
+ if(!window.V2JPremium)return false;
+ const canvas=make('canvas','effect-canvas premium-canvas');stage.append(canvas);
+ let engine;
+ try{engine=window.V2JPremium.create(canvas,a)}catch(e){canvas.remove();console.warn('V2J premium fallback',e);return false;}
+ if(!engine){canvas.remove();return false}
+ const clock=performance.now();let last=-Infinity;
+ function draw(now){
+  if(run!==token||!active)return;
+  frame=requestAnimationFrame(draw);
+  if(now-last<33)return;last=now;
+  try{
+   const w=Math.max(10,stage.clientWidth||window.innerWidth),h=Math.max(10,stage.clientHeight||window.innerHeight);
+   const dpr=Math.min(1.25,window.devicePixelRatio||1,1280/w,1920/h);
+   const px=Math.max(1,Math.round(w*dpr)),py=Math.max(1,Math.round(h*dpr));
+   if(canvas.width!==px||canvas.height!==py){canvas.width=px;canvas.height=py}
+   engine.context.setTransform(dpr,0,0,dpr,0,0);
+   engine.draw((now-clock)/1000,w,h);
+  }catch(e){
+   cancelAnimationFrame(frame);canvas.remove();console.warn('V2J premium render fallback',e);
+   if(run===token&&active)canvasPlay(a,run);
+  }
+ }
+ frame=requestAnimationFrame(draw);return true;
+}
 function canvasPlay(a,run){
  const canvas=make('canvas','effect-canvas');
  stage.append(canvas);
@@ -367,7 +397,8 @@ function play(item){
  stage.style.setProperty('--accent',a.color);
  stage.dataset.position=a.position;
  const kind=a.effect;
- if(kind==='hearts')sprinkle(a,clamp(Math.round(a.intensity*.85),20,85),'rising');
+ if(kind!=='banner'&&kind!=='burst'&&premiumPlay(a,run)){}
+ else if(kind==='hearts')sprinkle(a,clamp(Math.round(a.intensity*.85),20,85),'rising');
  else if(kind==='confetti')sprinkle(a,clamp(Math.round(a.intensity*1.25),32,125),'confetti');
  else if(kind==='stars')sprinkle(a,clamp(Math.round(a.intensity*.6),18,70),'glowing');
  else if(kind==='banner'||kind==='burst')popup(a,kind==='banner'?'effect-banner':'effect-banner effect-burst');

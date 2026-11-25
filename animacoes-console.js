@@ -20,7 +20,7 @@ function findSelected(){return catalogue.find(x=>x.id===selectedEffect)||catalog
 function sync(data){
  state={...data,actions:Array.isArray(data.actions)?data.actions:[]};
  catalogue=Array.isArray(data.catalogue)?data.catalogue:catalogue;
- $('animacoesCatalogCount').textContent=String(catalogue.length+3);
+ $('animacoesCatalogCount').textContent=String(catalogue.length+4);
  const selector=$('animacoesEffect');
  if(catalogue.length && selector.dataset.catalogueVersion!==String(catalogue.length)){
   const extras=['banner','burst','stars'];
@@ -133,7 +133,8 @@ function renderGallery(){
  const gratitude=[
   {action:thankYouActions.likes,category:'Carinho'},
   {action:thankYouActions.follow,category:'Festa'},
-  {action:thankYouActions.purchase,category:'Luxo e vendas'}
+  {action:thankYouActions.purchase,category:'Luxo e vendas'},
+  {action:thankYouActions.share,category:'Carinho'}
  ];
  for(const entry of gratitude.filter(x=>category==='Todas'||x.category===category)){
   const action=entry.action;
@@ -287,14 +288,16 @@ const thankYouActions={
   color:'#2dd4bf',duration:10000,intensity:75,speed:1,position:'center',loop:false},
  purchase:{id:'v2j-thanks-purchase',name:'Obrigado pela compra',effect:'confetti',
   emoji:'🛍️',message:'OBRIGADO PELA COMPRA! Sua confiança faz nossa live brilhar ✨',
-  color:'#f5b942',duration:10000,intensity:85,speed:1,position:'center',loop:false}
+  color:'#f5b942',duration:10000,intensity:85,speed:1,position:'center',loop:false},
+ share:{id:'v2j-thanks-share',name:'Obrigado por compartilhar',effect:'particles',emoji:'↗️',message:'OBRIGADO POR COMPARTILHAR!',color:'#7699ff',duration:10000,intensity:80,speed:1,position:'center',loop:false}
 };
 function thankYouKey(action){return action.id.replace('v2j-thanks-','');}
 function currentThanks(action){
  const key=thankYouKey(action);
  const fallback={likes:{headline:'OBRIGADO PELAS CURTIDAS!',subtitle:'Vocês fazem nossa live brilhar ✨'},
   follow:{headline:'OBRIGADO POR SEGUIR!',subtitle:'Que alegria ter você com a gente 💚'},
-  purchase:{headline:'OBRIGADO PELA COMPRA!',subtitle:'Sua confiança faz nossa live brilhar ✨'}};
+  purchase:{headline:'OBRIGADO PELA COMPRA!',subtitle:'Sua confiança faz nossa live brilhar ✨'},
+  share:{headline:'OBRIGADO POR COMPARTILHAR!',subtitle:'Você ajuda nossa live a chegar mais longe! 💙'}};
  return state.thanksTexts?.[key]||fallback[key];
 }
 function buildThankYou(action){

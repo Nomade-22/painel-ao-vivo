@@ -15,7 +15,8 @@ const presets=[
 const defaultThanksTexts={
  likes:{headline:'OBRIGADO PELAS CURTIDAS!',subtitle:'Vocês fazem nossa live brilhar ✨'},
  follow:{headline:'OBRIGADO POR SEGUIR!',subtitle:'Que alegria ter você com a gente 💚'},
- purchase:{headline:'OBRIGADO PELA COMPRA!',subtitle:'Sua confiança faz nossa live brilhar ✨'}
+ purchase:{headline:'OBRIGADO PELA COMPRA!',subtitle:'Sua confiança faz nossa live brilhar ✨'},
+ share:{headline:'OBRIGADO POR COMPARTILHAR!',subtitle:'Você ajuda nossa live a chegar mais longe! 💙'}
 };
 const cleanThanksTexts=input=>{
  const result={};for(const key of Object.keys(defaultThanksTexts)){
@@ -42,7 +43,7 @@ function cleanAction(a,index){
  const speed=Math.max(.4,Math.min(2.5,Number(a.speed)||1));
  const position=['full','center','edges'].includes(a.position)?a.position:'full';
  const loop=a.loop===true;
- const thankYouType=['likes','follow','purchase'].includes(a.thankYouType)?a.thankYouType:null;
+ const thankYouType=['likes','follow','purchase','share'].includes(a.thankYouType)?a.thankYouType:null;
  const headline=String(a.headline||'').trim().slice(0,72);
  return {id,name,effect,emoji,message,color,duration,intensity,speed,position,loop,thankYouType,headline};
 }

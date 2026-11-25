@@ -48,3 +48,15 @@ html,body{width:100%;height:100%;margin:0;overflow:hidden;background:transparent
 @keyframes thanks-shine{0%{transform:translateX(-130%) rotate(24deg)}100%{transform:translateX(290%) rotate(24deg)}}
 @keyframes thanks-icon-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.055)}}
 @media(max-width:520px){.effect-thanks{width:90%;gap:12px;padding:26px 18px}.effect-thanks-title{font-size:clamp(25px,7vw,42px)}.effect-thanks-subtitle{font-size:clamp(17px,4.8vw,27px)}}
+
+/* V2J 2.0: dimensional medallion and luminous, compact alert. */
+.effect-thanks{border-color:var(--accent);background:radial-gradient(ellipse at 50% 0%,#ffffff25,transparent 52%),linear-gradient(155deg,#12172bf5,#111222eb 65%,#080d20f5);box-shadow:0 20px 55px #0009,0 0 26px var(--accent),inset 0 0 22px #ffffff12;gap:clamp(8px,1.4vh,18px);padding:clamp(20px,3.2vh,44px) clamp(16px,4vw,48px)}
+.effect-thanks.follow{background:radial-gradient(ellipse at 50% 0%,#2dd4bf66,transparent 60%),linear-gradient(150deg,#071d32f8,#12363df2)}
+.effect-thanks.purchase{background:radial-gradient(ellipse at 50% 0%,#f5b94265,transparent 60%),linear-gradient(150deg,#2b1b10f8,#382a15f2)}
+.effect-thanks.share{background:radial-gradient(ellipse at 50% 0%,#7699ff88,transparent 60%),linear-gradient(150deg,#111d43f8,#291a4df2)}
+.effect-thanks-icon{position:relative;width:clamp(76px,17vw,148px);height:clamp(76px,17vw,148px);color:var(--accent);border:1px solid #ffffff80;background:radial-gradient(circle at 32% 17%,#ffffff60,#ffffff09 70%);box-shadow:0 0 0 7px #ffffff10,0 0 32px var(--accent),inset 0 0 20px #ffffff30}
+.effect-thanks-icon svg{width:70%;height:70%;filter:drop-shadow(0 4px 3px #000b) drop-shadow(0 0 9px var(--accent))}
+.effect-thanks-title{font-size:clamp(23px,4.8vw,55px);letter-spacing:.01em;line-height:1.05}
+.effect-thanks-subtitle{font-size:clamp(15px,3vw,32px);font-weight:550}
+.effect-thanks-loop{animation-iteration-count:infinite}
+@media(max-width:520px){.effect-thanks{padding:20px 14px;gap:9px}.effect-thanks-title{font-size:clamp(22px,6.4vw,40px)}.effect-thanks-subtitle{font-size:clamp(15px,4.5vw,25px)}}
