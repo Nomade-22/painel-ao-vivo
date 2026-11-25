@@ -113,22 +113,28 @@ function choose(channel){
  $('videoAddTarget').value=channel;
  renderControls();
 }
-function update(modify,message){
+function update(modify,message,retryConflict=false){
  writes++;
  requests=requests.catch(()=>{}).then(async()=>{
-  const next=modify(state);
-  const r=await fetch(endpoint,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...next,baseCommand:state.command})});
-  const data=await r.json().catch(()=>({}));
-  if(r.status===409){const latest=await fetch(endpoint,{cache:'no-store'});if(latest.ok)sync(await latest.json());throw Error('Outro comando foi recebido. Lista atualizada; tente novamente.');}
-  if(!r.ok)throw Error(data.erro||'HTTP '+r.status);
-  sync(data);
-  if(message)status(message);
-  return data;
+  for(let attempt=0;attempt<(retryConflict?3:1);attempt++){
+   const next=modify(state);
+   const r=await fetch(endpoint,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({...next,baseCommand:state.command})});
+   const data=await r.json().catch(()=>({}));
+   if(r.status===409){
+    const latest=await fetch(endpoint,{cache:'no-store'});
+    if(latest.ok){sync(await latest.json());if(retryConflict&&attempt<2)continue;}
+    throw Error('Outro comando foi recebido. Lista atualizada; tente novamente.');
+   }
+   if(!r.ok)throw Error(data.erro||'HTTP '+r.status);
+   sync(data);
+   if(message)status(message);
+   return data;
+  }
  });
  return requests.catch(e=>{status('Falha: '+e.message);throw e;}).finally(()=>{writes--;});
 }
-function updateLibrary(modify,message){
- return update(old=>({...old,library:modify(old.library||[])}),message);
+function updateLibrary(modify,message,retryConflict=false){
+ return update(old=>({...old,library:modify(old.library||[])}),message,retryConflict);
 }
 function move(url,destination){
  updateLibrary(old=>old.map(item=>item.url===url?{...item,channel:destination}:item),
@@ -156,7 +162,7 @@ function addVideo(url,name,channel){
   if(exists)return old.map(item=>item.url===url?{...item,channel,name:(name||item.name).trim().slice(0,90)}:item);
   if(old.length>=40)throw Error('Limite de 40 vídeos carregados.');
   return [...old,{url,name:(name||titleFromUrl(url)).trim().slice(0,90),channel}];
- },'Vídeo salvo na pasta '+names[channel]+'.');
+ },'Vídeo salvo na pasta '+names[channel]+'.',true);
 }
 async function playSingle(mode){
  const url=mode==='stop'?'':mode==='play'?$('videoUrl').value.trim():state.url;
@@ -264,21 +270,25 @@ setInterval(()=>{if(!document.hidden&&!$('painel-videos')?.hidden)poll();},5000)
 $('videoUpload').addEventListener('click',async()=>{
  const f=$('videoFile').files?.[0];
  if(!f){status('Escolha um arquivo MP4 ou WebM.');return;}
- if(!['video/mp4','video/webm'].includes(f.type)){status('Formato não suportado. Use MP4 ou WebM.');return;}
+ if(!/\.(mp4|webm)$/i.test(f.name)|| (f.type&&!['video/mp4','video/webm','application/octet-stream'].includes(f.type))){status('Formato não suportado. Use MP4 ou WebM.');return;}
  if(f.size>250*1024*1024){status('Limite de 250 MB por vídeo.');return;}
  $('videoUpload').disabled=true;$('uploadProgress').value=0;
  status('Enviando vídeo para a nuvem…');
  try{
   const {uploadPresigned}=await import('https://esm.sh/@vercel/blob@2.5.0/client');
-  const name=f.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_.() -]/g,'_').slice(-160);
-  const blob=await uploadPresigned('videos/'+name,f,{
+  const ext=f.name.match(/\.(mp4|webm)$/i)[0].toLowerCase();
+  const name=(f.name.slice(0,-ext.length).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9_.() -]/g,'_').trim().slice(0,150)||'video')+ext;
+  const mime=ext==='.mp4'?'video/mp4':'video/webm';
+  const uploadFile=f.type===mime?f:new File([f],name,{type:mime});
+  const blob=await uploadPresigned('videos/'+name,uploadFile,{
    access:'public',multipart:f.size>100*1024*1024,handleUploadUrl:'/api/upload-video',
    onUploadProgress({percentage}){$('uploadProgress').value=percentage;}
   });
   const channel=$('videoAddTarget').value;
   $('videoUrl').value=blob.url;
   rememberUpload({url:blob.url,name:f.name.replace(/\.(mp4|webm)$/i,'').slice(0,90),channel});
-  await addVideo(blob.url,f.name.replace(/\.(mp4|webm)$/i,''),channel);
+  const saved=await addVideo(blob.url,f.name.replace(/\.(mp4|webm)$/i,''),channel);
+  if(!saved?.library?.some(item=>item.url===blob.url))throw Error('Arquivo enviado, mas não confirmado na biblioteca. Use Recuperar uploads locais.');
   status('Upload concluído e salvo na lista '+names[channel]+'.');
  }catch(e){status('Falha no upload ou salvamento: '+e.message);}
  finally{$('videoUpload').disabled=false;}

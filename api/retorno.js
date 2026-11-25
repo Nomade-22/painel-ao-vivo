@@ -1,5 +1,5 @@
 import {getCache} from '../lib/state-store.js';
-const validMode = mode => ['texto','tela','central'].includes(mode) ? mode : 'texto';
+const validMode = mode => ['texto','tela','central','video'].includes(mode) ? mode : 'texto';
 
 const defaultCentral={liveMetricas:{cliques:null,vendas:null,visualizacoes:null,carrinhos:null,curtidas:null,compartilhamentos:null,exibicoesRegistradas:null,seguidoresNovos:null,gmv:'',atualizadoEm:0},produto:{nome:'',descricao:'',preco:'',imagens:[]},recado:'',chat:[],catalogo:[],itemAtivo:0,fichaCapturada:null,liveEventos:[],versao:0};
 const trim=(v,max)=>typeof v==='string'?v.trim().slice(0,max):'';
@@ -234,8 +234,9 @@ export default async function handler(req,res){
    return res.status(200).json({modo:validMode(state?.modo),versao:state?.versao||0});
   }
   const body=typeof req.body==='string'?JSON.parse(req.body):req.body;
-  if(!body || !['texto','tela','central'].includes(body.modo))return res.status(400).json({erro:'Modo inválido'});
-  const state={modo:body.modo,versao:Date.now()};
+  if(!body || !['texto','tela','central','video'].includes(body.modo))return res.status(400).json({erro:'Modo inválido'});
+  const previous=await cache.get('modo');
+  const state={modo:body.modo,versao:Math.max(Date.now(),Number(previous?.versao||0)+1)};
   await cache.set('modo',state,{ttl:2592000,name:'Modo do retorno OBS'});
   return res.status(200).json({ok:true,...state});
  }catch(e){console.error('Retorno OBS',e);return res.status(503).json({erro:'Controle de retorno indisponível'});}

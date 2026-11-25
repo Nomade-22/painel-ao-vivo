@@ -1,22 +1,30 @@
 // Independente do editor de texto e do player de vídeos.
 const tela=document.getElementById('retornoTela');
 const central=document.getElementById('retornoCentral');
-let modoAtual='texto';
+const video=document.getElementById('retornoVideo');
+let modoAtual='texto',versao=-1,consultando=false;
 async function atualizarModo(){
+ if(consultando)return;consultando=true;
  try{
   const r=await fetch('/api/retorno',{cache:'no-store'});
   if(!r.ok)throw Error('HTTP '+r.status);
-  const {modo}=await r.json();
-  const proximo=['texto','tela','central'].includes(modo)?modo:'texto';
+  const data=await r.json();
+  if(!Number.isFinite(data.versao)||data.versao<versao)return;
+  versao=data.versao;
+  const proximo=['texto','tela','central','video'].includes(data.modo)?data.modo:'texto';
   if(proximo===modoAtual)return;
   modoAtual=proximo;
   document.body.classList.toggle('modo-tela',proximo==='tela');
   document.body.classList.toggle('modo-central',proximo==='central');
+  document.body.classList.toggle('modo-video',proximo==='video');
+  if(proximo==='video')video.src='/video-obs.html?v=retorno-video-v14';
+  else video.removeAttribute('src');
   if(proximo==='tela')tela.src='/camera.html';
   else tela.removeAttribute('src');
   if(proximo==='central')central.src='/central-retorno.html';
   else central.removeAttribute('src');
  }catch(e){console.warn('Modo do retorno indisponível',e);}
+ finally{consultando=false;}
 }
 atualizarModo();setInterval(atualizarModo,1500);
 
