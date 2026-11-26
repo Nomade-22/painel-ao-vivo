@@ -29,6 +29,11 @@
       "regions": [
         "gru1"
       ]
+    },
+    "api/guardian-pro.js": {
+      "regions": [
+        "gru1"
+      ]
     }
   },
   "headers": [

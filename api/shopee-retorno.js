@@ -189,6 +189,11 @@ function cleanLiveInsights(input){
   else if(k==='safety')out[k]={...bools(v,['allow']),...nums(v,['type'])};
   else if(k==='config')out[k]={...nums(v,['quality_policy','loading_waittime']),...bools(v,['show_coin','show_dashboard','show_sort_item']),speed_test_fields:shape(v.speed_test_fields),push_control_fields:shape(v.push_control_fields)};
   else if(k==='endObserved')out[k]={at:Date.now()};
+  else if(k==='highlight')out[k]={observed:true,productId:/^\d{3,25}$/.test(v.productId||'')?v.productId:null,fields:shape(v.fields)};
+  else if(k==='pinnedMessage')out[k]={messageId:/^\d{3,25}$/.test(v.messageId||'')?v.messageId:null,...bools(v,['pinned'])};
+  else if(k==='promotionalItems')out[k]={...nums(v,['received']),fields:shape(v.fields),items:(Array.isArray(v.items)?v.items:[]).slice(0,100).filter(x=>/^\d{3,25}$/.test(x?.id||'')).map(x=>({id:x.id,...nums(x,['discount','sp_end_time']),...prices(x,['price','price_before_discount','price_min','price_max']),currency:/^[A-Z]{3}$/.test(x.currency||'')?x.currency:''}))};
+  else if(k==='productSets')out[k]={...nums(v,['total','max_set','max_set_size']),...bools(v,['has_more']),fields:shape(v.fields)};
+  else if(k==='activity')out[k]={...bools(v,['present']),fields:shape(v.fields)};
   else if(/^detail:\d{3,25}$/.test(k)&&k==='detail:'+v.id)out[k]={id:v.id,...nums(v,['discount','sp_end_time']),...prices(v,['price','price_before_discount','price_min','price_max','price_min_before_discount','price_max_before_discount']),currency:/^[A-Z]{3}$/.test(v.currency||'')?v.currency:'',...bools(v,['sp_flag','most_asked']),fields:shape(v.fields)};
  }
  return out;
@@ -321,7 +326,7 @@ function buildResponse(live, creator, chat, legacy, active) {
   const mergedProducts = mergeProducts(liveProducts, creatorProducts).map(p=>({...p,...(live.insights?.['detail:'+p.id]?{detalhesShopee:live.insights['detail:'+p.id]}:{})}));
   const officialEnd=extra.sessionInfo?.fim;const ended=Number.isFinite(officialEnd)&&officialEnd>0&&officialEnd<=Date.now();
   return {
-    versaoRetorno: '0.8.35', ...merged,
+    versaoRetorno: '0.8.36', ...merged,
     // Subtotal verificavel das linhas comerciais recebidas; NAO total da LIVE.
     metricas: {...merged.metricas,
       ...(creatorProducts.some(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques))
@@ -355,7 +360,7 @@ function buildResponse(live, creator, chat, legacy, active) {
     produtosApi:extra.products||null,
     tendenciasCreator:extra.trends||null,
     historicoAudiencia:creator.historicoAudiencia||extra.trends||null,
-    insightsShopee:live.insights||{}, insightsAtualizadosEm:live.insightsAtualizadosEm||{},
+    insightsShopee:live.insights||{}, insightsAtualizadosEm:live.insightsAtualizadosEm||{}, produtoDestacado:live.insights?.highlight?.productId?mergedProducts.find(p=>p.id===live.insights.highlight.productId)||null:null,
     rankingProdutos:creatorProducts.filter(p=>Number.isFinite(p.cliques)||Number.isFinite(p.atc)).slice().sort((a,b)=>(b.cliques||0)-(a.cliques||0)).slice(0,20),
     comentariosApiDiagnostico:extra.comments?{
      linhasRecebidas:extra.comments.linhasRecebidas,
@@ -548,7 +553,7 @@ async function handle(req,res){
       ultimoComentarioEm:now,totalNovosComentarios:current.totalNovosComentarios+added
      },{ttl:TTL,name:'Chat Shopee V2J'});
     }
-    return res.status(200).json({ ok: true, versaoRetorno: '0.8.35', storage:usesDatabase(NAMESPACE)?'neon':'runtime-cache', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos, insightsAceitos,
+    return res.status(200).json({ ok: true, versaoRetorno: '0.8.36', storage:usesDatabase(NAMESPACE)?'neon':'runtime-cache', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos, insightsAceitos,
       confirmadosIds, novosComentarios: fresh.length, leituraSuspeita: suspicious,
       produtosAceitos: produtos?.length ?? null, ultimaConfirmacaoEm: now });
   } catch (error) {
