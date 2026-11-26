@@ -208,6 +208,7 @@ el('questionComments').onclick=()=>{questionOnly=true;el('questionComments').cla
 el('kpis').innerHTML=labels.map(([key,label,cls])=>
  `<article class="card ${cls}"><small>${label}</small><strong id="k-${key}">—</strong><span class="origin" id="o-${key}">Fonte não identificada</span></article>`).join('');
 function show(data){
+ window.dispatchEvent(new CustomEvent('v2jShopee035',{detail:data}));
  snapshot=data;
  for(const [key] of labels){
   const value=data.metricas?.[key],source=data.metricaOrigem?.[key];
@@ -356,7 +357,7 @@ function show(data){
  const recentComments=lastChat&&Date.now()-Number(lastChat)<60000;
  const communicating=[live,creator].some(item=>Date.now()-Number(item.ultimoSinalEm||0)<60000);
  el('status').dataset.live=recentMetrics||recentComments?'1':'0';
- el('status').textContent=recentMetrics||recentComments?'● Dados Shopee confirmados · '+prettyTime(data.atualizadoEm):
+ el('status').textContent=data.sessao?.estado==='encerrada'?'○ LIVE encerrada · dados históricos':recentMetrics||recentComments?'● Dados Shopee confirmados · '+prettyTime(data.atualizadoEm):
   communicating?'● Extensão comunicando; confira comentários e avisos capturados abaixo':'○ Sem dados recentes da Shopee';
  const trackedFields=[
   ['curtidas','❤️ Gostei / Likes'],['compartilhamentos','↗️ Compartilhamentos / Shares'],
@@ -400,6 +401,6 @@ el('export').onclick=()=>{
 el('productSort').onchange=()=>{if(snapshot)show(snapshot);};
 refresh();
 </script>
-<p style="padding:12px;color:inherit">V2J Guardian 0.8.29: com a extensão instalada, a cópia local de segurança é exibida neste retorno. Dados locais não substituem o relatório oficial da Shopee.</p><script src="/shopee-auditoria.js" defer></script>
+<section id="shopee035" style="padding:16px;margin:12px;border:1px solid #65778b;border-radius:12px"><h2>Inteligência Shopee · 0.8.35</h2><p id="shopee035Session">Aguardando sessão</p><div id="shopee035Insights"></div><h3>Ranking comercial (linhas recebidas)</h3><div id="shopee035Rank"></div><button id="shopee035History" type="button">Baixar histórico de audiência JSON</button><p id="shopee035HistoryInfo"></p></section><script src="/shopee-insights035-ui.js" defer></script><p style="padding:12px;color:inherit">V2J Guardian 0.8.29: com a extensão instalada, a cópia local de segurança é exibida neste retorno. Dados locais não substituem o relatório oficial da Shopee.</p><script src="/shopee-auditoria.js" defer></script>
 </body>
 </html>

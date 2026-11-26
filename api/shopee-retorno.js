@@ -44,7 +44,7 @@ function cleanProducts(items) {
       return parsed.toString();
     } catch { return ''; }
   };
-  return items.slice(0, 80).map(item => ({
+  return items.slice(0, 200).map(item => ({
     id: cleanText(item?.id, 80), nome: cleanText(item?.nome, 180),
     numero: Number.isInteger(item?.numero) && item.numero > 0 && item.numero <= 200 ? item.numero : null,
     imagem: safeImage(item?.imagem), preco: cleanText(item?.preco, 60),
@@ -111,7 +111,7 @@ function mergeProducts(liveItems, creatorItems) {
       live.push({...item, origem:'creator', semCorrespondencia: true});
     }
   }
-  return live.slice(0,100);
+  return live.slice(0,200);
 }
 
 
@@ -152,8 +152,8 @@ function cleanExtras(input) {
    const src=input.trends.series?.[key];
    if(!src||typeof src!=='object')continue;
    series[key]={totalPontos:safeNonnegative(src.totalPontos,1e6),
-    pontos:(Array.isArray(src.pontos)?src.pontos:[]).slice(-80).map(x=>safeNonnegative(x)),
-     horarios:(Array.isArray(src.horarios)?src.horarios:[]).slice(-80).map(epoch)
+    pontos:(Array.isArray(src.pontos)?src.pontos:[]).slice(-1440).map(x=>safeNonnegative(x)),
+     horarios:(Array.isArray(src.horarios)?src.horarios:[]).slice(-1440).map(epoch)
    };
   }
   extras.trends={series};
@@ -172,6 +172,37 @@ function cleanExtras(input) {
  if(input.sessionInfo&&typeof input.sessionInfo==='object')extras.sessionInfo={inicio:epoch(input.sessionInfo.inicio),fim:epoch(input.sessionInfo.fim)};
  return extras;
 }
+// 0.8.35: apenas campos permitidos; valores brutos sem escala ficam rotulados.
+function cleanLiveInsights(input){
+ const out={};if(!input||typeof input!=='object'||Array.isArray(input))return out;
+ const nums=(v,keys)=>Object.fromEntries(keys.filter(k=>typeof v?.[k]==='number'&&safeNonnegative(v[k])!==null).map(k=>[k,v[k]]));
+ const bools=(v,keys)=>Object.fromEntries(keys.filter(k=>typeof v?.[k]==='boolean').map(k=>[k,v[k]]));
+ const shape=v=>(Array.isArray(v)?v:[]).filter(k=>typeof k==='string'&&/^[A-Za-z_][A-Za-z0-9_]{0,40}:(array|null|string|number|boolean|object)$/.test(k)&&!/token|cookie|auth|secret|user|device|sign|password|email|phone/i.test(k)).slice(0,30);
+ const prices=(v,keys)=>Object.fromEntries(keys.filter(k=>typeof v?.[k]==='string'&&/^(?:R\$\s*)?\d[\d.,]*$/.test(v[k])&&v[k].length<=40).map(k=>[k,v[k]]));
+ for(const [k,v] of Object.entries(input).slice(0,100)){
+  if(!v||typeof v!=='object'||Array.isArray(v))continue;
+  if(k==='coins')out[k]=nums(v,['claim_times','claims_left','coin_reward_status','coin_status','coins_per_claim','giveout','interval','shown_coins']);
+  else if(k==='coinRecord')out[k]=nums(v,['balance','coins_claimed','times_claimed','total']);
+  else if(k==='voucherCounts')out[k]=nums(v,['init_cnt','manual_cnt']);
+  else if(k==='vouchers')out[k]={...nums(v,['total']),...bools(v,['has_more']),fields:shape(v.fields),items:(Array.isArray(v.items)?v.items:[]).slice(0,30).map(x=>({...nums(x,['discount','discount_percentage','start_time','end_time','remaining_count','available_count']),...prices(x,['discount_amount','min_spend','face_value'])}))};
+  else if(k==='asked'||k==='bag')out[k]={...nums(v,['total','total_count','max_items','next_offset','received']),...bools(v,['has_more']),fields:shape(v.fields)};
+  else if(k==='safety')out[k]={...bools(v,['allow']),...nums(v,['type'])};
+  else if(k==='config')out[k]={...nums(v,['quality_policy','loading_waittime']),...bools(v,['show_coin','show_dashboard','show_sort_item']),speed_test_fields:shape(v.speed_test_fields),push_control_fields:shape(v.push_control_fields)};
+  else if(k==='endObserved')out[k]={at:Date.now()};
+  else if(/^detail:\d{3,25}$/.test(k)&&k==='detail:'+v.id)out[k]={id:v.id,...nums(v,['discount','sp_end_time']),...prices(v,['price','price_before_discount','price_min','price_max','price_min_before_discount','price_max_before_discount']),currency:/^[A-Z]{3}$/.test(v.currency||'')?v.currency:'',...bools(v,['sp_flag','most_asked']),fields:shape(v.fields)};
+ }
+ return out;
+}
+function mergeTrends(old, incoming){
+ const series={...(old?.series||{})};
+ for(const [key,src] of Object.entries(incoming?.series||{})){
+  const points=new Map();
+  for(const part of [series[key],src])if(part)for(let i=0;i<(part.horarios||[]).length;i++){const t=part.horarios[i],v=part.pontos?.[i];if(Number.isFinite(t)&&Number.isFinite(v))points.set(t,v);}
+  const rows=[...points].sort((a,b)=>a[0]-b[0]).slice(-1440);
+  series[key]={totalPontos:rows.length,horarios:rows.map(x=>x[0]),pontos:rows.map(x=>x[1])};
+ }
+ return {series};
+}
 function creatorProductUnion(domProducts, apiProducts){
  const result=(Array.isArray(domProducts)?domProducts:[]).map(x=>({...x}));
  for(const item of Array.isArray(apiProducts)?apiProducts:[]){
@@ -186,7 +217,7 @@ function creatorProductUnion(domProducts, apiProducts){
     imagem:old.imagem||item.imagem||'',origem:'creator'};
   }else result.push({...item,origem:'creator'});
  }
- return result.slice(0,100);
+ return result.slice(0,200);
 }
 function legacySource(legacy, source) {
   const metricas = legacy?.fontes?.[source] || {};
@@ -287,9 +318,10 @@ function buildResponse(live, creator, chat, legacy, active) {
     Array.isArray(legacy?.produtos) ? legacy.produtos : [];
   const productsSource = creatorProducts.length && liveProducts.length ? 'live+creator' :
     creatorProducts.length ? 'creator' : liveProducts.length ? 'live' : 'indisponivel';
-  const mergedProducts = mergeProducts(liveProducts, creatorProducts);
+  const mergedProducts = mergeProducts(liveProducts, creatorProducts).map(p=>({...p,...(live.insights?.['detail:'+p.id]?{detalhesShopee:live.insights['detail:'+p.id]}:{})}));
+  const officialEnd=extra.sessionInfo?.fim;const ended=Number.isFinite(officialEnd)&&officialEnd>0&&officialEnd<=Date.now();
   return {
-    versaoRetorno: '0.8.34', ...merged,
+    versaoRetorno: '0.8.35', ...merged,
     // Subtotal verificavel das linhas comerciais recebidas; NAO total da LIVE.
     metricas: {...merged.metricas,
       ...(creatorProducts.some(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques))
@@ -304,7 +336,7 @@ function buildResponse(live, creator, chat, legacy, active) {
       total:extra.products?.total??creatorProducts.length,
       limitacao:'Subtotal das linhas comerciais recebidas; nao representa o total da LIVE.'
     },
-    sessao: active ? { identificada: true, referencia: sessionLabel(active.id), iniciadaEm: active.createdAt, inicioOficial:extra.sessionInfo?.inicio??null, fimOficial:extra.sessionInfo?.fim??null, atualizadaEm: active.lastSeenAt } :
+    sessao: active ? { identificada: true, referencia: sessionLabel(active.id), iniciadaEm: active.createdAt, inicioOficial:extra.sessionInfo?.inicio??null, fimOficial:extra.sessionInfo?.fim??null, estado:ended?'encerrada':live.insights?.endObserved?'encerramento_observado':'não_confirmado', atualizadaEm: active.lastSeenAt } :
       { identificada: false, referencia: null, iniciadaEm: 0 },
     fontes: { live: live.metricas || {}, creator: creator.metricas || {} },
     fontesConectadas: { live: live.heartbeatAt || 0, creator: creator.heartbeatAt || 0 },
@@ -322,6 +354,9 @@ function buildResponse(live, creator, chat, legacy, active) {
     produtosCreator: creatorProducts,
     produtosApi:extra.products||null,
     tendenciasCreator:extra.trends||null,
+    historicoAudiencia:creator.historicoAudiencia||extra.trends||null,
+    insightsShopee:live.insights||{}, insightsAtualizadosEm:live.insightsAtualizadosEm||{},
+    rankingProdutos:creatorProducts.filter(p=>Number.isFinite(p.cliques)||Number.isFinite(p.atc)).slice().sort((a,b)=>(b.cliques||0)-(a.cliques||0)).slice(0,20),
     comentariosApiDiagnostico:extra.comments?{
      linhasRecebidas:extra.comments.linhasRecebidas,
      mensagensValidas:extra.comments.mensagensValidas
@@ -454,6 +489,11 @@ async function handle(req,res){
     const produtos = cleanProducts(body.produtos);
     if (produtos && (produtos.length || !previous.produtos?.length)) { next.produtos = produtos;next.produtoEm = now; }
     const incomingExtras=source==='creator'?cleanExtras(body.extras):{};
+    const incomingInsights=source==='live'?cleanLiveInsights(body.liveInsights):{};
+    const insightsAceitos=Object.keys(incomingInsights);
+    if(insightsAceitos.length){next.insights={...(previous.insights||{}),...incomingInsights};next.insightsAtualizadosEm={...(previous.insightsAtualizadosEm||{}),...Object.fromEntries(insightsAceitos.map(k=>[k,now]))};}
+    if(incomingExtras.trends)next.historicoAudiencia=mergeTrends(previous.historicoAudiencia||previous.extras?.trends,incomingExtras.trends);
+    if(incomingExtras.products&&previous.extras?.products?.total===incomingExtras.products.total){const old=previous.extras.products,p=incomingExtras.products;if(old.totalPaginas===p.totalPaginas){p.produtos=[...new Map([...old.produtos,...p.produtos].map(x=>[x.id||x.nome,x])).values()].slice(0,200);p.paginasObservadas=[...new Set([...old.paginasObservadas,...p.paginasObservadas])].sort((a,b)=>a-b);}}
     const extrasAceitos=Object.keys(incomingExtras);
     if(extrasAceitos.length){
      next.extras={...(previous.extras||{}),...incomingExtras};
@@ -508,7 +548,7 @@ async function handle(req,res){
       ultimoComentarioEm:now,totalNovosComentarios:current.totalNovosComentarios+added
      },{ttl:TTL,name:'Chat Shopee V2J'});
     }
-    return res.status(200).json({ ok: true, versaoRetorno: '0.8.34', storage:usesDatabase(NAMESPACE)?'neon':'runtime-cache', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos,
+    return res.status(200).json({ ok: true, versaoRetorno: '0.8.35', storage:usesDatabase(NAMESPACE)?'neon':'runtime-cache', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos, insightsAceitos,
       confirmadosIds, novosComentarios: fresh.length, leituraSuspeita: suspicious,
       produtosAceitos: produtos?.length ?? null, ultimaConfirmacaoEm: now });
   } catch (error) {
