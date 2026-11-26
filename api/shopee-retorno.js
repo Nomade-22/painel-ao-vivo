@@ -1,4 +1,4 @@
-import {getCache} from '../lib/state-store.js';
+import {getCache,usesDatabase} from '../lib/state-store.js';
 import { randomUUID, createHash } from 'node:crypto';
 
 // Versão 0.8.6: dados isolados por sessão da LIVE; reconexões não apagam histórico.
@@ -289,7 +289,7 @@ function buildResponse(live, creator, chat, legacy, active) {
     creatorProducts.length ? 'creator' : liveProducts.length ? 'live' : 'indisponivel';
   const mergedProducts = mergeProducts(liveProducts, creatorProducts);
   return {
-    versaoRetorno: '0.8.29', ...merged,
+    versaoRetorno: '0.8.34', ...merged,
     // Subtotal verificavel das linhas comerciais recebidas; NAO total da LIVE.
     metricas: {...merged.metricas,
       ...(creatorProducts.some(p=>typeof p.cliques==='number'&&Number.isSafeInteger(p.cliques))
@@ -338,6 +338,13 @@ function buildResponse(live, creator, chat, legacy, active) {
 }
 
 export default async function handler(req, res) {
+ for(let attempt=0;attempt<3;attempt++){
+  try{return await handle(req,res);}catch(error){
+   if(error?.code!=='V2J_CONFLICT'||attempt===2)return res.status(error?.code==='V2J_CONFLICT'?409:503).json({erro:error?.code==='V2J_CONFLICT'?'Sincronização simultânea: tente novamente.':'Retorno Shopee indisponível'});
+  }
+ }
+}
+async function handle(req,res){
   res.setHeader('Cache-Control', 'no-store');
   if (!['GET', 'PUT'].includes(req.method)) return res.status(405).json({ erro: 'Método não permitido' });
   try {
@@ -351,10 +358,10 @@ export default async function handler(req, res) {
         cache.get(chatKey(generation))
       ]);
       const fallback = generation ? {} : legacy;
-      return res.status(200).json(buildResponse(
+      return res.status(200).json({...buildResponse(
         currentLive || legacySource(fallback, 'live'),
         currentCreator || legacySource(fallback, 'creator'),
-        normalizeChat(currentChat, fallback), fallback, active));
+        normalizeChat(currentChat, fallback), fallback, active),storage:usesDatabase(NAMESPACE)?'neon':'runtime-cache'});
     }
     const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
     if (!body || !['live-shopee', 'creator-shopee'].includes(body.origem) ||
@@ -501,10 +508,11 @@ export default async function handler(req, res) {
       ultimoComentarioEm:now,totalNovosComentarios:current.totalNovosComentarios+added
      },{ttl:TTL,name:'Chat Shopee V2J'});
     }
-    return res.status(200).json({ ok: true, versaoRetorno: '0.8.27', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos,
+    return res.status(200).json({ ok: true, versaoRetorno: '0.8.34', storage:usesDatabase(NAMESPACE)?'neon':'runtime-cache', novaLive, sessaoIdentificada: !!active, camposAceitos, extrasAceitos,
       confirmadosIds, novosComentarios: fresh.length, leituraSuspeita: suspicious,
       produtosAceitos: produtos?.length ?? null, ultimaConfirmacaoEm: now });
   } catch (error) {
+    if(error?.code==='V2J_CONFLICT')throw error;
     console.error('V2J Shopee: falha de sincronização:', error?.message || 'erro desconhecido');
     return res.status(500).json({ erro: 'Não foi possível processar o retorno da Shopee' });
   }

@@ -24,6 +24,11 @@
       "regions": [
         "gru1"
       ]
+    },
+    "api/shopee-retorno.js": {
+      "regions": [
+        "gru1"
+      ]
     }
   },
   "headers": [
