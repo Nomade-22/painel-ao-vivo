@@ -49,7 +49,7 @@ function cleanProducts(items) {
     numero: Number.isInteger(item?.numero) && item.numero > 0 && item.numero <= 200 ? item.numero : null,
     imagem: safeImage(item?.imagem), preco: cleanText(item?.preco, 60),
     precoAnterior: cleanText(item?.precoAnterior, 60),
-    moeda: cleanText(item?.moeda, 8),
+    moeda: cleanText(item?.moeda, 8), descricao: cleanText(item?.descricao, 3000),
     desconto: item?.desconto !== null && Number.isFinite(Number(item?.desconto)) &&
       Number(item.desconto) >= 0 && Number(item.desconto) <= 100 ? Number(item.desconto) : null,
     cliques: cleanValue(item?.cliques), ctr: cleanValue(item?.ctr),
@@ -487,7 +487,7 @@ async function handle(req,res){
         next.versaoLeitor = body.versaoLeitor;
     }
     const produtos = cleanProducts(body.produtos);
-    if (produtos && (produtos.length || !previous.produtos?.length)) { next.produtos = produtos;next.produtoEm = now; }
+    if (produtos && (produtos.length || !previous.produtos?.length)) { const oldById=new Map((previous.produtos||[]).filter(x=>x.id).map(x=>[x.id,x])); next.produtos=produtos.map(p=>{const old=oldById.get(p.id);return old?{...p,descricao:p.descricao||old.descricao||'',comissao:p.comissao??old.comissao,numero:p.numero??old.numero}:p;});next.produtoEm = now; }
     const incomingExtras=source==='creator'?cleanExtras(body.extras):{};
     const incomingInsights=source==='live'?cleanLiveInsights(body.liveInsights):{};
     const insightsAceitos=Object.keys(incomingInsights);
